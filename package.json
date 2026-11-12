@@ -1,0 +1,18 @@
+{
+  "name": "cotyphu",
+  "private": true,
+  "type": "module",
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "dev": "concurrently -k -n server,client -c blue,green \"npm:dev -w @cotyphu/server\" \"npm:dev -w @cotyphu/client\"",
+    "build": "npm run build -w @cotyphu/client",
+    "start": "npm start -w @cotyphu/server",
+    "test": "vitest run",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
+  }
+}

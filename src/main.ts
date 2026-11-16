@@ -53,6 +53,7 @@ const TITLE = 'Tỷ Phú Đất Việt';
 const CONTROLS = ['Chuột: bấm các nút', 'Space / Enter: đổ xúc xắc, đồng ý', 'N / Esc: bỏ qua', 'M: tắt tiếng'];
 const CHEAP = params.get('render') === 'cheap'; // a headless shot or check: 3D draws cheap; players never see it
 const events: Loose[] = []; // window.game.events: anything the game wants a run to see
+let checkSeed: number | null = null; // a seed a check set for the next games (window.game.configure)
 
 const muted = (): boolean => isMuted();
 
@@ -469,7 +470,7 @@ function reset() {
   // Every new game gets a fresh seed, so no two games roll alike. A fixed seed is used only when one is
   // asked for (?seed=) or when an automated check drives the page, so its runs repeat.
   const checked = params.has('seed') || CHEAP || params.get('manual') === '1' || !!window.GAME_CLOCK;
-  setSeed(checked ? (Number(params.get('seed')) || CONFIG.seed) : freshSeed());
+  setSeed(checkSeed ?? (checked ? (Number(params.get('seed')) || CONFIG.seed) : freshSeed()));
   const players: Player[] = [];
   setup.seats.forEach((s, i) => {
     if (s.kind === 'off') return;
@@ -792,6 +793,7 @@ function resolveLanding() {
     }
     if (state.mort[i]) { log(`${t.n} đang cầm cố: không mất tiền thuê.`); afterAction(); return; }
     const rent = rentOf(i, p.lastRoll || 7);
+    events.push({ type: 'rent', tile: i, amt: rent }); // for checks: which land earns what
     const owner = state.players[o];
     state.popup = { kind: 'rent', tile: i, rent, owner: o };
     charge([{ to: o, amt: rent }], `${p.name} trả ${owner.name} ${money(rent)} tiền thuê ở ${t.n}.`, () => { state.phase = 'rentShow'; state.timer = 0; });
@@ -2756,6 +2758,14 @@ install({
   press(code: string) { hit.add(code); },
   hold(code: string, on: boolean) { if (on) down.add(code); else down.delete(code); },
   get events() { return events; },
+  /** For checks and the balance tools: the seats, the kind of game and the seed of the next game, and
+   * back to the title screen, where Enter starts it. */
+  configure(o: { seats?: Seat[]; mode?: 'bankrupt' | 'rounds'; seed?: number }) {
+    if (o.seats) setup.seats = o.seats.map(x => ({ ...x }));
+    if (o.mode) setup.mode = o.mode;
+    if (o.seed !== undefined) checkSeed = o.seed;
+    scene = 'title'; clearVis();
+  },
   get online() {
     return { role: net.getRole(), code: roomCode, mySeat, seats: isGuest() ? lobby?.seats ?? null : setup.seats, animals: isGuest() ? lobby?.animals ?? null : setup.animals };
   },

@@ -26,6 +26,8 @@ export interface GameHook {
   step(n?: number, draw?: boolean): void;
   /** The core loop's log: the loop() steps (act, result, reward). A check empties it after each step. */
   readonly events?: unknown[];
+  /** Sets up the next game for a check (seats, kind of game, seed) and returns to the title screen. */
+  configure?(o: unknown): void;
   /** Online play, read-only: the room code, this screen's role and seat, the seats and their animals. */
   readonly online?: unknown;
 }

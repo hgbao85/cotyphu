@@ -1,0 +1,17 @@
+# Render Blueprint: one web service that builds the game and runs the room server.
+# Render reads this file when you create a Blueprint from this repository (render.com).
+# The server serves dist/ and relays online rooms on /ws (server/server.mjs).
+services:
+  - type: web
+    name: ty-phu-dat-viet
+    runtime: node
+    plan: free                 # free: sleeps after 15 minutes with nobody on it; the first visit wakes it (30-60 s)
+    region: singapore          # the nearest region to Việt Nam
+    branch: main
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true           # every push to main deploys again
+    envVars:
+      - key: NODE_VERSION
+        value: 22.13.0

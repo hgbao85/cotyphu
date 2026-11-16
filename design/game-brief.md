@@ -48,6 +48,7 @@ After play: Làm thêm 1 nút để người dùng xem luật
 After play: Làm nút tua nhanh và PWA đi
 After play: Làm tiếp: biểu cảm nhanh, lịch sử ván (nhạc nền làm rồi bỏ: không cần); bảng chọn thứ tự đi không được che xúc xắc
 After play: Thêm tính năng chọn nhân vật, con vật 3D dễ thương → 12 con giáp; bấm vào quân ở màn tạo ván; màu theo con vật
+After play: Đổi lại luật thứ tự, thấp nhất sẽ đi cuối cùng
 
 **Pitch:** Cờ tỷ phú trên bản đồ Việt Nam cho 2–4 người, mỗi chỗ là người hoặc máy: đổ xúc xắc, mua đất từ Hà Giang tới Cà Mau, dẫm lại đất mình để xây nhà, khách sạn rồi Landmark, rút thẻ Cơ Hội và Khí Vận vui nhộn; ai trụ lại (hoặc giàu nhất sau 30 vòng) là tỷ phú.
 
@@ -86,7 +87,7 @@ Màn tạo ván: chọn 2–4 chỗ ngồi, mỗi chỗ Người hoặc Máy (D�
 - [x] Nút tua nhanh lượt Máy (×1 / ×2 / ×4)
 - [x] Cài lên màn hình chính như app (PWA), giữ màn hình sáng khi chơi
 - [x] Nút Luật chơi (màn tạo ván và trong ván): bảng luật đầy đủ, số lấy từ cấu hình
-- [x] Đầu ván tung xúc xắc chọn thứ tự đi: thấp nhất đi trước, hòa thì tung lại; bảng thứ tự nằm thấp trên bàn, không che xúc xắc
+- [x] Đầu ván tung xúc xắc chọn thứ tự đi: cao nhất đi trước, thấp nhất đi cuối, hòa thì tung lại; bảng thứ tự nằm thấp trên bàn, không che xúc xắc
 - [x] Biểu cảm nhanh khi chơi online: 8 câu, hiện bóng chữ trên quân của người gửi
 - [x] Lịch sử ván: mọi dòng diễn biến theo vòng, mới nhất ở trên
 - [x] Quân cờ 12 con giáp 3D kiểu chibi, mỗi con một màu; bấm con vật ở màn tạo ván để đổi, bạn online tự chọn con của mình

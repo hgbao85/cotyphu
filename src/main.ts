@@ -496,13 +496,13 @@ function reset() {
 }
 
 // ---- Choosing who goes first ----------------------------------------------------------------
-// With order_roll on, a game opens with everyone throwing the dice once, in seat order. The lowest
-// total goes first, then upwards. Players who tie throw again among themselves.
+// With order_roll on, a game opens with everyone throwing the dice once, in seat order. The highest
+// total goes first, then downwards: the lowest goes last. Players who tie throw again among themselves.
 /** Starts the throws for the order of play. */
 function startOrder() {
   state.ordering = true;
   state.order = state.players.map(() => null);
-  log('Tung xúc xắc chọn thứ tự đi: ai thấp nhất đi trước.');
+  log('Tung xúc xắc chọn thứ tự đi: ai cao nhất đi trước, thấp nhất đi cuối.');
   nextOrderThrow();
 }
 /** The next player who still has to throw, or the order decided. */
@@ -518,7 +518,7 @@ function orderThrown(total: number) {
   log(`${p.name} tung được ${total}.`);
   state.phase = 'orderShow'; state.timer = 0;
 }
-/** Everyone has thrown: ties throw again; otherwise the players are put in order, lowest first. */
+/** Everyone has thrown: ties throw again; otherwise the players are put in order, highest first, lowest last. */
 function finishOrder() {
   const totals = state.order as number[];
   const tied = totals.map((v, i) => i).filter(i => totals.filter(v => v === totals[i]).length > 1);
@@ -528,7 +528,7 @@ function finishOrder() {
     nextOrderThrow();
     return;
   }
-  const idx = totals.map((v, i) => i).sort((a, b) => totals[a] - totals[b]);
+  const idx = totals.map((v, i) => i).sort((a, b) => totals[b] - totals[a]);
   state.players = idx.map(i => state.players[i]);
   state.ordering = false; state.order = undefined;
   log(`Thứ tự đi: ${state.players.map(p => p.name).join(' → ')}.`);
@@ -543,7 +543,7 @@ function drawOrder() {
   const w = Math.min(460, L.maxW), h = 52 + rows * 32, x = L.cx - w / 2, y = L.by + L.bh - h - (L.phone ? 10 : 70), cw = (w - 24) / cols;
   ctx.save(); ctx.fillStyle = 'rgba(30,12,8,0.88)'; rrect(ctx, x, y, w, h, 14); ctx.fill();
   ctx.strokeStyle = '#c9a24a'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
-  text('Chọn thứ tự đi · ai thấp nhất đi trước', L.cx, y + 22, 17, '#f2c44a', 'center', 'bold');
+  text('Chọn thứ tự đi · cao nhất đi trước', L.cx, y + 22, 17, '#f2c44a', 'center', 'bold');
   state.players.forEach((p, i) => {
     const cx = x + 12 + (i % cols) * cw, yy = y + 56 + Math.floor(i / cols) * 32, cur = i === state.cur;
     if (cur) { ctx.fillStyle = 'rgba(242,196,74,0.2)'; rrect(ctx, cx, yy - 14, cw - 6, 28, 6); ctx.fill(); }
@@ -2399,7 +2399,7 @@ function rulesHtml(): string {
       'Quân cờ là 12 con giáp, mỗi con một màu. Bấm vào con vật ở màn tạo ván để đổi; mỗi con chỉ một người dùng.',
       `Kiểu ván: chơi tới khi phá sản, hoặc ${tune.max_rounds} vòng (hết vòng thì ai giàu nhất thắng).`,
       `Mỗi người bắt đầu với ${money(tune.start_cash)} ở ô Xuất Phát.`,
-      ...(tune.order_roll ? ['Đầu ván mỗi người tung xúc xắc một lần: <b>ai thấp nhất đi trước</b>, rồi tăng dần. Hòa điểm thì những người hòa tung lại.'] : []),
+      ...(tune.order_roll ? ['Đầu ván mỗi người tung xúc xắc một lần: <b>ai cao nhất đi trước, thấp nhất đi cuối</b>. Hòa điểm thì những người hòa tung lại.'] : []),
     ]),
     sec('Mỗi lượt', [
       'Giữ nút (hoặc Space) để lắc xúc xắc, thả ra để ném.',

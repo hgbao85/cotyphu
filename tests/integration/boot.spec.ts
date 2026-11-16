@@ -48,7 +48,7 @@ test('lays out for a phone held upright and plays a turn there @boot', async ({ 
   expect(errors).toEqual([]);
 });
 
-test('throws for the order of play, puts the lowest first, and the same seed repeats it exactly', async ({ page }) => {
+test('throws for the order of play, puts the highest first and the lowest last, and the same seed repeats it exactly', async ({ page }) => {
   // ?manual=1 stops the loop, so only step() moves the game. Enter starts; the person throws with
   // Space (held, then let go) whenever it is their throw; the computer throws on its own.
   async function run(): Promise<{ scene: string; rolls: number[]; ordering: boolean; cash: number[]; state: unknown }> {
@@ -72,7 +72,7 @@ test('throws for the order of play, puts the lowest first, and the same seed rep
   expect(first.scene).toBe('play');
   expect(first.ordering).toBe(false);
   expect(first.rolls.every(r => r >= 2 && r <= 12)).toBe(true);
-  expect([...first.rolls].sort((a, b) => a - b)).toEqual(first.rolls); // lowest first
+  expect([...first.rolls].sort((a, b) => b - a)).toEqual(first.rolls); // highest first, lowest last
   expect(new Set(first.rolls).size).toBe(first.rolls.length);          // ties were thrown again
   expect(first.cash.every(c => c === config.start_cash.value)).toBe(true); // nobody moved yet
   expect(await run()).toEqual(first);

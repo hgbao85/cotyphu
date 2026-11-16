@@ -1,5 +1,5 @@
 browser	/c/Program Files/Google/Chrome/Application/chrome.exe
-time	2026-11-16 20:24:49
+time	2026-11-16 20:31:27
 render	cheap
 webgl	ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)
 ua	HeadlessChrome/157.0.0.0
@@ -8,127 +8,127 @@ state	0	title	{"t":0,"score":0,"gained":"","players":[{"id":0,"kind":"human","lv
 scene	1	play
 state	1	play	{"t":0,"score":0,"gained":"","players":[{"id":0,"kind":"human","lv":0,"color":"#d62828","token":1,"name":"Người Trâu","cash":2000,"pos":0,"laps":0,"inJail":false,"jailTries":0,"freeCards":[],"bankrupt
 playinput	4	Space
-frame	3481	96984e7c
-frame	3482	5bfc7fe4
-frame	3483	18deb2a3
-frame	3484	b83d6f67
-frame	3485	4c0ad1f5
-frame	3486	ecfce3f8
-frame	3487	9c3b5645
-frame	3488	9c3b5645
-frame	3489	9c3b5645
-frame	3490	9c3b5645
-frame	3491	4c0ad1f5
-frame	3492	3a79bb48
-frame	3493	18deb2a3
-frame	3494	3b623da4
-frame	3495	6dc2c385
-frame	3496	1efecca3
-frame	3497	c0e65cf2
-frame	3498	8ebae1ac
-frame	3499	a7514e14
-frame	3500	657ccfeb
-frame	3501	d201ee0b
-frame	3502	19e78475
-frame	3503	5ab6e4d6
-frame	3504	6e906184
-frame	3505	e9fc2058
-frame	3506	48703b8d
-frame	3507	de227935
-frame	3508	5508399b
-frame	3509	bf3d6af6
-frame	3510	4746e4fe
-frame	3511	93dab51b
-frame	3512	95befd91
-frame	3513	9148e58a
-frame	3514	950d1e72
-frame	3515	cd50f950
-frame	3516	3c7a1a1d
-frame	3517	b9d0a5e5
-frame	3518	cd69379f
-frame	3519	cb0a93a2
-frame	3520	404759c6
-frame	3521	2c76e46e
-frame	3522	1e995f5
-frame	3523	8e77e7b
-frame	3524	36ebd754
-frame	3525	36ebd754
-frame	3526	36ebd754
-frame	3527	36ebd754
-frame	3528	1a1b7dbd
-frame	3529	3cd397be
-frame	3530	94eef979
-frame	3531	7b5e3d89
-frame	3532	9027b335
-frame	3533	58fa1d17
-frame	3534	12b69df4
-frame	3535	35c4705a
-frame	3536	ba9881a7
-frame	3537	4702ad0e
-frame	3538	d18f911
-frame	3539	4ce1dcc9
-frame	3540	a06c164b
-frame	3541	bf441de9
-frame	3542	e7c2a96c
-frame	3543	30dcf5a3
-frame	3544	fbd4cdfb
-frame	3545	f49fad7a
-frame	3546	3efab7a
-frame	3547	fe3058fc
-frame	3548	8e52fc14
-frame	3549	b8c475c1
-frame	3550	92990670
-frame	3551	fb8e7eff
-frame	3552	d39510f5
-frame	3553	99b020bb
-frame	3554	59b4ee1e
-frame	3555	b0432889
-frame	3556	186fb950
-frame	3557	71e6b518
-frame	3558	3b623da4
-frame	3559	cd2832aa
-frame	3560	3a79bb48
-frame	3561	ecfce3f8
-frame	3562	9c3b5645
-frame	3563	9c3b5645
-frame	3564	9c3b5645
-frame	3565	9c3b5645
-frame	3566	ecfce3f8
-frame	3567	3a79bb48
-frame	3568	cd2832aa
-frame	3569	9079b86e
-frame	3570	ae3de26a
-frame	3571	186fb950
-frame	3572	b0432889
-frame	3573	6cc5ac
-frame	3574	99b020bb
-frame	3575	d39510f5
-frame	3576	fb8de614
-frame	3577	92990670
-frame	3578	89cadb33
-frame	3579	8e52fc14
-frame	3580	eef6933d
-frame	3581	2ef9c2cf
-frame	3582	bc54200c
-frame	3583	f11967d8
-frame	3584	7196e51
-frame	3585	c9796e7
-frame	3586	a5795339
-frame	3587	72caf58a
-frame	3588	9ec146f6
-frame	3589	49bdbc02
-frame	3590	84d3e8eb
-frame	3591	a313e2b1
-frame	3592	f2ae5f10
-frame	3593	507edd4e
-frame	3594	ff22cd73
-frame	3595	dc290ae1
-frame	3596	351e1ec8
-frame	3597	6a516419
-frame	3598	481ab868
-frame	3599	36b36416
-frame	3600	6c1a2b7
-state	3600	play	{"t":59.98,"score":0,"gained":"","players":[{"id":0,"kind":"human","lv":0,"color":"#d62828","token":1,"name":"Người Trâu","cash":2000,"pos":11,"laps":0,"inJail":false,"jailTries":0,"freeCards":[],"ban
+frame	3481	4c1be33b
+frame	3482	ff6ab993
+frame	3483	7d76009c
+frame	3484	808b30f0
+frame	3485	9b5a84aa
+frame	3486	1de409b7
+frame	3487	87b4d1ca
+frame	3488	87b4d1ca
+frame	3489	87b4d1ca
+frame	3490	87b4d1ca
+frame	3491	9b5a84aa
+frame	3492	735137f
+frame	3493	7d76009c
+frame	3494	20f32043
+frame	3495	2aaecb5a
+frame	3496	e5bfc8d4
+frame	3497	9d3915e5
+frame	3498	5c373e97
+frame	3499	9d43f0db
+frame	3500	bf0a13e4
+frame	3501	2fae8600
+frame	3502	b2a3d5ee
+frame	3503	45b8e099
+frame	3504	8bb9d74f
+frame	3505	523b9d3
+frame	3506	3f47c1de
+frame	3507	37ec9b5a
+frame	3508	c13acb3c
+frame	3509	3f549de1
+frame	3510	2bd21855
+frame	3511	53b0cc60
+frame	3512	ec8f786e
+frame	3513	fe3a3fa9
+frame	3514	dbdb1af1
+frame	3515	16274b6b
+frame	3516	9739251e
+frame	3517	dbe9ecd2
+frame	3518	9fd71790
+frame	3519	681fa591
+frame	3520	2c5a5559
+frame	3521	62e25a29
+frame	3522	d40aa76a
+frame	3523	12fdfc90
+frame	3524	84745c2b
+frame	3525	84745c2b
+frame	3526	84745c2b
+frame	3527	84745c2b
+frame	3528	136c1502
+frame	3529	c1554d4f
+frame	3530	906aa81c
+frame	3531	4940a0f0
+frame	3532	fe6d6e81
+frame	3533	151563d7
+frame	3534	a035851c
+frame	3535	49ecbf62
+frame	3536	d5c5180b
+frame	3537	27397d3c
+frame	3538	4a6b6853
+frame	3539	d1839b10
+frame	3540	622631df
+frame	3541	666946e2
+frame	3542	d8d959da
+frame	3543	d605f2d4
+frame	3544	eee2bbbc
+frame	3545	89502561
+frame	3546	73594595
+frame	3547	5a0b757
+frame	3548	a77d55b3
+frame	3549	3e4aefe2
+frame	3550	b927c063
+frame	3551	3518be98
+frame	3552	9027912a
+frame	3553	9ed9c800
+frame	3554	68e7185
+frame	3555	4c0fb04e
+frame	3556	5b352a7b
+frame	3557	a30db5e3
+frame	3558	20f32043
+frame	3559	de0f6f95
+frame	3560	735137f
+frame	3561	1de409b7
+frame	3562	87b4d1ca
+frame	3563	87b4d1ca
+frame	3564	87b4d1ca
+frame	3565	87b4d1ca
+frame	3566	1de409b7
+frame	3567	735137f
+frame	3568	de0f6f95
+frame	3569	b0b6248d
+frame	3570	bfd304e5
+frame	3571	5b352a7b
+frame	3572	4c0fb04e
+frame	3573	94b0f757
+frame	3574	9ed9c800
+frame	3575	9027912a
+frame	3576	f69a6fc3
+frame	3577	b927c063
+frame	3578	104c3e6c
+frame	3579	a77d55b3
+frame	3580	bf3e85f6
+frame	3581	57f8278c
+frame	3582	2d92a21b
+frame	3583	c2ed7547
+frame	3584	21e54a72
+frame	3585	ccc7b574
+frame	3586	b43f181e
+frame	3587	44040201
+frame	3588	79a7a10d
+frame	3589	bda215c1
+frame	3590	6b99a098
+frame	3591	58c768e
+frame	3592	ae1f317b
+frame	3593	1f93ed75
+frame	3594	96303a9
+frame	3595	cf40fa
+frame	3596	8bc30f6
+frame	3597	89bd9441
+frame	3598	be1dbad4
+frame	3599	bf19166a
+frame	3600	d70bde2d
+state	3600	play	{"t":59.98,"score":0,"gained":"","players":[{"id":2,"kind":"ai","lv":0,"color":"#f2c200","token":8,"name":"Máy Khỉ","cash":2000,"pos":35,"laps":0,"inJail":false,"jailTries":0,"freeCards":[],"bankrupt"
 digits	log	bold 40px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
 digits	log	bold 32px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
 digits	log	19px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
@@ -142,36 +142,36 @@ digits	log	bold 15px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
 loop	log	none	no loop() step was marked
 first	log	none	no state.beat
 pressure	none	the game set no number state.margin in play
-steptime	3600	0.027	5.900
-frametime	60	37.3	173.0	60	60	3
-done	3600	play	stop	60.0	10195
-console	0	[.WebGL-0x68c400437600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
-console	0	[.WebGL-0x68c400437600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
-console	0	[.WebGL-0x68c400437600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
-console	0	[.WebGL-0x68c400437600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)
+steptime	3600	0.031	12.400
+frametime	60	37.8	176.2	60	60	2
+done	3600	play	stop	60.0	10064
+console	0	[.WebGL-0x52fc0044b600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+console	0	[.WebGL-0x52fc0044b600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+console	0	[.WebGL-0x52fc0044b600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+console	0	[.WebGL-0x52fc0044b600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)
 measured	1280x720
-text	play	canvas	23,19,168,35	21.0	7.80	inside	Máy Khỉ được đổ tiếp!
-text	play	canvas	23,41,165,57	21.0	7.80	inside	Máy Khỉ đổ 5 + 2 = 7.
-text	play	canvas	23,64,420,79	21.0	14.17	inside	Máy Khỉ chưa qua Xuất Phát lần nào: chưa được mua Đà Lạt.
+text	play	canvas	23,20,523,35	21.0	7.80	inside	Máy Khỉ chưa qua Xuất Phát lần nào: chưa được mua Sân bay Tâ
+text	play	canvas	23,41,175,57	21.0	7.80	inside	Máy Mèo đổ 3 + 2 = 5.
+text	play	canvas	23,65,207,79	21.0	14.17	inside	Máy Mèo ghé thăm Nhà Tù.
 text	play	canvas	407,164,495,176	22.5	7.81	inside	Hũ tiền: 0 đ
 text	play	canvas	359,312,542,330	25.5	12.64	inside	Lượt của Người Trâu
 text	play	canvas	1005,14,1204,41	34.5	9.74	inside	TỶ PHÚ ĐẤT VIỆT
 text	play	canvas	1006,50,1173,66	22.5	11.58	inside	Vòng 2 · tới khi phá sản
-text	play	canvas	985,85,1080,103	25.5	11.12	inside	Người Trâu
-text	play	canvas	985,113,1163,128	21.0	7.16	inside	Người chơi · 0 ô · vòng đầu
-text	play	canvas	1155,85,1255,99	25.5	7.16	inside	2.000.000 đ
+text	play	canvas	985,85,1053,103	25.5	16.33	inside	Máy Khỉ
+text	play	canvas	985,111,1141,128	21.0	10.51	inside	Máy Dễ · 0 ô · vòng đầu
+text	play	canvas	1155,85,1255,99	25.5	10.52	inside	2.000.000 đ
 text	play	canvas	985,158,1064,175	25.5	16.33	inside	Máy Mèo
 text	play	canvas	985,185,1148,200	21.0	10.51	inside	Máy Vừa · 0 ô · vòng đầu
 text	play	canvas	1155,157,1255,171	25.5	10.52	inside	2.000.000 đ
-text	play	canvas	985,229,1053,247	25.5	16.33	inside	Máy Khỉ
-text	play	canvas	985,255,1141,272	21.0	10.51	inside	Máy Dễ · 0 ô · vòng đầu
-text	play	canvas	1155,229,1255,243	25.5	10.52	inside	2.000.000 đ
+text	play	canvas	985,229,1080,247	25.5	11.12	inside	Người Trâu
+text	play	canvas	985,257,1163,272	21.0	7.16	inside	Người chơi · 0 ô · vòng đầu
+text	play	canvas	1155,229,1255,243	25.5	7.16	inside	3.500.000 đ
 text	play	canvas	922,376,1043,392	24.0	10.70	inside	Tài sản của bạn
 text	play	canvas	922,410,1047,422	21.0	10.74	inside	Chưa có ô đất nào.
 text	play	canvas	931,23,961,37	21.0	7.16	inside	Luật
 text	play	canvas	1235,55,1252,66	21.0	7.16	inside	×1
 text	play	canvas	30,686,79,701	21.0	7.16	inside	Lịch sử
 text	play	canvas	361,389,539,408	30.0	5.38	inside	Giữ để lắc xúc xắc
-screen	3600	play	1baa37f4	drawn
+screen	3600	play	4a23c4be	drawn
 uncaught	0
-shot	/d/cotyphu/production/qa/evidence/grow-ty-phu-dat-viet/story.png	368743
+shot	/d/cotyphu/production/qa/evidence/grow-ty-phu-dat-viet/story.png	368971

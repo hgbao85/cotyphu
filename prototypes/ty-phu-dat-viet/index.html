@@ -220,7 +220,7 @@ const CARDS = {
     { txt: 'Thẻ Ra Tù Miễn Phí. Giữ lại dùng khi cần.', act: 'free' },
     { txt: 'Trúng xổ số kiến thiết: nhận 1.500.000 đ.', act: 'money', v: 1500 },
     { txt: 'Bị phạt vì đỗ xe trên vỉa hè: trả 300.000 đ.', act: 'money', v: -300 },
-    { txt: 'Sửa nhà sau bão: trả 100.000 đ cho mỗi cấp xây của bạn.', act: 'repair', v: 100 },
+    { txt: 'Sửa nhà sau bão: trả 100.000 đ cho mỗi cấp xây của bạn (tối đa 1.500.000 đ).', act: 'repair', v: 100 },
     { txt: 'Thưởng Tết to: nhận 1.000.000 đ.', act: 'money', v: 1000 },
     { txt: 'Thợ quen làm giúp: xây thêm 1 cấp miễn phí cho một ô đất của bạn.', act: 'freebuild' },
     { txt: 'Khao cả bàn đi ăn lẩu: trả mỗi người 200.000 đ.', act: 'payeach', v: 200 },
@@ -239,9 +239,9 @@ const CARDS = {
     { txt: 'Nhậu xong còn lái xe! Vào thẳng Nhà Tù.', act: 'jail' },
     { txt: 'Thẻ Ra Tù Miễn Phí. Giữ lại dùng khi cần.', act: 'free' },
     { txt: 'Hoàn thuế cuối năm: nhận 400.000 đ.', act: 'money', v: 400 },
-    { txt: 'Phí bảo trì nhà cửa: trả 50.000 đ cho mỗi cấp xây.', act: 'repair', v: 50 },
+    { txt: 'Phí bảo trì nhà cửa: trả 50.000 đ cho mỗi cấp xây (tối đa 1.500.000 đ).', act: 'repair', v: 50 },
     { txt: 'Tiền điện mùa hè tăng vọt: trả 400.000 đ.', act: 'money', v: -400 },
-    { txt: 'Trúng số độc đắc! Nhận 2.000.000 đ.', act: 'money', v: 2000 },
+    { txt: 'Trúng số độc đắc! Nhận 1.500.000 đ.', act: 'money', v: 1500 },
     { txt: 'Được mời làm MC đám cưới: nhận 300.000 đ.', act: 'money', v: 300 },
   ],
 };
@@ -618,16 +618,18 @@ function applyCard() {
   const pi = state.cur, p = curP(), c = state.popup.card, deckKind = state.popup.deck;
   state.popup = null;
   switch (c.act) {
-    case 'money':
-      if (c.v >= 0) { gain(pi, c.v); afterAction(); }
-      else charge([{ to: -1, amt: -c.v }], '', afterAction);
+    case 'money': { // no card moves more than card_max either way
+      const v = Math.max(-tune.card_max, Math.min(tune.card_max, c.v));
+      if (v >= 0) { gain(pi, v); afterAction(); }
+      else charge([{ to: -1, amt: -v }], '', afterAction);
+    }
       return;
     case 'move': beginMove((c.to - p.pos + 40) % 40 || 40, 1, true); return;
     case 'back': beginMove(c.v, -1, true); return;
     case 'nearport': { let k = 1; while (TILES[(p.pos + k) % 40].t !== 'port') k++; beginMove(k, 1, true); return; }
     case 'jail': sendToJail(pi); toEnd(); return;
     case 'free': p.freeCards.push(deckKind); afterAction(); return;
-    case 'repair': charge([{ to: -1, amt: c.v * levelsOf(pi) }], '', afterAction); return;
+    case 'repair': charge([{ to: -1, amt: Math.min(tune.card_max, c.v * levelsOf(pi)) }], '', afterAction); return;
     case 'payeach': charge(state.players.map((q, j) => ({ to: j, amt: (j !== pi && !q.bankrupt) ? c.v : 0 })).filter(x => x.amt > 0), '', afterAction); return;
     case 'collect':
       state.players.forEach((q, j) => {

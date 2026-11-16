@@ -7,3 +7,4 @@ iteration 6	Thuế Thu Nhập 1.500.000 -> 1.000.000 flat; Thuế Tài Sản now
 iteration 7	added click a tile (or a property row) to open its info card; hover lights the tile	errors: none	evidence/iteration-7-play.png (cards checked by clicking in the browser pane)
 iteration 8	board tile names and prices drawn larger (auto-fit up to 54px in the board texture, was 36px); Tân Sơn Nhất shortened on the board	errors: none	evidence/iteration-8-play.png
 iteration 9	added hold to shake the dice (power bar, rattle) and release to throw (harder throw = more spin and bounces); a big "a + b = n" pops up when they stop, gold with stars on a double	errors: none	evidence/iteration-9-play.png (shake and number checked in the browser pane)
+iteration 10	card money capped at 1.500.000 đ (card_max): jackpot 2.000.000 -> 1.500.000, repair cards capped	errors: none	evidence/iteration-10-play.png

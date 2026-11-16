@@ -11,9 +11,9 @@ window.CONFIG = {
   // ---- Money (k đồng) ----
   start_cash: { value: 2000, min: 500, max: 40000, step: 500 },   // tiền khởi đầu mỗi người
   salary: { value: 2000, min: 0, max: 5000, step: 100 },            // lương khi qua Xuất Phát
-  income_tax: { value: 1500, min: 0, max: 5000, step: 100 },        // ô Thuế Thu Nhập
-  prop_tax_base: { value: 1000, min: 0, max: 5000, step: 100 },     // ô Thuế Tài Sản: phần cố định
-  prop_tax_per_level: { value: 100, min: 0, max: 500, step: 10 },   // ô Thuế Tài Sản: mỗi cấp xây đang có
+  income_tax: { value: 1000, min: 0, max: 5000, step: 100 },        // ô Thuế Thu Nhập: trả cố định
+  prop_tax_pct: { value: 0.1, min: 0, max: 0.5, step: 0.01 },       // ô Thuế Tài Sản: phần trăm tổng tài sản...
+  prop_tax_flat: { value: 2000, min: 0, max: 10000, step: 100 },    // ...hoặc số tiền cố định này (người chơi chọn)
   jail_fine: { value: 500, min: 0, max: 3000, step: 50 },           // tiền nộp phạt ra tù
   no_buy_rounds: { value: 1, min: 0, max: 5, step: 1 },            // bao nhiêu vòng đầu chưa được mua đất
   pot_start: { value: 0, min: 0, max: 5000, step: 100 },           // hũ tiền giữa bàn lúc bắt đầu ván

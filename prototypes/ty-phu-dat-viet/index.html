@@ -564,8 +564,13 @@ function resolveLanding() {
     log(`${p.name} rút thẻ ${t.n}: ${card.txt}`);
     return;
   }
+  if (t.t === 'tax' && t.kind === 'prop') { // Thuế Tài Sản: pay 10% of everything you own, or the flat sum: your pick
+    const pct = Math.round(netWorth(p) * tune.prop_tax_pct / 10) * 10;
+    state.popup = { kind: 'tax', tile: i, pct, flat: tune.prop_tax_flat };
+    state.phase = 'taxChoice'; state.timer = 0; return;
+  }
   if (t.t === 'tax') {
-    const amt = t.kind === 'income' ? tune.income_tax : tune.prop_tax_base + tune.prop_tax_per_level * levelsOf(pi);
+    const amt = tune.income_tax;
     charge([{ to: -1, amt }], `${p.name} đóng ${t.n}: ${money(amt)}.`, afterAction); return;
   }
   if (t.t === 'gojail') { log(`${p.name} bị dẫn vào tù!`); sendToJail(pi); toEnd(); return; }
@@ -633,6 +638,11 @@ function flyTo(target) {
   const p = curP();
   beginMove((target - p.pos + 40) % 40 || 40, 1, true);
   log(`${p.name} bay tới ${TILES[target].n}.`);
+}
+function payTax(amt) {
+  const p = curP(), t = TILES[state.popup.tile];
+  state.popup = null;
+  charge([{ to: -1, amt }], `${p.name} đóng ${t.n}: ${money(amt)}.`, afterAction);
 }
 function payJail() {
   const p = curP();
@@ -720,6 +730,7 @@ function aiAct() { // one decision for the computer player, after its think dela
     case 'build': if (aiWantsBuild(pi, state.popup.tile)) doBuild(state.popup.tile); state.popup = null; afterAction(); return;
     case 'card': applyCard(); return;
     case 'rentShow': state.popup = null; afterAction(); return;
+    case 'taxChoice': payTax(Math.min(state.popup.pct, state.popup.flat)); return;
     case 'pick': flyTo(state.pick); return;
     case 'debt':
       if (autoRaise(pi, state.debt.total)) payDebt(); else declareBankrupt();
@@ -967,7 +978,7 @@ function boardTexture() {
       c.fillStyle = '#5a3d2b'; c.font = `30px ${FONT}`;
       let price = '';
       if (t.p) price = (t.p / 1000).toLocaleString('vi-VN', { maximumFractionDigits: 1 }) + ' tr';
-      if (t.t === 'tax') price = t.kind === 'income' ? 'Trả 1,5 tr' : 'Theo nhà';
+      if (t.t === 'tax') price = t.kind === 'income' ? `Trả ${(tune.income_tax / 1000).toLocaleString('vi-VN')} tr` : `${Math.round(tune.prop_tax_pct * 100)}% hoặc ${(tune.prop_tax_flat / 1000).toLocaleString('vi-VN')} tr`;
       if (price) c.fillText(price, cx, tz + th - 30);
     }
     c.strokeStyle = '#3a2416'; c.lineWidth = 10; c.strokeRect(5, 5, S - 10, S - 10);
@@ -1347,6 +1358,12 @@ function buildUI() {
       }
       case 'card': btn(ax - 110, 600, 220, 54, 'Đồng ý', applyCard, 'primary', true, '#c8201f'); break;
       case 'rentShow': btn(ax - 110, 600, 220, 54, 'Tiếp tục', () => { state.popup = null; afterAction(); }, 'primary'); break;
+      case 'taxChoice': {
+        const pp = state.popup;
+        btn(ax - 230, 600, 220, 54, `Trả ${Math.round(tune.prop_tax_pct * 100)}%: ${money(pp.pct)}`, () => payTax(pp.pct), pp.pct <= pp.flat ? 'primary' : 'secondary', true, '#8a5a2a');
+        btn(ax + 10, 600, 220, 54, `Trả ${money(pp.flat)}`, () => payTax(pp.flat), pp.pct <= pp.flat ? 'secondary' : 'primary', true, '#8a5a2a');
+        break;
+      }
       case 'pick': btn(ax - 110, 600, 220, 54, `Bay tới ${TILES[state.pick].n}`, () => flyTo(state.pick), 'primary', true, '#2f8a3a'); break;
       case 'debt': {
         const d = state.debt;
@@ -1585,6 +1602,20 @@ function drawPopup() {
     if (pop.kind === 'build') messageBox([`Đất của bạn! Xây thêm 1 cấp?`], cx, 548, 420);
     if (pop.kind === 'nobuy') messageBox([`Vòng ${state.round <= 1 ? 'đầu' : state.round} chưa được mua đất: chỉ ghé xem.`], cx, 548, 520);
     if (!human && pop.kind !== 'rent' && pop.kind !== 'nobuy') messageBox([`${p.name} đang suy nghĩ...`], cx, 548, 420);
+  }
+  if (pop.kind === 'tax') {
+    const w = 460, h = 250, x = cx - w / 2, y = cy - h / 2;
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.4)'; rrect(ctx, x + 6, y + 8, w, h, 16); ctx.fill();
+    ctx.fillStyle = '#fbf3df'; rrect(ctx, x, y, w, h, 16); ctx.fill(); ctx.strokeStyle = '#5a3d2b'; ctx.lineWidth = 3; ctx.stroke();
+    icon.coins(ctx, x + 70, y + 72, 90);
+    text('THUẾ TÀI SẢN', cx + 40, y + 52, 28, '#8a3a24', 'center', 'bold');
+    text(`Tổng tài sản của ${p.name}: ${money(netWorth(p))}`, cx + 40, y + 90, 16, '#3a2416');
+    text(`Chọn một: ${Math.round(tune.prop_tax_pct * 100)}% tài sản = ${money(pop.pct)}`, cx, y + 150, 19, '#2b1d12', 'center', 'bold');
+    text(`hoặc trả gọn ${money(pop.flat)}`, cx, y + 182, 19, '#2b1d12', 'center', 'bold');
+    text('Tiền thuế vào hũ giữa bàn.', cx, y + 220, 15, '#6a5a4a');
+    ctx.restore();
+    if (!human) messageBox([`${p.name} đang tính...`], cx, 548, 360);
   }
   if (pop.kind === 'card') {
     const w = 380, h = 250, x = cx - w / 2, y = cy - h / 2;

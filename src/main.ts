@@ -88,7 +88,7 @@ addEventListener('blur', () => { down.clear(); pointerHeld = false; });
 // the tokens, plays the sounds the host played, and sends its own presses back.
 const isHost = (): boolean => net.getRole() === 'host';
 const isGuest = (): boolean => net.getRole() === 'guest';
-let roomCode = '', myName = '', mySeat = -1;
+let roomCode = '', myName = '', mySeat = -1, myPeerId = -1;
 let linkUp = false, hostOnline = true, netError = '';
 let guestShaking = false;                    // guest: holding the shake button, waiting to let go
 let lobby: Loose = null;                     // guest: the host's seats before the game starts
@@ -109,7 +109,7 @@ function sendAct(act: string, i?: number) {
 }
 
 const handlers: net.NetHandlers = {
-  onRoom(code) { roomCode = code; netError = ''; if (isHost()) sendLobby(); },
+  onRoom(code, id) { roomCode = code; myPeerId = id; netError = ''; if (isHost()) sendLobby(); },
   onPeer(id, name, online, left) {
     if (left) { peerLeft(id, name); return; }
     const known = peers.has(id);
@@ -154,6 +154,10 @@ function sendLobby() {
 
 /** Host: a friend pressed a button. Only their own turn's buttons count, checked as for a press here. */
 function onGuestAct(from: number, a: Loose) {
+  if ((scene === 'play' || scene === 'results') && state.players && state.players.some(q => q.peer === from)) {
+    if (a.act === 'voteStart') { hostStartVote('p' + from); return; }
+    if (a.act === 'vote:yes' || a.act === 'vote:no') { hostCastVote('p' + from, a.act === 'vote:yes'); return; }
+  }
   if (scene !== 'play' || !state.players) return;
   const p = curP();
   if (p.kind !== 'remote' || p.peer !== from) return;
@@ -192,6 +196,7 @@ function onHostMsg(d: Loose) {
 /** Every step: the host sends the state; a guest lets go of the dice when the finger lifts. */
 function netStep() {
   if (isHost() && (scene === 'play' || scene === 'results')) {
+    voteStep(STEP);
     for (const p of state.players) if (p.kind === 'remote') p.offline = !peerOnline(p.peer);
     if (++sendEvery >= 3 || pendingSfx.length) { // about 20 times a second, at once when a sound plays
       sendEvery = 0;
@@ -272,6 +277,95 @@ function peerLeft(id: number, name: string) {
   sendLobby();
 }
 let roomMenu = false; // the room menu: leave (a friend) or close the room (the host), asked twice
+
+// ---- The vote for a new game (online) ----------------------------------------------------
+// Anyone at the table can ask for a new game, mid-game from the room menu or from the results
+// screen. Every real player still in the room must agree: the host for their screen, and each
+// friend online. One "no", or the time running out, keeps the game as it is. The computer has no vote.
+/** This browser's voter id: 'host', or 'p' + the guest's id in the room. */
+const myVoter = (): string => isHost() ? 'host' : isGuest() ? 'p' + myPeerId : 'host';
+/** Host: who votes: the host, then each friend online who has a seat in this game. */
+function voters(): { id: string; name: string }[] {
+  const list = [{ id: 'host', name: myName || 'Chủ phòng' }];
+  for (const [id, peer] of peers) {
+    if (peer.online && state.players.some(q => q.peer === id)) list.push({ id: 'p' + id, name: peer.name });
+  }
+  return list;
+}
+/** Host: a new game with the same seats. */
+function restartGame() {
+  reset(); clearVis(); scene = 'play';
+  log('Mọi người đồng ý: bắt đầu ván mới!');
+}
+/** Asks for a new game. A guest sends it to the host; with nobody else to ask, the game restarts at once. */
+function startVote() {
+  if (isGuest()) { sendAct('voteStart'); return; }
+  hostStartVote('host');
+}
+function hostStartVote(by: string) {
+  if (state.vote) return;
+  const list = voters();
+  if (list.length <= 1) { restartGame(); return; }
+  const who = list.find(v => v.id === by);
+  if (!who) return;
+  state.vote = { by: who.name, t: 0, list: list.map(v => ({ ...v, ans: v.id === by ? true : null })) };
+  log(`${who.name} đề nghị chơi lại ván mới.`);
+  roomMenu = false;
+}
+/** Casts this browser's vote. */
+function castVote(yes: boolean) {
+  if (isGuest()) { sendAct(yes ? 'vote:yes' : 'vote:no'); return; }
+  hostCastVote('host', yes);
+}
+function hostCastVote(id: string, yes: boolean) {
+  const v = state.vote;
+  if (!v) return;
+  const me = v.list.find((e: Loose) => e.id === id);
+  if (!me || me.ans !== null) return;
+  me.ans = yes;
+  if (!yes) { state.vote = undefined; log(`${me.name} không đồng ý chơi lại: ván tiếp tục.`); return; }
+  if (v.list.every((e: Loose) => e.ans === true)) restartGame();
+}
+/** Host, every step: the vote's clock, and friends who left drop out of it. */
+function voteStep(dt: number) {
+  const v = state.vote;
+  if (!v) return;
+  v.t += dt;
+  v.list = v.list.filter((e: Loose) => e.id === 'host' || peerOnline(Number(e.id.slice(1))));
+  if (v.t >= tune.vote_time) { state.vote = undefined; log('Hết giờ bỏ phiếu: ván tiếp tục.'); return; }
+  if (v.list.length <= 1 || v.list.every((e: Loose) => e.ans === true)) restartGame();
+}
+/** The vote's two buttons, for a voter who has not answered yet. */
+function buildVoteUI() {
+  const v = state.vote, me = v.list.find((e: Loose) => e.id === myVoter());
+  if (!me || me.ans !== null) return;
+  const y = voteBox().y + voteBox().h - 70;
+  btn(L.cx - 210, y, 200, 54, 'Đồng ý', () => castVote(true), 'menu', true, '#2f8a3a');
+  btn(L.cx + 10, y, 200, 54, 'Không', () => castVote(false), 'menuSecondary', true, '#6a4a2a');
+}
+function voteBox(): { x: number; y: number; w: number; h: number } {
+  const h = 210 + (state.vote ? state.vote.list.length : 0) * 30, w = Math.min(460, L.maxW);
+  return { x: L.cx - w / 2, y: (L.phone ? 470 : 360) - h / 2, w, h };
+}
+/** The vote over everything: who asked, each voter's answer, the time left, and the buttons. */
+function drawVote() {
+  const v = state.vote;
+  if (!v) return;
+  const b = voteBox();
+  ctx.save(); ctx.fillStyle = 'rgba(10,5,3,0.55)'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = 'rgba(30,12,8,0.96)'; rrect(ctx, b.x, b.y, b.w, b.h, 16); ctx.fill();
+  ctx.strokeStyle = '#c9a24a'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
+  text('Bỏ phiếu chơi lại ván mới', L.cx, b.y + 30, 22, '#f2c44a', 'center', 'bold');
+  text(`${v.by} đề nghị · còn ${Math.max(0, Math.ceil(tune.vote_time - v.t))} giây`, L.cx, b.y + 60, 16, '#e8d9b5');
+  v.list.forEach((e: Loose, j: number) => {
+    const y = b.y + 98 + j * 30;
+    text(e.name + (e.id === myVoter() ? ' (bạn)' : ''), b.x + 30, y, 17, '#fff8e6', 'left');
+    const [say, col] = e.ans === true ? ['Đồng ý', '#7ee08a'] : e.ans === false ? ['Không', '#ff9a8a'] : ['Đang chờ...', '#cbb994'];
+    text(say, b.x + b.w - 30, y, 17, col, 'right', 'bold');
+  });
+  drawingMenu = true; ui.forEach(x => { if (x.role === 'menu' || x.role === 'menuSecondary') drawButton(x); }); drawingMenu = false;
+}
+
 
 // ---- Rules --------------------------------------------------------------------------
 let setup: { seats: Seat[]; mode: 'bankrupt' | 'rounds' } = { seats: [{ kind: 'human' }, { kind: 'ai', lv: 1 }, { kind: 'ai', lv: 0 }, { kind: 'off' }], mode: 'bankrupt' };
@@ -1399,8 +1493,13 @@ function buildUI() {
   ui = [];
   if (scene === 'title') { buildTitleUI(); return; }
   if (scene === 'results') {
-    if (isGuest()) { btn(L.cx - 95, L.phone ? 840 : 560, 190, 52, 'Rời phòng', leaveRoom, 'secondary', true, '#6a4a2a'); return; } // only the host starts the next game
-    btn(L.cx - 200, L.phone ? 840 : 560, 190, 52, 'Chơi lại (Enter)', () => { reset(); clearVis(); scene = 'play'; }, 'primary');
+    if (state.vote) { buildVoteUI(); return; }
+    if (isGuest()) { // a friend asks for a new game, or leaves; only the host goes back to the title
+      btn(L.cx - 200, L.phone ? 840 : 560, 190, 52, 'Chơi lại', startVote, 'primary');
+      btn(L.cx + 10, L.phone ? 840 : 560, 190, 52, 'Rời phòng', leaveRoom, 'secondary', true, '#6a4a2a');
+      return;
+    }
+    btn(L.cx - 200, L.phone ? 840 : 560, 190, 52, 'Chơi lại (Enter)', () => { if (roomCode) startVote(); else { reset(); clearVis(); scene = 'play'; } }, 'primary');
     btn(L.cx + 10, L.phone ? 840 : 560, 190, 52, 'Ván mới (N)', () => { scene = 'title'; }, 'secondary');
     return;
   }
@@ -1410,6 +1509,7 @@ function buildUI() {
     const r = roomPill();
     btn(r.x, r.y, r.w, r.h, `Phòng ${roomCode}`, () => { roomMenu = true; inspect = -1; sheetOpen = false; }, 'room');
   }
+  if (state.vote) { buildVoteUI(); return; }
   if (roomMenu) { buildRoomMenu(); return; }
   if (inspect >= 0) { btn(L.cx - 90, L.closeY, 180, 50, 'Đóng', () => { inspect = -1; }, 'close'); return; }
   if (sheetOpen) { buildSheetUI(state.cur); return; }
@@ -1467,6 +1567,7 @@ function roomPill(): { x: number; y: number; w: number; h: number } {
 function buildRoomMenu() {
   const y = (L.phone ? 470 : 360) + 46;
   const go = isHost() ? 'Giải tán phòng' : 'Rời phòng';
+  btn(L.cx - 210, y + 66, 420, 50, 'Bỏ phiếu chơi lại ván mới', startVote, 'menu', true, '#2b6cd6');
   btn(L.cx - 210, y, 200, 54, go, leaveRoom, 'menu', true, '#c8201f');
   btn(L.cx + 10, y, 200, 54, 'Ở lại', () => { roomMenu = false; }, 'menuSecondary', true, '#6a4a2a');
 }
@@ -2019,9 +2120,10 @@ function drawResultsPhone() {
     text(p.name, 86, y - 10, 17, '#fff8e6', 'left', 'bold');
     text(r.bankrupt ? 'Phá sản' : `Tài sản ${money(r.worth)}`, 86, y + 13, 15, r.bankrupt ? '#ff9a8a' : '#e8d9b5', 'left');
   });
-  if (isGuest()) text('Chờ chủ phòng bắt đầu ván mới...', W / 2, 866, 17, '#e8d9b5');
+  if (isGuest() && !state.vote) text('Bấm Chơi lại để bỏ phiếu ván mới', W / 2, 800, 16, '#e8d9b5');
   ui.forEach(drawButton);
   drawNetBanner();
+  drawVote();
 }
 
 // ---- Scenes ------------------------------------------------------------------------------
@@ -2112,6 +2214,7 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
       drawInspect();
       drawNetBanner();
       drawRoomMenu();
+      drawVote();
     },
   },
   results: {
@@ -2148,11 +2251,13 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
       });
       ui.forEach(drawButton);
       drawPanel();
+      drawVote();
     },
   },
 };
 function updateTurn(dt: number) {
   const p = curP();
+  if (state.vote) return; // the table is voting: the game waits
   state.timer += dt;
   if (state.diceShow) state.diceShow.t += dt;
   if (state.shaking) {

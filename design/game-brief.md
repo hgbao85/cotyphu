@@ -38,6 +38,10 @@ After play: Random cơ hội và khí vận mỗi ván để tăng kịch tính 
 After play: Thuế tài sản sẽ trả 10% hiện có chứ không phải là tổng tài sản
 After play: Lúc ở trong tù thảy đôi được đi rồi thì được thảy tiếp
 After play: Tôi muốn chơi online với bạn bè (Qua Internet; Cả điện thoại)
+After play: Chủ phòng tạo phòng thì phải chiếm 1 slot chứ?
+After play: Thêm nút rời phòng chơi nữa, Chủ phòng sẽ có nút giải tán phòng chơi
+After play: Trong phòng phải có hiển thị lại mã phòng nếu là phòng online
+After play: Thêm tính năng bỏ phiếu chơi lại ván mới (Cả hai; Tất cả đồng ý)
 
 **Pitch:** Cờ tỷ phú trên bản đồ Việt Nam cho 2–4 người, mỗi chỗ là người hoặc máy: đổ xúc xắc, mua đất từ Hà Giang tới Cà Mau, dẫm lại đất mình để xây nhà, khách sạn rồi Landmark, rút thẻ Cơ Hội và Khí Vận vui nhộn; ai trụ lại (hoặc giàu nhất sau 30 vòng) là tỷ phú.
 
@@ -87,8 +91,9 @@ Màn tạo ván: chọn 2–4 chỗ ngồi, mỗi chỗ Người hoặc Máy (D�
 - [x] Rút thẻ Vào tù: lần qua Xuất Phát tới mất lương, trừ khi ra tù bằng Thẻ Ra Tù
 - [x] Hũ tiền giữa bàn: chỉ tiền 2 ô thuế dồn vào hũ, dừng ở Bến Đỗ Tự Do lấy cả hũ
 - [x] Chơi online: tạo phòng có mã, bạn bè vào bằng mã, mỗi người chơi trên máy mình; rớt mạng vào lại đúng chỗ, lúc vắng thì máy đi thay
+- [x] Phòng online: mã phòng hiện trong ván; bạn bè rời phòng (máy chơi thay), chủ phòng giải tán phòng; bỏ phiếu chơi lại ván mới (tất cả đồng ý, 30 giây)
 - [x] Chơi trên điện thoại: cầm dọc thì tự chuyển bố cục (bàn cờ vuông, người chơi 2×2, nút to, bảng Tài sản riêng), chạm giữ để lắc
-- [ ] Đưa lên Internet (Render hoặc Railway)
+- [x] Đưa lên Internet: Render (render.yaml, docs/deploy.md)
 
 ## Your systems
 - người hoặc máy cho từng chỗ ngồi · in the slice

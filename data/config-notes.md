@@ -53,3 +53,4 @@ holds no comments. The values themselves are in `data/config.json`.
 - `shake_full_time`: giữ lắc bao lâu thì đầy lực ném (s)
 - `shake_max_time`: giữ quá lâu thì tự ném (s)
 - `hop_time`: quân cờ nhảy một ô
+- vote_time: online, how long a vote for a new game stays open (seconds)

@@ -122,4 +122,6 @@ export interface GameState {
   turns: number;
   pot: number;
   reason?: string;
+  /** Online: a vote for a new game: who asked, the time it has run, and each voter's answer. */
+  vote?: Loose;
 }

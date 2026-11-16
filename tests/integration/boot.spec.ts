@@ -33,6 +33,21 @@ test('runs on its own when opened without manual stepping @boot', async ({ page 
   expect(errors).toEqual([]);
 });
 
+test('lays out for a phone held upright and plays a turn there @boot', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  const errors = await open(page, 'manual=1&seed=7');
+  const box = await page.locator('#game').boundingBox();
+  expect(box && box.height / box.width).toBeCloseTo(2, 1); // the phone layout is 480x960
+  const scene = await page.evaluate(() => {
+    const g = window.game!;
+    g.press('Enter'); g.step();
+    g.press('Space'); g.step(); g.step(240);
+    return g.scene;
+  });
+  expect(scene).toBe('play');
+  expect(errors).toEqual([]);
+});
+
 test('a scripted turn shakes, throws and moves the token, and the same seed repeats it exactly', async ({ page }) => {
   // ?manual=1 stops the loop, so only step() moves the game: the same keys the reference replay
   // opened with (Enter to start, Space held to shake and let go to throw).

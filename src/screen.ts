@@ -1,8 +1,15 @@
 // The 2D canvas: a 1280x720 logical screen that fills the window, and the drawing helpers the
 // HUD, popups and buttons use. The 3D board is drawn into it each frame by main.ts.
 
-/** The logical size; the board view's width; the HUD panel fills the rest. */
-export const W = 1280, H = 720, BW = 900;
+/** The logical size: 1280x720 on a wide screen, 480x960 on a phone held upright (setLogical). */
+export let W = 1280, H = 720;
+/** The board view's width on a wide screen; the HUD panel fills the rest. */
+export const BW = 900;
+
+/** Changes the logical size; fit() applies it. */
+export function setLogical(w: number, h: number): void {
+  W = w; H = h;
+}
 export const PIXEL = false;
 export const FONT = '"Segoe UI", "Helvetica Neue", Arial, sans-serif';
 
@@ -18,8 +25,15 @@ export function afterFit(f: () => void): void {
   onFit.push(f);
 }
 
+const beforeFitFns: Array<() => void> = [];
+/** Runs f at the start of every fit(), before the size is read (the layout picks W and H). */
+export function beforeFit(f: () => void): void {
+  beforeFitFns.push(f);
+}
+
 /** Fills the window at any size and pixel ratio. */
 export function fit(): void {
+  beforeFitFns.forEach(f => f());
   const k = Math.min(innerWidth / W, innerHeight / H);
   const s = PIXEL ? Math.max(1, Math.floor(k)) : k;
   const r = PIXEL ? 1 : s * (devicePixelRatio || 1);

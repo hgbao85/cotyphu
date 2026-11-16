@@ -87,7 +87,7 @@ Màn tạo ván: chọn 2–4 chỗ ngồi, mỗi chỗ Người hoặc Máy (D�
 - [x] Rút thẻ Vào tù: lần qua Xuất Phát tới mất lương, trừ khi ra tù bằng Thẻ Ra Tù
 - [x] Hũ tiền giữa bàn: chỉ tiền 2 ô thuế dồn vào hũ, dừng ở Bến Đỗ Tự Do lấy cả hũ
 - [x] Chơi online: tạo phòng có mã, bạn bè vào bằng mã, mỗi người chơi trên máy mình; rớt mạng vào lại đúng chỗ, lúc vắng thì máy đi thay
-- [ ] Chơi trên điện thoại (giao diện dọc, nút to)
+- [x] Chơi trên điện thoại: cầm dọc thì tự chuyển bố cục (bàn cờ vuông, người chơi 2×2, nút to, bảng Tài sản riêng), chạm giữ để lắc
 - [ ] Đưa lên Internet (Render hoặc Railway)
 
 ## Your systems

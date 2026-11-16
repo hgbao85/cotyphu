@@ -2,12 +2,16 @@
 <html lang="vi">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1d120c">
 <title>Tỷ Phú Đất Việt</title>
 <style>
   html, body { margin: 0; height: 100%; background: #1d120c; overflow: hidden; }
   body { font-variant-numeric: tabular-nums; }
   canvas { display: block; margin: 0 auto; }
+  /* a phone: no scrolling, zooming, text selection or callout while pressing on the game */
+  html, body { overscroll-behavior: none; }
+  canvas { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
   /* The online panel: a name and a room code, over the canvas */
   #online { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(20, 10, 6, 0.7); z-index: 10; padding: 16px; box-sizing: border-box; }
   #online .op-card { width: min(420px, 100%); background: linear-gradient(#3b1712, #1f0c09); border: 2px solid #c9a24a; border-radius: 18px; padding: 22px 22px 16px; box-sizing: border-box; color: #fff8e6; font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif; }

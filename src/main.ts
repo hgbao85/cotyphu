@@ -7,15 +7,45 @@ import { CONFIG, tune } from './config';
 import { clock, install, params } from './hook';
 import { startAudio, setMuted, isMuted, sfx } from './audio';
 import * as net from './net/net';
-import { W, H, BW, FONT, canvas, ctx, screenScale, afterFit, fit, clear, text, rrect, wrapLines } from './screen';
+import { W, H, BW, FONT, canvas, ctx, screenScale, afterFit, beforeFit, setLogical, fit, clear, text, rrect, wrapLines } from './screen';
 import { rng, setSeed, freshSeed, shuffled } from './game/rng';
 import { GROUPS, TILES, OWNABLE, LEVEL_NAMES, LEVEL_SHORT, MAX_LEVEL, PLAYER_COLORS, PLAYER_COLOR_NAMES, TOKEN_NAMES, AI_LEVELS, CARDS } from './game/data';
-import { HALF, CORNER, BAND, BOARD_TOP, L, tileInfo, tileAt, tokenSpot } from './game/board';
+import { HALF, CORNER, BAND, BOARD_TOP, L as BOARD_SIZE, tileInfo, tileAt, tokenSpot } from './game/board';
 import * as R from './game/rules';
 import { money } from './game/rules';
 import type { DeckKind, GameState, Loose, Player, Seat, Tile } from './game/types';
 
 if (import.meta.env.DEV) await import('./dev/tune'); // the tweak panel, on the dev server only
+
+// ---- Layout: wide screens and phones held upright --------------------------------------
+// A wide screen is 1280x720: the board on the left, the panel on the right, the turn's buttons over
+// the board. A phone held upright is 480x960: a header, a square board, the players, then a strip
+// of big buttons. Everything that sits over or beside the board reads its place from L.
+interface Layout {
+  phone: boolean;
+  /** The board view's rectangle on the screen. */
+  bx: number; by: number; bw: number; bh: number;
+  /** The centre line of the turn's buttons and messages, and the popup card's centre. */
+  cx: number; popCy: number;
+  /** Where the turn's message, the roll button and the popup buttons sit. */
+  msgY: number; rollY: number; btnY: number;
+  /** The widest message box, the power bar, the network banner, the inspect card's close button. */
+  maxW: number; powerY: number; bannerY: number; closeY: number;
+}
+const WIDE: Layout = { phone: false, bx: 0, by: 0, bw: BW, bh: 720, cx: BW / 2, popCy: 330, msgY: 322, rollY: 372, btnY: 600, maxW: 640, powerY: 446, bannerY: 676, closeY: 548 };
+const PHONE: Layout = { phone: true, bx: 0, by: 50, bw: 480, bh: 480, cx: 240, popCy: 290, msgY: 738, rollY: 782, btnY: 782, maxW: 464, powerY: 908, bannerY: 942, closeY: 782 };
+let L: Layout = WIDE;
+/** Picks the layout from the window's shape: a tall window gets the phone layout. */
+function chooseLayout() {
+  const phone = innerHeight > innerWidth * 1.05;
+  const next = phone ? PHONE : WIDE;
+  if (next !== L) { L = next; propScroll = 0; sheetOpen = false; if (camera) aimCamera(); }
+  setLogical(phone ? 480 : 1280, phone ? 960 : 720);
+}
+beforeFit(chooseLayout);
+/** True when a point on the screen is over the board view. */
+const inBoard = (x: number, y: number): boolean => x >= L.bx && x < L.bx + L.bw && y >= L.by && y < L.by + L.bh;
+let sheetOpen = false; // phone: the property list, opened from its button
 
 const STEP = 1 / 60;            // simulation step in seconds; motion is per second, never per frame
 const TITLE = 'Tỷ Phú Đất Việt';
@@ -42,7 +72,8 @@ function toLogical(e: { clientX: number; clientY: number }) {
 }
 let pointerHeld = false;
 addEventListener('pointerdown', e => { startAudio(); pointerHeld = true; clicks.push(toLogical(e)); });
-addEventListener('pointerup', () => { pointerHeld = false; });
+addEventListener('pointerup', e => { pointerHeld = false; if (e.pointerType !== 'mouse') pointer = { x: -1, y: -1 }; }); // a finger leaves no hover behind
+addEventListener('contextmenu', e => e.preventDefault()); // a long press shakes the dice, it opens no menu
 addEventListener('pointercancel', () => { pointerHeld = false; });
 addEventListener('pointermove', e => { pointer = toLogical(e); });
 addEventListener('wheel', e => { wheel += Math.sign(e.deltaY); }, { passive: true });
@@ -697,9 +728,16 @@ const tok3: THREE.Group[] = [], tokAnim: (Loose | null)[] = [], tokVis: ({ x: nu
 const tileGroups: THREE.Group[] = [], tileShown: number[] = [], ownerMarks: THREE.Mesh<THREE.BufferGeometry, Loose>[] = [], riseAnims: { obj: THREE.Object3D; t: number; s: number }[] = [];
 type LooseMesh = THREE.Mesh<THREE.BufferGeometry, Loose>; // a mesh whose material the code recolours
 let dice3: THREE.Mesh[] = [], ring3: LooseMesh, flash3: LooseMesh, pick3: LooseMesh, hover3: LooseMesh;
+/** Frames the board for the layout: a phone's square view stands the camera a little further back. */
+function aimCamera() {
+  const k = L.phone ? 1.12 : 1;
+  camera.aspect = L.bw / L.bh;
+  camera.position.set(0, 19.7 * k, 13.75 * k); camera.lookAt(0, 0, 0.5);
+  camera.updateProjectionMatrix();
+}
 function sizeRenderer() {
   renderer!.setPixelRatio(CHEAP ? 0.5 : Math.min(2, screenScale));
-  renderer!.setSize(BW, H, false);
+  renderer!.setSize(L.bw, L.bh, false);
 }
 afterFit(() => { if (renderer) sizeRenderer(); }); // the 3D view follows the window size
 function mat(color: THREE.ColorRepresentation, opts = {}) { return new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.55, metalness: 0.0 }, opts)); }
@@ -849,7 +887,7 @@ function star(c: CanvasRenderingContext2D, x: number, y: number, r: number) {
 const TILE_ICON: Record<string, string> = { ship: 'ship', train: 'train', plane: 'plane', bulb: 'bulb', drop: 'drop' };
 
 function boardTexture() {
-  const S = 2048, k = S / L;
+  const S = 2048, k = S / BOARD_SIZE;
   return canvasTex(S, S, (c: CanvasRenderingContext2D) => {
     const X = (x: number) => (x + HALF) * k, Z = (z: number) => (z + HALF) * k;
     c.fillStyle = '#f2e6c8'; c.fillRect(0, 0, S, S);
@@ -1096,15 +1134,15 @@ function build3D() {
   renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
   sizeRenderer();
   scene3 = new THREE.Scene(); scene3.background = new THREE.Color(0x2a1a10);
-  camera = new THREE.PerspectiveCamera(30, BW / H, 0.1, 100);
-  camera.position.set(0, 19.7, 13.75); camera.lookAt(0, 0, 0.5);
+  camera = new THREE.PerspectiveCamera(30, BW / 720, 0.1, 100);
+  aimCamera();
   addLights(scene3);
   const wood = woodTexture(); wood.wrapS = wood.wrapT = THREE.RepeatWrapping; wood.repeat.set(3, 3);
   const table = mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ map: wood, roughness: 0.75 }), 0, 0, 0);
   table.rotation.x = -Math.PI / 2; scene3.add(table);
   const edge = mat(0x4a2c1a, { roughness: 0.5 });
   const top = new THREE.MeshStandardMaterial({ map: boardTexture(), roughness: 0.65 });
-  const board = mesh(new THREE.BoxGeometry(L, BOARD_TOP, L), [edge, edge, top, edge, edge, edge], 0, BOARD_TOP / 2, 0);
+  const board = mesh(new THREE.BoxGeometry(BOARD_SIZE, BOARD_TOP, BOARD_SIZE), [edge, edge, top, edge, edge, edge], 0, BOARD_TOP / 2, 0);
   scene3.add(board);
   // the two decks of cards in the centre
   for (const [dx, dz, kind] of [[-2.3, -2.9, 'co'], [2.3, -2.9, 'kv']] as [number, number, string][]) {
@@ -1308,17 +1346,17 @@ function render3D() {
 }
 function project(x: number, y: number, z: number, cam = camera) {
   const v = new THREE.Vector3(x, y, z).project(cam);
-  return { x: (v.x + 1) / 2 * BW, y: (1 - v.y) / 2 * H };
+  return cam === camera ? { x: L.bx + (v.x + 1) / 2 * L.bw, y: L.by + (1 - v.y) / 2 * L.bh } : { x: (v.x + 1) / 2 * BW, y: (1 - v.y) / 2 * 720 };
 }
 function boardPointAt(lx: number, ly: number) {
-  const ndc = new THREE.Vector2(lx / BW * 2 - 1, -(ly / H * 2 - 1));
+  const ndc = new THREE.Vector2((lx - L.bx) / L.bw * 2 - 1, -((ly - L.by) / L.bh * 2 - 1));
   const ray = new THREE.Raycaster(); ray.setFromCamera(ndc, camera);
   const pt = new THREE.Vector3();
   return ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -BOARD_TOP), pt) ? pt : null;
 }
 
 // ---- 2D UI ---------------------------------------------------------------------------
-const PX = BW, PW = W - BW;
+const PX = BW, PW = 1280 - BW; // the wide layout's panel
 let ui: Loose[] = []; // buttons this frame: { x, y, w, h, label, fn, role: 'primary'|'secondary'|'', enabled, color }
 let propScroll = 0;
 let inspect = -1, hoverTile = -1, drawingInspect = false; // the tile whose card is open from a click, and the tile under the mouse
@@ -1340,14 +1378,15 @@ function buildUI() {
   if (scene === 'title') { buildTitleUI(); return; }
   if (scene === 'results') {
     if (isGuest()) return; // only the host starts the next game
-    btn(BW / 2 - 200, 560, 190, 52, 'Chơi lại (Enter)', () => { reset(); clearVis(); scene = 'play'; }, 'primary');
-    btn(BW / 2 + 10, 560, 190, 52, 'Ván mới (N)', () => { scene = 'title'; }, 'secondary');
+    btn(L.cx - 200, L.phone ? 840 : 560, 190, 52, 'Chơi lại (Enter)', () => { reset(); clearVis(); scene = 'play'; }, 'primary');
+    btn(L.cx + 10, L.phone ? 840 : 560, 190, 52, 'Ván mới (N)', () => { scene = 'title'; }, 'secondary');
     return;
   }
   if (scene !== 'play') return;
   btn(W - 52, 12, 40, 34, '', () => setMuted(!muted()), 'mute');
-  if (inspect >= 0) { btn(BW / 2 - 90, 548, 180, 50, 'Đóng', () => { inspect = -1; }, 'close'); return; }
-  { // click a row of the property list to see that land's card
+  if (inspect >= 0) { btn(L.cx - 90, L.closeY, 180, 50, 'Đóng', () => { inspect = -1; }, 'close'); return; }
+  if (sheetOpen) { buildSheetUI(state.cur); return; }
+  if (!L.phone) { // click a row of the property list to see that land's card
     const mine = owned(state.cur), rows = Math.floor((H - 16 - 400) / 30);
     mine.slice(propScroll, propScroll + rows).forEach((i, r) => btn(PX + 14, 400 + r * 30, 250, 30, '', () => { inspect = i; }, 'hidden'));
   }
@@ -1357,7 +1396,7 @@ function buildUI() {
  * when a friend online plays, so the friend's act finds the same button. */
 function buildTurnUI() {
   const p = curP();
-  const ax = BW / 2, ay = 372; // the action area sits in the board's open centre
+  const ax = L.cx, ay = L.rollY, by = L.btnY; // wide: the board's open centre; phone: the strip under the players
   switch (state.phase) {
     case 'roll': btn(ax - 130, ay, 260, 58, state.shaking ? 'Thả ra để ném!' : 'Giữ để lắc xúc xắc', () => startShake(), 'primary', true, '#c8201f', 'shake'); break;
     case 'jail': {
@@ -1365,32 +1404,32 @@ function buildTurnUI() {
       if (p.freeCards.length > 0) btn(ax + 10, ay, 220, 54, 'Dùng thẻ ra tù', payJail, 'secondary', true, undefined, 'jailCard');
       break;
     }
-    case 'buy': { const t = TILES[state.popup.tile]; btn(ax - 230, 600, 220, 54, `Mua ${money(t.p!)}`, doBuy, 'primary', p.cash >= t.p!, '#2f8a3a', 'buy'); btn(ax + 10, 600, 220, 54, 'Bỏ qua', () => { log(`${p.name} bỏ qua ${t.n}.`); skip(); }, 'secondary', true, undefined, 'skip'); break; }
+    case 'buy': { const t = TILES[state.popup.tile]; btn(ax - 230, by, 220, 54, `Mua ${money(t.p!)}`, doBuy, 'primary', p.cash >= t.p!, '#2f8a3a', 'buy'); btn(ax + 10, by, 220, 54, 'Bỏ qua', () => { log(`${p.name} bỏ qua ${t.n}.`); skip(); }, 'secondary', true, undefined, 'skip'); break; }
     case 'build': {
       const i = state.popup.tile, to = state.level[i] + 1, cost = buildCost(i, to);
-      btn(ax - 230, 600, 220, 54, `Xây ${LEVEL_NAMES[to]}: ${money(cost)}`, () => { doBuild(i); state.popup = null; afterAction(); }, 'primary', p.cash >= cost, '#2f8a3a', 'build');
-      btn(ax + 10, 600, 220, 54, 'Không xây', () => { state.popup = null; afterAction(); }, 'secondary', true, undefined, 'noBuild');
+      btn(ax - 230, by, 220, 54, `Xây ${LEVEL_NAMES[to]}: ${money(cost)}`, () => { doBuild(i); state.popup = null; afterAction(); }, 'primary', p.cash >= cost, '#2f8a3a', 'build');
+      btn(ax + 10, by, 220, 54, 'Không xây', () => { state.popup = null; afterAction(); }, 'secondary', true, undefined, 'noBuild');
       break;
     }
-    case 'card': btn(ax - 110, 600, 220, 54, 'Đồng ý', applyCard, 'primary', true, '#c8201f', 'cardOk'); break;
-    case 'rentShow': btn(ax - 110, 600, 220, 54, 'Tiếp tục', () => { state.popup = null; afterAction(); }, 'primary', true, undefined, 'continue'); break;
+    case 'card': btn(ax - 110, by, 220, 54, 'Đồng ý', applyCard, 'primary', true, '#c8201f', 'cardOk'); break;
+    case 'rentShow': btn(ax - 110, by, 220, 54, 'Tiếp tục', () => { state.popup = null; afterAction(); }, 'primary', true, undefined, 'continue'); break;
     case 'taxChoice': {
       const pp = state.popup;
-      btn(ax - 230, 600, 220, 54, `Trả ${Math.round(tune.prop_tax_pct * 100)}%: ${money(pp.pct)}`, () => payTax(pp.pct), pp.pct <= pp.flat ? 'primary' : 'secondary', true, '#8a5a2a', 'taxPct');
-      btn(ax + 10, 600, 220, 54, `Trả ${money(pp.flat)}`, () => payTax(pp.flat), pp.pct <= pp.flat ? 'secondary' : 'primary', true, '#8a5a2a', 'taxFlat');
+      btn(ax - 230, by, 220, 54, `Trả ${Math.round(tune.prop_tax_pct * 100)}%: ${money(pp.pct)}`, () => payTax(pp.pct), pp.pct <= pp.flat ? 'primary' : 'secondary', true, '#8a5a2a', 'taxPct');
+      btn(ax + 10, by, 220, 54, `Trả ${money(pp.flat)}`, () => payTax(pp.flat), pp.pct <= pp.flat ? 'secondary' : 'primary', true, '#8a5a2a', 'taxFlat');
       break;
     }
-    case 'pick': btn(ax - 110, 600, 220, 54, `Bay tới ${TILES[state.pick].n}`, () => flyTo(state.pick), 'primary', true, '#2f8a3a', 'fly'); break;
+    case 'pick': btn(ax - 110, by, 220, 54, `Bay tới ${TILES[state.pick].n}`, () => flyTo(state.pick), 'primary', true, '#2f8a3a', 'fly'); break;
     case 'debt': {
       const d = state.debt;
-      btn(ax - 255, 600, 160, 54, 'Trả nợ', payDebt, 'primary', p.cash >= d.total, '#2f8a3a', 'payDebt');
-      btn(ax - 80, 600, 160, 54, 'Tự bán bớt', () => { autoRaise(state.cur, d.total); }, '', liquidValue(state.cur) > 0, undefined, 'autoRaise');
-      btn(ax + 95, 600, 160, 54, 'Phá sản', declareBankrupt, 'secondary', true, '#6a6a6a', 'bankrupt');
+      btn(ax - (L.phone ? 232 : 255), by, L.phone ? 148 : 160, 54, 'Trả nợ', payDebt, 'primary', p.cash >= d.total, '#2f8a3a', 'payDebt');
+      btn(ax - (L.phone ? 74 : 80), by, L.phone ? 148 : 160, 54, 'Tự bán bớt', () => { autoRaise(state.cur, d.total); }, '', liquidValue(state.cur) > 0, undefined, 'autoRaise');
+      btn(ax + (L.phone ? 84 : 95), by, L.phone ? 148 : 160, 54, 'Phá sản', declareBankrupt, 'secondary', true, '#6a6a6a', 'bankrupt');
       break;
     }
     case 'end': btn(ax - 110, ay, 220, 58, 'Kết thúc lượt', nextTurn, 'primary', true, '#c8201f', 'endTurn'); break;
   }
-  if (['roll', 'end', 'debt', 'jail'].includes(state.phase)) buildPropUI(state.cur);
+  if (['roll', 'end', 'debt', 'jail'].includes(state.phase)) { if (L.phone) buildSheetButton(state.cur); else buildPropUI(state.cur); }
 }
 /** What a seat is, in the seat's button. */
 function seatLabel(s: Seat): string {
@@ -1401,12 +1440,13 @@ function seatLabel(s: Seat): string {
 }
 function startGame() { reset(); clearVis(); scene = 'play'; }
 function buildTitleUI() {
-  const x0 = BW / 2 - 300, y0 = 250;
-  if (isGuest()) { btn(BW / 2 - 140, 600, 280, 60, 'Rời phòng', leaveRoom, 'secondary', true, '#6a4a2a'); return; }
+  const T = titleSpots();
+  const b4 = (r: number[], label: string, fn: () => void, role: string, color: string) => btn(r[0], r[1], r[2], r[3], label, fn, role, true, color);
+  if (isGuest()) { b4(T.leave, 'Rời phòng', leaveRoom, 'secondary', '#6a4a2a'); return; }
   setup.seats.forEach((s, i) => {
     // online, the host plays seat 0, and a friend who is in the room keeps their seat
     const locked = isHost() && (i === 0 || (s.kind === 'remote' && peerOnline(s.peer)));
-    btn(x0 + 280, y0 + i * 62, 300, 50, seatLabel(s), () => {
+    btn(T.seatX, T.y0 + i * T.step, T.seatW, T.seatH, seatLabel(s), () => {
       const base = isHost() ? ['human', 'remote', 'ai0', 'ai1', 'ai2'] : ['human', 'ai0', 'ai1', 'ai2'];
       const order = i < 2 ? base : [...base, 'off'];
       const curKey = s.kind === 'ai' ? 'ai' + s.lv : s.kind;
@@ -1415,10 +1455,11 @@ function buildTitleUI() {
       sendLobby();
     }, 'seat', !locked);
   });
-  btn(x0 + 280, y0 + 4 * 62 + 10, 300, 50, setup.mode === 'rounds' ? `${tune.max_rounds} vòng, giàu nhất thắng` : 'Tới khi phá sản', () => { setup.mode = setup.mode === 'rounds' ? 'bankrupt' : 'rounds'; sendLobby(); }, 'seat');
-  btn(BW / 2 - 290, 600, 280, 60, 'Bắt đầu (Enter)', startGame, 'primary', true, '#c8201f');
-  if (isHost()) btn(BW / 2 + 10, 600, 280, 60, `Rời phòng ${roomCode}`, leaveRoom, '', true, '#6a4a2a');
-  else btn(BW / 2 + 10, 600, 280, 60, 'Chơi online', () => showOnlinePanel(true), '', true, '#2b6cd6');
+  const roundsLabel = L.phone ? `${tune.max_rounds} vòng` : `${tune.max_rounds} vòng, giàu nhất thắng`;
+  btn(T.seatX, T.y0 + 4 * T.step + T.modeDy, T.seatW, T.seatH, setup.mode === 'rounds' ? roundsLabel : 'Tới khi phá sản', () => { setup.mode = setup.mode === 'rounds' ? 'bankrupt' : 'rounds'; sendLobby(); }, 'seat');
+  b4(T.start, L.phone ? 'Bắt đầu' : 'Bắt đầu (Enter)', startGame, 'primary', '#c8201f');
+  if (isHost()) b4(T.online, `Rời phòng ${roomCode}`, leaveRoom, '', '#6a4a2a');
+  else b4(T.online, 'Chơi online', () => showOnlinePanel(true), '', '#2b6cd6');
 }
 /** A line about the connection, over the board, when something is wrong with it. */
 function drawNetBanner() {
@@ -1426,7 +1467,7 @@ function drawNetBanner() {
   if (net.getRole() !== 'off' && !linkUp) msg = 'Mất kết nối mạng, đang nối lại...';
   else if (isGuest() && !hostOnline) msg = 'Chủ phòng mất kết nối, đang chờ quay lại...';
   else if (netError && scene !== 'title') msg = netError;
-  if (msg) messageBox([msg], BW / 2, 676, 620);
+  if (msg) messageBox([msg], L.cx, L.bannerY, 620);
 }
 function clearVis() { inspect = -1; lastPos.length = 0; tokVis.length = 0; tokAnim.length = 0; for (let i = 0; i < 40; i++) tileShown[i] = -1; riseAnims.length = 0; }
 function buildPropUI(pi: number) {
@@ -1461,10 +1502,10 @@ function handleInput() {
   for (const c of clicks) {
     const b = ui.find(b => c.x >= b.x && c.x <= b.x + b.w && c.y >= b.y && c.y <= b.y + b.h);
     if (b) { if (b.enabled) pressBtn(b); continue; }
-    if (scene === 'play' && state.phase === 'pick' && humanTurn() && c.x < BW) {
+    if (scene === 'play' && state.phase === 'pick' && humanTurn() && inBoard(c.x, c.y)) {
       const pt = boardPointAt(c.x, c.y);
       if (pt) { const i = tileAt(pt.x, pt.z); if (i >= 0) { if (i === state.pick) pressAct('fly', () => flyTo(i)); else pickTile(i); } }
-    } else if (scene === 'play' && c.x < BW) { // anywhere else on the board: open that tile's card, or close it
+    } else if (scene === 'play' && inBoard(c.x, c.y)) { // anywhere else on the board: open that tile's card, or close it
       const pt = boardPointAt(c.x, c.y), i = pt ? tileAt(pt.x, pt.z) : -1;
       inspect = i >= 0 && i !== inspect ? i : -1;
       if (i >= 0) sfx.card();
@@ -1482,7 +1523,7 @@ function handleInput() {
 }
 
 // ---- 2D drawing ----------------------------------------------------------------------
-function drawBoardView() { render3D(); ctx.drawImage(renderer!.domElement, 0, 0, BW, H); }
+function drawBoardView() { render3D(); ctx.drawImage(renderer!.domElement, L.bx, L.by, L.bw, L.bh); }
 function lacquer(x: number, y: number, w: number, h: number) { // sơn mài: deep red-black lacquer with a gold trim
   const g = ctx.createLinearGradient(x, y, x, y + h); g.addColorStop(0, '#3b1712'); g.addColorStop(1, '#1f0c09');
   ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
@@ -1582,12 +1623,12 @@ function drawPanel() {
 }
 function drawDiceFeel() {
   if (state.shaking && !state.shaking.ai) { // the power bar under the shaking dice
-    const pw = shakePower(), x = BW / 2 - 130, y = 446, w = 260, h = 16;
+    const pw = shakePower(), x = L.cx - 130, y = L.powerY, w = 260, h = 16;
     ctx.save();
     ctx.fillStyle = 'rgba(20,10,6,0.8)'; rrect(ctx, x - 4, y - 4, w + 8, h + 8, 8); ctx.fill();
     const g = ctx.createLinearGradient(x, 0, x + w, 0); g.addColorStop(0, '#3fcf5a'); g.addColorStop(0.6, '#f2c44a'); g.addColorStop(1, '#e8402a');
     ctx.fillStyle = g; rrect(ctx, x, y, Math.max(8, w * pw), h, 6); ctx.fill();
-    text(pw >= 1 ? 'Lực tối đa!' : 'Lực ném', BW / 2, y + 34, 16, '#fff8e6', 'center', 'bold');
+    text(pw >= 1 ? 'Lực tối đa!' : 'Lực ném', L.cx, y + 34, 16, '#fff8e6', 'center', 'bold');
     ctx.restore();
   }
   const ds = state.diceShow;
@@ -1658,6 +1699,7 @@ function tileCard(i: number, cx: number, cy: number, extra?: (x: number, y: numb
   ctx.restore();
 }
 function messageBox(lines: string[], cx: number, cy: number, w: number) {
+  w = Math.min(w, L.maxW);
   ctx.save(); ctx.font = `bold 19px ${FONT}`;
   const all = lines.flatMap((l: string) => wrapLines(ctx, l, w - 40));
   const h = all.length * 28 + 26;
@@ -1668,20 +1710,20 @@ function messageBox(lines: string[], cx: number, cy: number, w: number) {
 }
 function drawPopup() {
   const p = curP(), pop = state.popup, human = humanTurn();
-  const cx = BW / 2, cy = 330;
-  if (state.phase === 'roll' && human && !state.shaking) messageBox([`Lượt của ${p.name}${state.rolledDouble ? ': đổ đôi, được đổ tiếp!' : ''}`], cx, 322, 460);
-  if (state.phase === 'jail' && human && !state.shaking) messageBox([`${p.name} đang ở tù. Đổ được đôi thì ra ngay (lượt ${p.jailTries + 1}/3; ở đủ 3 lượt thì lượt sau được ra).${p.noSalary ? (p.freeCards.length ? ' Dùng Thẻ Ra Tù thì được nhận lương lại!' : ' Lần qua Xuất Phát tới sẽ mất lương.') : ''}`], cx, 312, 520);
-  if (state.phase === 'end' && human) messageBox([`${p.name}: hết lượt. Quản lý tài sản ở bên phải nếu cần.`], cx, 318, 640);
+  const cx = L.cx, cy = L.popCy, my = (y: number): number => L.phone ? L.msgY - 8 : y; // wide: over the board; phone: above the buttons
+  if (state.phase === 'roll' && human && !state.shaking) messageBox([`Lượt của ${p.name}${state.rolledDouble ? ': đổ đôi, được đổ tiếp!' : ''}`], cx, my(322), 460);
+  if (state.phase === 'jail' && human && !state.shaking) messageBox([`${p.name} đang ở tù. Đổ được đôi thì ra ngay (lượt ${p.jailTries + 1}/3; ở đủ 3 lượt thì lượt sau được ra).${p.noSalary ? (p.freeCards.length ? ' Dùng Thẻ Ra Tù thì được nhận lương lại!' : ' Lần qua Xuất Phát tới sẽ mất lương.') : ''}`], cx, my(312), 520);
+  if (state.phase === 'end' && human) messageBox([`${p.name}: hết lượt. Quản lý tài sản ${L.phone ? 'ở nút Tài sản' : 'ở bên phải'} nếu cần.`], cx, my(318), 640);
   if (!pop && state.phase !== 'pick' && state.phase !== 'debt') return;
-  if (state.phase === 'pick') { messageBox([human ? 'Vé máy bay: bấm một ô trên bàn cờ (hoặc dùng phím mũi tên) để bay tới.' : `${p.name} đang chọn nơi bay tới...`], cx, 545, 600); return; }
-  if (state.phase === 'debt') { const d = state.debt; messageBox([`${p.name} cần trả ${money(d.total)}, đang có ${money(p.cash)}.`, 'Bán bớt nhà hoặc cầm cố đất ở danh sách bên phải, rồi bấm Trả nợ.'], cx, 520, 620); return; }
-  if (pop.kind === 'notax') { messageBox([`Vòng đầu tiên (chưa qua Xuất Phát): miễn ${TILES[pop.tile].n}!`], cx, 330, 560); return; }
+  if (state.phase === 'pick') { messageBox([human ? 'Vé máy bay: bấm một ô trên bàn cờ (hoặc dùng phím mũi tên) để bay tới.' : `${p.name} đang chọn nơi bay tới...`], cx, my(545), 600); return; }
+  if (state.phase === 'debt') { const d = state.debt; messageBox([`${p.name} cần trả ${money(d.total)}, đang có ${money(p.cash)}.`, `Bán bớt nhà hoặc cầm cố đất ${L.phone ? 'ở nút Tài sản' : 'ở danh sách bên phải'}, rồi bấm Trả nợ.`], cx, L.phone ? L.msgY - 24 : 520, 620); return; }
+  if (pop.kind === 'notax') { messageBox([`Vòng đầu tiên (chưa qua Xuất Phát): miễn ${TILES[pop.tile].n}!`], cx, L.phone ? L.popCy : 330, 560); return; }
   if (pop.kind === 'buy' || pop.kind === 'build' || pop.kind === 'rent' || pop.kind === 'nobuy') {
     tileCard(pop.tile, cx, cy - 10);
-    if (pop.kind === 'rent') messageBox([`${p.name} trả ${state.players[pop.owner].name} ${money(pop.rent)}`], cx, 548, 520);
-    if (pop.kind === 'build') messageBox([`Đất của bạn! Xây thêm 1 cấp?`], cx, 548, 420);
-    if (pop.kind === 'nobuy') messageBox([`Vòng đầu tiên (chưa qua Xuất Phát): chưa được mua, chỉ ghé xem.`], cx, 548, 600);
-    if (!human && pop.kind !== 'rent' && pop.kind !== 'nobuy') messageBox([`${p.name} đang suy nghĩ...`], cx, 548, 420);
+    if (pop.kind === 'rent') messageBox([`${p.name} trả ${state.players[pop.owner].name} ${money(pop.rent)}`], cx, my(548), 520);
+    if (pop.kind === 'build') messageBox([`Đất của bạn! Xây thêm 1 cấp?`], cx, my(548), 420);
+    if (pop.kind === 'nobuy') messageBox([`Vòng đầu tiên (chưa qua Xuất Phát): chưa được mua, chỉ ghé xem.`], cx, my(548), 600);
+    if (!human && pop.kind !== 'rent' && pop.kind !== 'nobuy') messageBox([`${p.name} đang suy nghĩ...`], cx, my(548), 420);
   }
   if (pop.kind === 'tax') {
     const w = 460, h = 250, x = cx - w / 2, y = cy - h / 2;
@@ -1695,7 +1737,7 @@ function drawPopup() {
     text(`hoặc trả gọn ${money(pop.flat)}`, cx, y + 182, 19, '#2b1d12', 'center', 'bold');
     text('Tiền thuế vào hũ giữa bàn.', cx, y + 220, 15, '#6a5a4a');
     ctx.restore();
-    if (!human) messageBox([`${p.name} đang tính...`], cx, 548, 360);
+    if (!human) messageBox([`${p.name} đang tính...`], cx, my(548), 360);
   }
   if (pop.kind === 'card') {
     const w = 380, h = 250, x = cx - w / 2, y = cy - h / 2;
@@ -1709,7 +1751,7 @@ function drawPopup() {
     ctx.font = `bold 20px ${FONT}`;
     wrapLines(ctx, pop.card.txt, w - 60).forEach((l, j) => text(l, cx, y + 132 + j * 28, 20, co ? '#2b1d12' : '#fff8e6', 'center', 'bold'));
     ctx.restore();
-    if (!human) messageBox([`${p.name} đọc thẻ...`], cx, 548, 360);
+    if (!human) messageBox([`${p.name} đọc thẻ...`], cx, my(548), 360);
   }
 }
 const SPECIAL_INFO: Record<string, (t: Tile) => string[]> = {
@@ -1724,40 +1766,202 @@ const SPECIAL_INFO: Record<string, (t: Tile) => string[]> = {
 function drawInspect() {
   if (inspect < 0 || scene !== 'play') return;
   const i = inspect, t = TILES[i];
-  ctx.save(); ctx.fillStyle = 'rgba(10,5,3,0.45)'; ctx.fillRect(0, 0, BW, H); ctx.restore();
+  ctx.save(); ctx.fillStyle = 'rgba(10,5,3,0.45)'; ctx.fillRect(0, 0, L.phone ? W : BW, H); ctx.restore();
   if (OWNABLE(t)) {
-    tileCard(i, BW / 2, 330);
-    if (state.owner[i] >= 0 && !state.mort[i]) text(`Hiện thu: ${t.t === 'util' ? 'tổng xúc xắc × ' + money(rentOf(i, 1)) : money(rentOf(i, 7))}${t.t === 'prop' && ownsGroup(state.owner[i], t.g!) ? ' (đủ nhóm)' : ''}`, BW / 2, 528, 17, '#fff8e6', 'center', 'bold');
+    tileCard(i, L.cx, L.popCy);
+    if (state.owner[i] >= 0 && !state.mort[i]) text(`Hiện thu: ${t.t === 'util' ? 'tổng xúc xắc × ' + money(rentOf(i, 1)) : money(rentOf(i, 7))}${t.t === 'prop' && ownsGroup(state.owner[i], t.g!) ? ' (đủ nhóm)' : ''}`, L.cx, L.popCy + 198, 17, '#fff8e6', 'center', 'bold');
   } else {
     const w = 440; ctx.font = `17px ${FONT}`;
     const infoLines = SPECIAL_INFO[t.t](t).flatMap((para: string) => wrapLines(ctx, para, w - 50));
-    const h = Math.max(300, 190 + infoLines.length * 24), x = BW / 2 - w / 2, y = Math.max(20, 320 - h / 2);
+    const h = Math.max(300, 190 + infoLines.length * 24), x = L.cx - w / 2, y = Math.max(L.by + 10, L.popCy - 10 - h / 2);
     ctx.save();
     ctx.fillStyle = 'rgba(0,0,0,0.4)'; rrect(ctx, x + 6, y + 8, w, h, 14); ctx.fill();
     ctx.fillStyle = '#fbf3df'; rrect(ctx, x, y, w, h, 14); ctx.fill(); ctx.strokeStyle = '#5a3d2b'; ctx.lineWidth = 3; ctx.stroke();
     ctx.fillStyle = '#5a3d2b'; rrect(ctx, x + 10, y + 10, w - 20, 60, 8); ctx.fill();
-    text(t.n, BW / 2, y + 40, 26, '#fff8e6', 'center', 'bold');
+    text(t.n, L.cx, y + 40, 26, '#fff8e6', 'center', 'bold');
     const draw = ({ co: 'lantern', kv: 'envelope', tax: 'coins', go: 'arrow', jail: 'bars', free: 'palm', gojail: 'cap' } as Record<string, string>)[t.t];
-    if (draw === 'arrow') icon.arrow(ctx, BW / 2, y + 115, 70, Math.PI); else (icon as Loose)[draw](ctx, BW / 2, y + 115, 70);
+    if (draw === 'arrow') icon.arrow(ctx, L.cx, y + 115, 70, Math.PI); else (icon as Loose)[draw](ctx, L.cx, y + 115, 70);
     let yy = y + 175;
-    for (const ln of infoLines) { text(ln, BW / 2, yy, 17, '#2b1d12'); yy += 24; }
+    for (const ln of infoLines) { text(ln, L.cx, yy, 17, '#2b1d12'); yy += 24; }
     ctx.restore();
   }
   const here = state.players.filter(p => !p.bankrupt && p.pos === i).map(p => p.name);
-  if (here.length) text(`Đang đứng ở đây: ${here.join(', ')}`, BW / 2, 140, 16, '#fff8e6', 'center', 'bold');
+  if (here.length) text(`Đang đứng ở đây: ${here.join(', ')}`, L.cx, L.phone ? L.by + 20 : 140, 16, '#fff8e6', 'center', 'bold');
   drawingInspect = true; ui.forEach(b => { if (b.role === 'close') drawButton(b); }); drawingInspect = false;
 }
 function drawFloaters() {
   for (const f of state.floaters) {
     const u = f.t / 1.4, a = 1 - u;
     let x, y;
-    if (f.row !== undefined) { x = PX + PW - 26; y = 76 + f.row * 72 + 40 - u * 26; }
+    if (f.row !== undefined) { const r = rowSpot(f.row); x = r.x; y = r.y - u * 26; }
     else { const s = project(f.world.x, f.world.y, f.world.z); x = s.x; y = s.y - u * 50; }
     ctx.save(); ctx.globalAlpha = Math.max(0, a);
     ctx.font = `bold 18px ${FONT}`; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,0.75)'; ctx.textAlign = f.row !== undefined ? 'right' : 'center'; ctx.textBaseline = 'middle';
     ctx.strokeText(f.s, x, y); ctx.fillStyle = f.color; ctx.fillText(f.s, x, y);
     ctx.restore();
   }
+}
+
+// ---- The phone layout's own pieces: header, players, the button strip, the property sheet --------
+/** Where a player's money shows: floaters rise from there. */
+function rowSpot(pi: number): { x: number; y: number } {
+  if (!L.phone) return { x: PX + PW - 26, y: 76 + pi * 72 + 40 };
+  const c = phoneCard(pi);
+  return { x: c.x + c.w - 10, y: c.y + 40 };
+}
+/** A player's card on the phone: two columns, two rows, under the board. */
+function phoneCard(pi: number): { x: number; y: number; w: number; h: number } {
+  return { x: 8 + (pi % 2) * 236, y: L.by + L.bh + 34 + Math.floor(pi / 2) * 64, w: 228, h: 58 };
+}
+/** The header, the log line, the players and the strip behind the buttons. */
+function drawPhoneChrome() {
+  lacquer(0, 0, W, L.by);
+  text('TỶ PHÚ ĐẤT VIỆT', 14, L.by / 2, 19, '#f2c44a', 'left', 'bold');
+  const roundTxt = state.mode === 'rounds' ? `Vòng ${Math.min(state.round, tune.max_rounds)}/${tune.max_rounds}` : `Vòng ${state.round}`;
+  text(roundTxt + (roomCode ? ` · ${roomCode}` : ''), W - 64, L.by / 2, 15, '#e8d9b5', 'right');
+  const top = L.by + L.bh;
+  lacquer(0, top, W, H - top);
+  const last = state.log[state.log.length - 1] || '';
+  ctx.save(); ctx.font = `14px ${FONT}`;
+  let line = last;
+  while (line.length > 4 && ctx.measureText(line).width > W - 24) line = line.slice(0, -2);
+  if (line !== last) line = line.slice(0, -1) + '…';
+  ctx.restore();
+  text(line, 12, top + 17, 14, '#e8d9b5', 'left');
+  state.players.forEach((p, pi) => {
+    const c = phoneCard(pi), cur = pi === state.cur && state.phase !== 'over';
+    ctx.save(); ctx.globalAlpha = p.bankrupt ? 0.45 : 1;
+    ctx.fillStyle = cur ? '#5a2a1c' : '#2c140f'; rrect(ctx, c.x, c.y, c.w, c.h, 10); ctx.fill();
+    ctx.strokeStyle = cur ? '#f2c44a' : '#6a4a2a'; ctx.lineWidth = cur ? 3 : 1; ctx.stroke();
+    ctx.fillStyle = p.color; rrect(ctx, c.x, c.y, 7, c.h, 4); ctx.fill();
+    ctx.fillStyle = '#f4ead2'; ctx.beginPath(); ctx.arc(c.x + 30, c.y + c.h / 2, 19, 0, 7); ctx.fill();
+    drawTokenIcon(p.token, c.x + 30, c.y + c.h / 2 + 2, 32, p.color);
+    let name = p.name;
+    ctx.font = `bold 16px ${FONT}`;
+    while (name.length > 3 && ctx.measureText(name).width > c.w - 64) name = name.slice(0, -1);
+    ctx.restore();
+    ctx.save(); ctx.globalAlpha = p.bankrupt ? 0.45 : 1;
+    text(name, c.x + 56, c.y + 18, 16, '#fff8e6', 'left', 'bold');
+    text(money(p.cash), c.x + 56, c.y + 40, 16, p.cash < 0 ? '#ff8a7a' : '#f2c44a', 'left', 'bold');
+    const tag = p.bankrupt ? 'phá sản' : p.inJail ? 'trong tù' : p.kind === 'remote' && p.offline ? 'mất mạng' : `${owned(pi).length} ô`;
+    text(tag, c.x + c.w - 8, c.y + 18, 13, '#d9c8a6', 'right');
+    ctx.restore();
+  });
+}
+/** Phone: the button that opens the property sheet, under the turn's buttons. */
+function buildSheetButton(pi: number) {
+  btn(L.cx - 110, L.btnY + 64, 220, 44, `Tài sản (${owned(pi).length})`, () => { sheetOpen = true; propScroll = 0; }, '', true, '#6a4a2a');
+}
+const SHEET = { x: 10, y: 60, w: 460, rowY: 120, rowH: 46, rows: 15 };
+/** Phone: the property sheet's buttons: sell, mortgage, unmortgage on the player's turn; a row's name opens its card. */
+function buildSheetUI(pi: number) {
+  const mine = owned(pi), p = state.players[pi];
+  const act = humanTurn() && ['roll', 'end', 'debt', 'jail'].includes(state.phase);
+  propScroll = Math.max(0, Math.min(propScroll, mine.length - SHEET.rows));
+  mine.slice(propScroll, propScroll + SHEET.rows).forEach((i, r) => {
+    const y = SHEET.rowY + r * SHEET.rowH;
+    btn(SHEET.x + 4, y, 300, SHEET.rowH - 4, '', () => { inspect = i; }, 'hidden');
+    if (!act) return;
+    if (state.level[i] > 0) btn(SHEET.x + SHEET.w - 126, y + 4, 118, SHEET.rowH - 12, 'Bán 1 cấp', () => sellLevel(pi, i), 'row', true, undefined, `sell:${i}`);
+    else if (state.mort[i]) btn(SHEET.x + SHEET.w - 126, y + 4, 118, SHEET.rowH - 12, 'Chuộc', () => unmortgage(pi, i), 'row', p.cash >= TILES[i].p! * tune.unmortgage_pct, undefined, `unmort:${i}`);
+    else btn(SHEET.x + SHEET.w - 126, y + 4, 118, SHEET.rowH - 12, 'Cầm cố', () => mortgage(pi, i), 'row', true, undefined, `mort:${i}`);
+  });
+  const bottom = SHEET.rowY + SHEET.rows * SHEET.rowH + 8;
+  if (mine.length > SHEET.rows) {
+    btn(SHEET.x + 20, bottom, 120, 44, 'up', () => { propScroll = Math.max(0, propScroll - SHEET.rows); }, 'arrowUp', propScroll > 0);
+    btn(SHEET.x + SHEET.w - 140, bottom, 120, 44, 'down', () => { propScroll += SHEET.rows; }, 'arrowDown', propScroll + SHEET.rows < mine.length);
+  }
+  btn(L.cx - 110, bottom + 56, 220, 52, 'Đóng', () => { sheetOpen = false; }, 'secondary', true, '#6a4a2a');
+}
+/** Phone: the property sheet itself, under its buttons. */
+function drawSheet() {
+  const pi = state.cur, p = curP(), mine = owned(pi);
+  const h = SHEET.rowY + SHEET.rows * SHEET.rowH + 130 - SHEET.y;
+  ctx.save(); ctx.fillStyle = 'rgba(10,5,3,0.6)'; ctx.fillRect(0, 0, W, H); ctx.restore();
+  lacquer(SHEET.x, SHEET.y, SHEET.w, h);
+  text(humanTurn() ? 'Tài sản của bạn' : `Tài sản của ${p.name}`, SHEET.x + SHEET.w / 2, SHEET.y + 30, 20, '#f2c44a', 'center', 'bold');
+  if (!mine.length) text('Chưa có ô đất nào.', SHEET.x + SHEET.w / 2, SHEET.rowY + 30, 17, '#d9c8a6');
+  mine.slice(propScroll, propScroll + SHEET.rows).forEach((i, r) => {
+    const y = SHEET.rowY + r * SHEET.rowH, t = TILES[i];
+    ctx.fillStyle = r % 2 ? '#2c140f' : '#34180f'; ctx.fillRect(SHEET.x + 8, y, SHEET.w - 16, SHEET.rowH - 4);
+    ctx.fillStyle = t.t === 'prop' ? GROUPS[t.g!].color : '#9a8a6a'; ctx.fillRect(SHEET.x + 16, y + 11, 16, 20);
+    text(t.n, SHEET.x + 42, y + 21, 17, state.mort[i] ? '#9a8a7a' : '#fff8e6', 'left');
+    const tag = state.mort[i] ? 'cầm cố' : LEVEL_SHORT[state.level[i]];
+    if (tag) text(tag, SHEET.x + 262, y + 21, 15, state.mort[i] ? '#ff9a8a' : '#7ee08a', 'center', 'bold');
+  });
+}
+
+/** Where the title screen's buttons sit, wide or phone. */
+function titleSpots() {
+  return L.phone
+    ? { seatX: 246, seatW: 226, seatH: 52, y0: 178, step: 64, modeDy: 8, start: [16, 560, 448, 60], online: [16, 632, 448, 56], leave: [16, 600, 448, 60] }
+    : { seatX: BW / 2 - 20, seatW: 300, seatH: 50, y0: 250, step: 62, modeDy: 10, start: [BW / 2 - 290, 600, 280, 60], online: [BW / 2 + 10, 600, 280, 60], leave: [BW / 2 - 140, 600, 280, 60] };
+}
+/** Phone: the title screen, one column. */
+function drawTitlePhone() {
+  clear('#1d120c');
+  drawBoardView();
+  ctx.fillStyle = 'rgba(20,10,6,0.86)'; ctx.fillRect(0, 0, W, H);
+  const T = titleSpots();
+  text(TITLE.toUpperCase(), W / 2, 58, 34, '#f2c44a', 'center', 'bold');
+  text('Cờ tỷ phú trên bản đồ Việt Nam · 2 đến 4 người', W / 2, 96, 15, '#e8d9b5');
+  const hint = isGuest() ? (lobby ? `Phòng ${roomCode} · chờ ${lobby.hostName || 'chủ phòng'} bắt đầu ván` : `Đang vào phòng ${roomCode}...`)
+    : isHost() ? `Gửi mã ${roomCode} cho bạn bè: họ sẽ vào chỗ "Chờ bạn online"` : 'Bấm từng chỗ ngồi để đổi người chơi';
+  ctx.font = `15px ${FONT}`;
+  wrapLines(ctx, hint, W - 40).slice(0, 2).forEach((l, j) => text(l, W / 2, 130 + j * 20, 15, isGuest() || isHost() ? '#f2c44a' : '#cbb994'));
+  const seatsShown: Seat[] = isGuest() ? (lobby ? lobby.seats : []) : setup.seats;
+  seatsShown.forEach((s, i) => {
+    const y = T.y0 + i * T.step, cy = y + T.seatH / 2;
+    ctx.fillStyle = '#f4ead2'; ctx.beginPath(); ctx.arc(34, cy, 22, 0, 7); ctx.fill();
+    drawTokenIcon(i, 34, cy + 2, 36, PLAYER_COLORS[i]);
+    text(`${PLAYER_COLOR_NAMES[i]} · ${TOKEN_NAMES[i]}`, 64, cy, 16, s.kind === 'off' ? '#7a6a5a' : '#fff8e6', 'left', 'bold');
+    if (isGuest()) {
+      ctx.save(); ctx.fillStyle = i === mySeat ? '#5a2a1c' : '#2c140f'; rrect(ctx, T.seatX, y, T.seatW, T.seatH, 12); ctx.fill();
+      ctx.strokeStyle = i === mySeat ? '#f2c44a' : '#6a4a2a'; ctx.lineWidth = i === mySeat ? 3 : 1; ctx.stroke(); ctx.restore();
+      text(seatLabel(s) + (i === mySeat ? ' (bạn)' : ''), T.seatX + T.seatW / 2, cy, 15, '#fff8e6', 'center', 'bold');
+    }
+  });
+  const modeY = T.y0 + 4 * T.step + T.modeDy + T.seatH / 2;
+  text('Kiểu ván', 64, modeY, 16, '#fff8e6', 'left', 'bold');
+  if (isGuest() && lobby) text(lobby.mode === 'rounds' ? `${tune.max_rounds} vòng` : 'Tới khi phá sản', T.seatX + T.seatW / 2, modeY, 15, '#fff8e6', 'center', 'bold');
+  ui.forEach(drawButton);
+  if (roomCode) {
+    ctx.save(); ctx.fillStyle = '#5a2a1c'; rrect(ctx, 60, 712, W - 120, 96, 14); ctx.fill(); ctx.strokeStyle = '#f2c44a'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
+    text('MÃ PHÒNG', W / 2, 734, 15, '#e8d9b5', 'center', 'bold');
+    text(roomCode, W / 2, 776, 42, '#f2c44a', 'center', 'bold');
+  }
+  const tips = ['Giữ nút để lắc xúc xắc, thả ra để ném.', 'Chạm vào một ô trên bàn cờ để xem thông tin.', 'Dẫm lại đất của mình: xây thêm 1 cấp.'];
+  tips.forEach((t, j) => text(t, W / 2, 846 + j * 26, 14, '#cbb994'));
+  drawNetBanner();
+}
+/** Phone: the end of the game, one column. */
+function drawResultsPhone() {
+  clear('#1d120c');
+  drawBoardView();
+  ctx.fillStyle = 'rgba(20,10,6,0.7)'; ctx.fillRect(0, 0, W, H);
+  ctx.save(); ctx.fillStyle = 'rgba(30,12,8,0.94)'; rrect(ctx, 10, 60, W - 20, 760, 20); ctx.fill(); ctx.strokeStyle = '#c9a24a'; ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
+  for (let k = 0; k < 30; k++) { // a fanfare of drawn confetti
+    const x = 30 + ((k * 137) % (W - 60)), y = 70 + ((k * 53 + state.t * 90 * (1 + k % 3)) % 740);
+    ctx.fillStyle = PLAYER_COLORS[k % 4]; ctx.save(); ctx.translate(x, y); ctx.rotate(k + state.t * 3); ctx.fillRect(-5, -2, 10, 4); ctx.restore();
+  }
+  const w = state.players[state.ranking![0].i];
+  ctx.font = `16px ${FONT}`;
+  wrapLines(ctx, state.reason || '', W - 60).forEach((l, j) => text(l, W / 2, 100 + j * 22, 16, '#e8d9b5'));
+  ctx.fillStyle = '#f4ead2'; ctx.beginPath(); ctx.arc(W / 2, 185, 44, 0, 7); ctx.fill();
+  drawTokenIcon(w.token, W / 2, 188, 72, w.color);
+  ctx.font = `bold 26px ${FONT}`;
+  wrapLines(ctx, state.gained, W - 50).forEach((l, j) => text(l, W / 2, 262 + j * 32, 26, '#f2c44a', 'center', 'bold'));
+  state.ranking!.forEach((r, j) => {
+    const p = state.players[r.i], y = 350 + j * 62;
+    ctx.fillStyle = j === 0 ? '#5a2a1c' : '#2c140f'; rrect(ctx, 26, y - 26, W - 52, 54, 8); ctx.fill();
+    text(`${j + 1}.`, 48, y, 20, '#f2c44a', 'center', 'bold');
+    ctx.fillStyle = p.color; ctx.fillRect(66, y - 12, 10, 24);
+    text(p.name, 86, y - 10, 17, '#fff8e6', 'left', 'bold');
+    text(r.bankrupt ? 'Phá sản' : `Tài sản ${money(r.worth)}`, 86, y + 13, 15, r.bankrupt ? '#ff9a8a' : '#e8d9b5', 'left');
+  });
+  if (isGuest()) text('Chờ chủ phòng bắt đầu ván mới...', W / 2, 866, 17, '#e8d9b5');
+  ui.forEach(drawButton);
+  drawNetBanner();
 }
 
 // ---- Scenes ------------------------------------------------------------------------------
@@ -1776,6 +1980,7 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
   title: {
     update(dt: number) { state.t += dt; buildUI(); handleInput(); },
     draw() {
+      if (L.phone) { drawTitlePhone(); return; }
       clear('#1d120c');
       drawBoardView();
       ctx.fillStyle = 'rgba(20,10,6,0.55)'; ctx.fillRect(0, 0, BW, H);
@@ -1822,7 +2027,7 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
       if (scene !== 'play') return;
       { // the tile under the mouse lights up and the cursor says it can be clicked
         const onBtn = ui.some(b => b.role !== 'hidden' && pointer.x >= b.x && pointer.x <= b.x + b.w && pointer.y >= b.y && pointer.y <= b.y + b.h);
-        const pt = pointer.x >= 0 && pointer.x < BW && !onBtn ? boardPointAt(pointer.x, pointer.y) : null;
+        const pt = inBoard(pointer.x, pointer.y) && !onBtn ? boardPointAt(pointer.x, pointer.y) : null;
         hoverTile = pt ? tileAt(pt.x, pt.z) : -1;
         canvas.style.cursor = hoverTile >= 0 || onBtn ? 'pointer' : 'default';
       }
@@ -1836,11 +2041,12 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
     draw() {
       clear('#1d120c');
       drawBoardView();
-      drawLog();
+      if (L.phone) drawPhoneChrome(); else drawLog();
       drawPotLabel();
       drawDiceFeel();
       drawPopup();
-      drawPanel();
+      if (!L.phone) drawPanel();
+      if (sheetOpen) drawSheet();
       ui.forEach(drawButton);
       drawFloaters();
       drawInspect();
@@ -1856,6 +2062,7 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
       for (const f of state.floaters) f.t += dt; state.floaters = state.floaters.filter(f => f.t < 1.4);
     },
     draw() {
+      if (L.phone) { drawResultsPhone(); return; }
       clear('#1d120c');
       drawBoardView();
       ctx.fillStyle = 'rgba(20,10,6,0.55)'; ctx.fillRect(0, 0, BW, H);

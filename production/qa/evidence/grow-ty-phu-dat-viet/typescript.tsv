@@ -1,0 +1,176 @@
+browser	/c/Program Files/Google/Chrome/Application/chrome.exe
+time	2026-11-16 18:05:35
+render	cheap
+webgl	ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)
+ua	HeadlessChrome/157.0.0.0
+scene	0	title
+state	0	title	{"t":0,"score":0,"gained":"","players":[{"id":0,"kind":"human","lv":0,"color":"#d62828","token":0,"name":"Người Đỏ","cash":2000,"pos":0,"laps":0,"inJail":false,"jailTries":0,"freeCards":[],"bankrupt":
+scene	1	play
+state	1	play	{"t":0,"score":0,"gained":"","players":[{"id":0,"kind":"human","lv":0,"color":"#d62828","token":0,"name":"Người Đỏ","cash":2000,"pos":0,"laps":0,"inJail":false,"jailTries":0,"freeCards":[],"bankrupt":
+playinput	4	Space
+frame	3481	f703f7b
+frame	3482	1c3090e7
+frame	3483	bff331
+frame	3484	1430843b
+frame	3485	69c967d0
+frame	3486	dc42332f
+frame	3487	a254b073
+frame	3488	825ea98e
+frame	3489	c278c5e3
+frame	3490	dc4bbce9
+frame	3491	2adb4f08
+frame	3492	79cc79fb
+frame	3493	9e083b9b
+frame	3494	da2eb32e
+frame	3495	30297709
+frame	3496	66d17256
+frame	3497	602f0c7
+frame	3498	f61d8a26
+frame	3499	ef49c36f
+frame	3500	9685f5d5
+frame	3501	7551374
+frame	3502	5f2a64c1
+frame	3503	b3a0a546
+frame	3504	471e0156
+frame	3505	d0a52a6a
+frame	3506	4df40957
+frame	3507	2ef99383
+frame	3508	95105424
+frame	3509	63220062
+frame	3510	447f3a13
+frame	3511	40983958
+frame	3512	e07733f8
+frame	3513	fde3547d
+frame	3514	2cef99fb
+frame	3515	d4b57158
+frame	3516	19ddfe60
+frame	3517	962d1cda
+frame	3518	92e1b8a6
+frame	3519	990b64d
+frame	3520	308324c9
+frame	3521	a79140ce
+frame	3522	bdc2f4e7
+frame	3523	547c4208
+frame	3524	b2aa924d
+frame	3525	1d49f7c1
+frame	3526	bd59ebc2
+frame	3527	24852dee
+frame	3528	2676ab04
+frame	3529	7f309998
+frame	3530	8c5f86ca
+frame	3531	442b319a
+frame	3532	30b14a3e
+frame	3533	18076297
+frame	3534	61bb79a0
+frame	3535	9e7ee914
+frame	3536	b995ce92
+frame	3537	13d14fce
+frame	3538	d7ea57ef
+frame	3539	440bb356
+frame	3540	29ab3b72
+frame	3541	b567c1c2
+frame	3542	564fda1
+frame	3543	933c034e
+frame	3544	77579f1b
+frame	3545	a5da979
+frame	3546	6289915d
+frame	3547	6478bd87
+frame	3548	6025d793
+frame	3549	e948e1e8
+frame	3550	5120aef3
+frame	3551	780454
+frame	3552	ca219504
+frame	3553	7c2e14cf
+frame	3554	ab46e33b
+frame	3555	ba0f05c7
+frame	3556	b6ff0d01
+frame	3557	ae3cd8cb
+frame	3558	50d07f6
+frame	3559	b5d91f15
+frame	3560	b016a87a
+frame	3561	ac3ab425
+frame	3562	27581b11
+frame	3563	3b85b1de
+frame	3564	74099bd6
+frame	3565	fc6dc4dd
+frame	3566	9c31d028
+frame	3567	f97767b7
+frame	3568	e493b339
+frame	3569	2facfb0d
+frame	3570	1511f6a9
+frame	3571	ffa9f7be
+frame	3572	d25f8104
+frame	3573	799479bc
+frame	3574	bd06d228
+frame	3575	7f07a7de
+frame	3576	730a68db
+frame	3577	4fb5f226
+frame	3578	8f6dfdc
+frame	3579	781c7dbb
+frame	3580	866c93d7
+frame	3581	6d7d2da0
+frame	3582	bb080996
+frame	3583	24174e9f
+frame	3584	18782d74
+frame	3585	ab717368
+frame	3586	861466b3
+frame	3587	9f3f9bd5
+frame	3588	23283d49
+frame	3589	42c5ba1b
+frame	3590	6f9318ae
+frame	3591	882f09da
+frame	3592	8d1eba81
+frame	3593	3e873774
+frame	3594	c623a223
+frame	3595	c5a4fd0a
+frame	3596	30c3917f
+frame	3597	1e441ea
+frame	3598	fea17287
+frame	3599	83325071
+frame	3600	2972e9e6
+state	3600	play	{"t":59.98,"score":0,"gained":"","players":[{"id":0,"kind":"human","lv":0,"color":"#d62828","token":0,"name":"Người Đỏ","cash":2000,"pos":32,"laps":0,"inJail":false,"jailTries":0,"freeCards":[],"bankr
+digits	log	bold 40px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
+digits	log	bold 32px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
+digits	log	19px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
+digits	log	16px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
+digits	log	15px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
+digits	log	bold 16px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
+digits	log	bold 44px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
+digits	log	bold 18px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
+digits	log	bold 15px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
+digits	log	bold 20px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
+loop	log	none	no loop() step was marked
+first	log	none	no state.beat
+pressure	none	the game set no number state.margin in play
+steptime	3600	0.021	4.100
+frametime	60	36.5	172.8	60	60	3
+done	3600	play	stop	60.0	10975
+console	0	[.WebGL-0x515c001b7600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+console	0	[.WebGL-0x515c001b7600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+console	0	[.WebGL-0x515c001b7600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+console	0	[.WebGL-0x515c001b7600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)
+measured	1280x720
+text	play	canvas	23,20,449,35	21.0	7.80	inside	Máy Vàng chưa qua Xuất Phát lần nào: chưa được mua Nghệ An.
+text	play	canvas	23,41,216,57	21.0	7.80	inside	Người Đỏ đổ 4 + 4 = 8 (đôi!).
+text	play	canvas	23,63,438,79	21.0	14.17	inside	Người Đỏ rút thẻ Khí Vận: Trúng số độc đắc! Nhận 1.500.000 đ
+text	play	canvas	407,164,495,176	22.5	7.81	inside	Hũ tiền: 0 đ
+text	play	canvas	419,240,541,275	42.0	4.75	inside	KHÍ VẬN
+text	play	canvas	290,327,610,348	28.5	5.38	inside	Trúng số độc đắc! Nhận 1.500.000
+text	play	canvas	441,356,459,371	28.5	5.38	inside	đ.
+text	play	canvas	977,14,1176,41	34.5	9.74	inside	TỶ PHÚ ĐẤT VIỆT
+text	play	canvas	1006,50,1173,66	22.5	11.58	inside	Vòng 2 · tới khi phá sản
+text	play	canvas	985,85,1067,103	25.5	11.12	inside	Người Đỏ
+text	play	canvas	985,113,1163,128	21.0	7.16	inside	Người chơi · 0 ô · vòng đầu
+text	play	canvas	1155,85,1255,99	25.5	7.16	inside	2.000.000 đ
+text	play	canvas	985,157,1069,175	25.5	16.33	inside	Máy Xanh
+text	play	canvas	985,185,1148,200	21.0	10.51	inside	Máy Vừa · 0 ô · vòng đầu
+text	play	canvas	1155,157,1255,171	25.5	10.52	inside	2.000.000 đ
+text	play	canvas	985,230,1068,247	25.5	16.33	inside	Máy Vàng
+text	play	canvas	985,255,1141,272	21.0	10.51	inside	Máy Dễ · 0 ô · vòng đầu
+text	play	canvas	1155,229,1255,243	25.5	10.52	inside	2.000.000 đ
+text	play	canvas	922,376,1043,392	24.0	10.70	inside	Tài sản của bạn
+text	play	canvas	922,410,1047,422	21.0	10.74	inside	Chưa có ô đất nào.
+text	play	canvas	413,616,486,639	30.0	5.38	inside	Đồng ý
+screen	3600	play	e60a6cab	drawn
+uncaught	0
+shot	/d/cotyphu/production/qa/evidence/grow-ty-phu-dat-viet/typescript.png	344213

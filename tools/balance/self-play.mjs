@@ -1,7 +1,8 @@
 // Self-play for balance: the computer plays itself many times and the numbers are written out.
 //
 //   npm run build:single
-//   node tools/balance/self-play.mjs <name> <games> <seats> <mode> <out.json> [maxRounds]
+//   node tools/balance/self-play.mjs <name> <games> <seats> <mode> <out.json> [maxRounds] [tuneJSON]
+//     tuneJSON: values to try instead of data/config.json's, e.g. '{"rent_scale":2}'
 //     seats: comma list of ai0 (Dễ), ai1 (Vừa), ai2 (Khó), e.g. ai1,ai1,ai1,ai1
 //     mode:  bankrupt (until one is left) or rounds (max_rounds, richest wins)
 //
@@ -15,7 +16,8 @@ import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const [name, gamesArg, seatsArg, mode, out, capArg] = process.argv.slice(2);
+const [name, gamesArg, seatsArg, mode, out, capArg, tuneArg] = process.argv.slice(2);
+const tune = tuneArg ? JSON.parse(tuneArg) : {};
 if (!out) { console.error('usage: self-play.mjs <name> <games> <seats> <mode> <out.json>'); process.exit(2); }
 const games = Number(gamesArg);
 const seats = seatsArg.split(',').map(s => ({ kind: 'ai', lv: Number(s.replace('ai', '')) }));
@@ -35,9 +37,9 @@ const results = [];
 const t0 = Date.now();
 for (let g = 0; g < games; g++) {
   const seed = 1000 + g;
-  const r = await page.evaluate(({ seats, mode, seed, MAX_ROUNDS }) => {
+  const r = await page.evaluate(({ seats, mode, seed, MAX_ROUNDS, tune }) => {
     const game = window.game;
-    game.configure({ seats, mode, seed });
+    game.configure({ seats, mode, seed, tune });
     game.events.length = 0;
     game.press('Enter'); game.step(1, false);
     const rents = {};
@@ -54,10 +56,10 @@ for (let g = 0; g < games; g++) {
       winnerPos: game.scene === 'results' ? s.ranking[0].i : -1,
       owner: s.owner, level: s.level, rents,
     };
-  }, { seats, mode, seed, MAX_ROUNDS });
+  }, { seats, mode, seed, MAX_ROUNDS, tune });
   results.push(r);
   if ((g + 1) % 25 === 0) console.log(`${name}: ${g + 1}/${games} games, ${((Date.now() - t0) / 1000).toFixed(0)}s`);
 }
 await browser.close();
-writeFileSync(out, JSON.stringify({ name, games, seats, mode, maxRounds: MAX_ROUNDS, errors, results }));
+writeFileSync(out, JSON.stringify({ name, games, seats, mode, maxRounds: MAX_ROUNDS, tune, errors, results }));
 console.log(`${name}: done, ${errors.length} page errors -> ${out}`);

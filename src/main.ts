@@ -2758,9 +2758,10 @@ install({
   press(code: string) { hit.add(code); },
   hold(code: string, on: boolean) { if (on) down.add(code); else down.delete(code); },
   get events() { return events; },
-  /** For checks and the balance tools: the seats, the kind of game and the seed of the next game, and
+  /** For checks and the balance tools: the seats, the kind of game, the seed and tuning values for the next game, and
    * back to the title screen, where Enter starts it. */
-  configure(o: { seats?: Seat[]; mode?: 'bankrupt' | 'rounds'; seed?: number }) {
+  configure(o: { seats?: Seat[]; mode?: 'bankrupt' | 'rounds'; seed?: number; tune?: Record<string, number> }) {
+    for (const [k, v] of Object.entries(o.tune || {})) if (CONFIG[k] && typeof v === 'number') CONFIG[k].value = v; // try other values
     if (o.seats) setup.seats = o.seats.map(x => ({ ...x }));
     if (o.mode) setup.mode = o.mode;
     if (o.seed !== undefined) checkSeed = o.seed;

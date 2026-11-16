@@ -110,7 +110,8 @@ function sendAct(act: string, i?: number) {
 
 const handlers: net.NetHandlers = {
   onRoom(code) { roomCode = code; netError = ''; if (isHost()) sendLobby(); },
-  onPeer(id, name, online) {
+  onPeer(id, name, online, left) {
+    if (left) { peerLeft(id, name); return; }
     const known = peers.has(id);
     peers.set(id, { name, online });
     if (!known) seatPeer(id, name);
@@ -123,6 +124,7 @@ const handlers: net.NetHandlers = {
   onFromPeer(from, d) { if (d && d.k === 'act') onGuestAct(from, d); },
   onFromHost(d) { onHostMsg(d); },
   onHost(online) { hostOnline = online; },
+  onClosed() { goOffline('Chủ phòng đã giải tán phòng chơi.'); },
   onLink(up) { linkUp = up; },
   onError(msg) { netError = msg; roomCode = ''; showOnlinePanel(true); },
 };
@@ -245,11 +247,31 @@ function showOnlinePanel(on: boolean) {
   onlinePanel.style.display = on ? 'flex' : 'none';
 }
 /** Leaves the room and goes back to playing on this screen. */
+/** Leaves the room: a guest frees their seat, a host closes the room for everyone. */
 function leaveRoom() {
-  net.leave(); roomCode = ''; mySeat = -1; lobby = null; peers.clear(); netError = '';
+  if (isGuest()) net.quitRoom(); else if (isHost()) net.closeRoom(); else net.leave();
+  goOffline('');
+}
+/** Back to playing on this screen, with a note on the title screen when there is one. */
+function goOffline(note: string) {
+  roomCode = ''; mySeat = -1; lobby = null; peers.clear(); netError = note; roomMenu = false;
   setup.seats.forEach((s, i) => { if (s.kind === 'remote') setup.seats[i] = { kind: 'ai', lv: 1 }; });
   scene = 'title'; reset(); clearVis();
 }
+/** Host: a friend left the room for good. Before a game their seat waits for someone new; in a game
+ * the computer plays it from now on. */
+function peerLeft(id: number, name: string) {
+  peers.delete(id);
+  const i = setup.seats.findIndex(s => s.kind === 'remote' && s.peer === id);
+  if (i >= 0) setup.seats[i] = { kind: 'remote' };
+  if (scene !== 'title' && state && state.players) for (const p of state.players) {
+    if (p.peer !== id) continue;
+    p.kind = 'ai'; p.lv = 1; delete p.peer; p.offline = false;
+    log(`${name || p.name} đã rời phòng, máy chơi thay.`);
+  }
+  sendLobby();
+}
+let roomMenu = false; // the room menu: leave (a friend) or close the room (the host), asked twice
 
 // ---- Rules --------------------------------------------------------------------------
 let setup: { seats: Seat[]; mode: 'bankrupt' | 'rounds' } = { seats: [{ kind: 'human' }, { kind: 'ai', lv: 1 }, { kind: 'ai', lv: 0 }, { kind: 'off' }], mode: 'bankrupt' };
@@ -1377,13 +1399,18 @@ function buildUI() {
   ui = [];
   if (scene === 'title') { buildTitleUI(); return; }
   if (scene === 'results') {
-    if (isGuest()) return; // only the host starts the next game
+    if (isGuest()) { btn(L.cx - 95, L.phone ? 840 : 560, 190, 52, 'Rời phòng', leaveRoom, 'secondary', true, '#6a4a2a'); return; } // only the host starts the next game
     btn(L.cx - 200, L.phone ? 840 : 560, 190, 52, 'Chơi lại (Enter)', () => { reset(); clearVis(); scene = 'play'; }, 'primary');
     btn(L.cx + 10, L.phone ? 840 : 560, 190, 52, 'Ván mới (N)', () => { scene = 'title'; }, 'secondary');
     return;
   }
   if (scene !== 'play') return;
   btn(W - 52, 12, 40, 34, '', () => setMuted(!muted()), 'mute');
+  if (roomCode) {
+    const r = roomPill();
+    btn(r.x, r.y, r.w, r.h, `Phòng ${roomCode}`, () => { roomMenu = true; inspect = -1; sheetOpen = false; }, 'room');
+  }
+  if (roomMenu) { buildRoomMenu(); return; }
   if (inspect >= 0) { btn(L.cx - 90, L.closeY, 180, 50, 'Đóng', () => { inspect = -1; }, 'close'); return; }
   if (sheetOpen) { buildSheetUI(state.cur); return; }
   if (!L.phone) { // click a row of the property list to see that land's card
@@ -1432,6 +1459,28 @@ function buildTurnUI() {
   if (['roll', 'end', 'debt', 'jail'].includes(state.phase)) { if (L.phone) buildSheetButton(state.cur); else buildPropUI(state.cur); }
 }
 /** What a seat is, in the seat's button. */
+/** Where the room code's button sits: the panel's top line, or the phone's header. */
+function roomPill(): { x: number; y: number; w: number; h: number } {
+  return L.phone ? { x: W - 162, y: 9, w: 100, h: 32 } : { x: W - 186, y: 44, w: 126, h: 30 };
+}
+/** The room menu's two buttons, over everything. */
+function buildRoomMenu() {
+  const y = (L.phone ? 470 : 360) + 46;
+  const go = isHost() ? 'Giải tán phòng' : 'Rời phòng';
+  btn(L.cx - 210, y, 200, 54, go, leaveRoom, 'menu', true, '#c8201f');
+  btn(L.cx + 10, y, 200, 54, 'Ở lại', () => { roomMenu = false; }, 'menuSecondary', true, '#6a4a2a');
+}
+let drawingMenu = false;
+/** The room menu: what leaving does, then the two buttons. */
+function drawRoomMenu() {
+  if (!roomMenu || !roomCode) return;
+  ctx.save(); ctx.fillStyle = 'rgba(10,5,3,0.6)'; ctx.fillRect(0, 0, W, H); ctx.restore();
+  const y = L.phone ? 470 : 360;
+  const say = isHost() ? [`Phòng ${roomCode}`, 'Giải tán phòng? Mọi người sẽ ra khỏi ván và về màn hình đầu.']
+    : [`Phòng ${roomCode}`, 'Rời phòng? Máy sẽ chơi thay chỗ của bạn trong ván này.'];
+  messageBox(say, L.cx, y - 40, 460);
+  drawingMenu = true; ui.forEach(b => { if (b.role === 'menu' || b.role === 'menuSecondary') drawButton(b); }); drawingMenu = false;
+}
 function seatLabel(s: Seat, i = -1): string {
   // online, seat 0 is the host's own seat
   if (s.kind === 'human' && i === 0 && (isHost() || isGuest())) return `Chủ phòng · ${(isHost() ? myName : lobby?.hostName) || 'chủ phòng'}`;
@@ -1460,7 +1509,7 @@ function buildTitleUI() {
   const roundsLabel = L.phone ? `${tune.max_rounds} vòng` : `${tune.max_rounds} vòng, giàu nhất thắng`;
   btn(T.seatX, T.y0 + 4 * T.step + T.modeDy, T.seatW, T.seatH, setup.mode === 'rounds' ? roundsLabel : 'Tới khi phá sản', () => { setup.mode = setup.mode === 'rounds' ? 'bankrupt' : 'rounds'; sendLobby(); }, 'seat');
   b4(T.start, L.phone ? 'Bắt đầu' : 'Bắt đầu (Enter)', startGame, 'primary', '#c8201f');
-  if (isHost()) b4(T.online, `Rời phòng ${roomCode}`, leaveRoom, '', '#6a4a2a');
+  if (isHost()) b4(T.online, `Giải tán phòng ${roomCode}`, leaveRoom, '', '#6a4a2a');
   else b4(T.online, 'Chơi online', () => showOnlinePanel(true), '', '#2b6cd6');
 }
 /** A line about the connection, over the board, when something is wrong with it. */
@@ -1468,7 +1517,7 @@ function drawNetBanner() {
   let msg = '';
   if (net.getRole() !== 'off' && !linkUp) msg = 'Mất kết nối mạng, đang nối lại...';
   else if (isGuest() && !hostOnline) msg = 'Chủ phòng mất kết nối, đang chờ quay lại...';
-  else if (netError && scene !== 'title') msg = netError;
+  else if (netError && !(onlinePanel && onlinePanel.style.display === 'flex')) msg = netError;
   if (msg) messageBox([msg], L.cx, L.bannerY, 620);
 }
 function clearVis() { inspect = -1; lastPos.length = 0; tokVis.length = 0; tokAnim.length = 0; for (let i = 0; i < 40; i++) tileShown[i] = -1; riseAnims.length = 0; }
@@ -1504,6 +1553,7 @@ function handleInput() {
   for (const c of clicks) {
     const b = ui.find(b => c.x >= b.x && c.x <= b.x + b.w && c.y >= b.y && c.y <= b.y + b.h);
     if (b) { if (b.enabled) pressBtn(b); continue; }
+    if (roomMenu) continue; // the room menu is open: only its buttons answer
     if (scene === 'play' && state.phase === 'pick' && humanTurn() && inBoard(c.x, c.y)) {
       const pt = boardPointAt(c.x, c.y);
       if (pt) { const i = tileAt(pt.x, pt.z); if (i >= 0) { if (i === state.pick) pressAct('fly', () => flyTo(i)); else pickTile(i); } }
@@ -1517,7 +1567,7 @@ function handleInput() {
   if (inspect >= 0 && (pressed('Space') || pressed('Enter') || pressed('Escape') || pressed('KeyN'))) { inspect = -1; return; }
   if (wheel && scene === 'play') { propScroll = Math.max(0, propScroll + wheel); wheel = 0; }
   if (pressed('Space') || pressed('Enter')) { const b = ui.find(b => b.role === 'primary' && b.enabled); if (b) { pressBtn(b); return; } }
-  if (pressed('KeyN') || pressed('Escape')) { const b = ui.find(b => b.role === 'secondary' && b.enabled); if (b) { pressBtn(b); return; } }
+  if (pressed('KeyN') || pressed('Escape')) { const b = ui.find(b => (b.role === 'secondary' || b.role === 'menuSecondary') && b.enabled); if (b) { pressBtn(b); return; } }
   if (scene === 'play' && state.phase === 'pick' && humanTurn()) {
     if (pressed('ArrowRight') || pressed('ArrowUp')) pickTile((state.pick + 1) % 40);
     if (pressed('ArrowLeft') || pressed('ArrowDown')) pickTile((state.pick + 39) % 40);
@@ -1534,6 +1584,13 @@ function lacquer(x: number, y: number, w: number, h: number) { // sơn mài: dee
 function drawButton(b: Loose) {
   if (b.role === 'mute') { drawSpeaker(b); return; }
   if (b.role === 'hidden' || (b.role === 'close' && !drawingInspect)) return;
+  if ((b.role === 'menu' || b.role === 'menuSecondary') && !drawingMenu) return;
+  if (b.role === 'room') { // the room code: a small gold pill
+    ctx.save(); ctx.fillStyle = '#5a2a1c'; rrect(ctx, b.x, b.y, b.w, b.h, b.h / 2); ctx.fill();
+    ctx.strokeStyle = '#f2c44a'; ctx.lineWidth = 1.5; ctx.stroke(); ctx.restore();
+    text(b.label, b.x + b.w / 2, b.y + b.h / 2 + 1, L.phone ? 15 : 15, '#f2c44a', 'center', 'bold');
+    return;
+  }
   const hover = pointer.x >= b.x && pointer.x <= b.x + b.w && pointer.y >= b.y && pointer.y <= b.y + b.h;
   ctx.save();
   if (b.role === 'arrowUp' || b.role === 'arrowDown') {
@@ -1592,7 +1649,8 @@ function drawPanel() {
   lacquer(PX, 0, PW, H);
   text('TỶ PHÚ ĐẤT VIỆT', PX + PW / 2 - 14, 30, 24, '#f2c44a', 'center', 'bold');
   const roundTxt = state.mode === 'rounds' ? `Vòng ${Math.min(state.round, tune.max_rounds)} / ${tune.max_rounds}` : `Vòng ${state.round} · tới khi phá sản`;
-  text(roundTxt, PX + PW / 2, 58, 16, '#e8d9b5');
+  if (roomCode) text(state.mode === 'rounds' ? `Vòng ${Math.min(state.round, tune.max_rounds)}/${tune.max_rounds}` : `Vòng ${state.round}`, PX + 24, 59, 16, '#e8d9b5', 'left');
+  else text(roundTxt, PX + PW / 2, 58, 16, '#e8d9b5');
   state.players.forEach((p, pi) => {
     const y = 76 + pi * 72, cur = pi === state.cur && state.phase !== 'over';
     ctx.save();
@@ -1820,7 +1878,7 @@ function drawPhoneChrome() {
   lacquer(0, 0, W, L.by);
   text('TỶ PHÚ ĐẤT VIỆT', 14, L.by / 2, 19, '#f2c44a', 'left', 'bold');
   const roundTxt = state.mode === 'rounds' ? `Vòng ${Math.min(state.round, tune.max_rounds)}/${tune.max_rounds}` : `Vòng ${state.round}`;
-  text(roundTxt + (roomCode ? ` · ${roomCode}` : ''), W - 64, L.by / 2, 15, '#e8d9b5', 'right');
+  if (roomCode) text(roundTxt, W - 176, L.by / 2, 15, '#e8d9b5', 'right'); else text(roundTxt, W - 64, L.by / 2, 15, '#e8d9b5', 'right');
   const top = L.by + L.bh;
   lacquer(0, top, W, H - top);
   const last = state.log[state.log.length - 1] || '';
@@ -2053,6 +2111,7 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
       drawFloaters();
       drawInspect();
       drawNetBanner();
+      drawRoomMenu();
     },
   },
   results: {

@@ -9,14 +9,16 @@ export type Role = 'off' | 'host' | 'guest';
 export interface NetHandlers {
   /** The room exists: its code, and this browser's id in it (0 for the host). */
   onRoom(code: string, id: number): void;
-  /** Host only: a guest joined, left or came back. */
-  onPeer(id: number, name: string, online: boolean): void;
+  /** Host only: a guest joined, dropped or came back; left is true when they left the room for good. */
+  onPeer(id: number, name: string, online: boolean, left?: boolean): void;
   /** Host only: a guest's message. */
   onFromPeer(from: number, data: Loose): void;
   /** Guest only: the host's message. */
   onFromHost(data: Loose): void;
   /** Guest only: the host dropped or came back. */
   onHost(online: boolean): void;
+  /** Guest only: the host closed the room. */
+  onClosed(): void;
   /** The connection is up or down. */
   onLink(up: boolean): void;
   onError(msg: string): void;
@@ -74,10 +76,11 @@ function open(): void {
     const h = handlers;
     if (!h) return;
     if (m.t === 'created' || m.t === 'joined') h.onRoom(m.code, m.id);
-    else if (m.t === 'peer') h.onPeer(m.id, m.name, m.online);
+    else if (m.t === 'peer') h.onPeer(m.id, m.name, m.online, m.left);
     else if (m.t === 'fromPeer') h.onFromPeer(m.from, m.data);
     else if (m.t === 'fromHost') h.onFromHost(m.data);
     else if (m.t === 'host') h.onHost(m.online);
+    else if (m.t === 'closed') { leave(); h.onClosed(); }
     else if (m.t === 'error') { h.onError(m.msg); if (!m.keep) leave(); }
     if (m.t === 'joined' && m.hostOnline === false) h.onHost(false);
   };
@@ -101,6 +104,18 @@ export function joinRoom(code: string, name: string, h: NetHandlers): void {
 export function leave(): void {
   role = 'off'; wanted = null; handlers = null;
   ws?.close(); ws = null;
+}
+
+/** Guest: leaves the room for good, so the host frees the seat. */
+export function quitRoom(): void {
+  if (role === 'guest' && ws?.readyState === 1) ws.send(JSON.stringify({ t: 'leave' }));
+  leave();
+}
+
+/** Host: closes the room; every guest is sent back to their own title screen. */
+export function closeRoom(): void {
+  if (role === 'host' && ws?.readyState === 1) ws.send(JSON.stringify({ t: 'close' }));
+  leave();
 }
 
 /** Guest: a message for the host. */

@@ -10,12 +10,16 @@
 //   { t: 'toHost', data }                  a guest's message for the host
 //   { t: 'toAll', data }                   the host's message for every guest
 //   { t: 'toOne', to, data }               the host's message for one guest
+//   { t: 'leave' }                         a guest leaves the room for good (their seat is freed)
+//   { t: 'close' }                         the host closes the room: every guest is sent home
 // From the server:
 //   { t: 'created', code, id }   { t: 'joined', code, id }   { t: 'error', msg }
 //   { t: 'peer', id, name, online }        to the host: a guest came, went or came back
 //   { t: 'fromPeer', from, data }          to the host
 //   { t: 'fromHost', data }                to a guest
 //   { t: 'host', online }                  to the guests: the host dropped or came back
+//   { t: 'peer', id, name, online: false, left: true }   to the host: a guest left for good
+//   { t: 'closed' }                        to the guests: the host closed the room
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize, resolve } from 'node:path';
@@ -131,6 +135,16 @@ wss.on('connection', ws => {
       const text = JSON.stringify({ t: 'fromHost', data: msg.data });
       for (const g of room.guests.values()) if (g.ws && g.ws.readyState === 1) g.ws.send(text);
     } else if (msg.t === 'toOne' && me.role === 'host') send(room.guests.get(msg.to)?.ws, { t: 'fromHost', data: msg.data });
+    else if (msg.t === 'leave' && me.role === 'guest') {
+      const g = room.guests.get(me.id);
+      room.guests.delete(me.id);
+      send(room.host.ws, { t: 'peer', id: me.id, name: g?.name || '', online: false, left: true });
+      me = null; touch(room);
+    } else if (msg.t === 'close' && me.role === 'host') {
+      for (const g of room.guests.values()) send(g.ws, { t: 'closed' });
+      rooms.delete(room.code);
+      me = null;
+    }
   });
 
   ws.on('close', () => {

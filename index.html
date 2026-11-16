@@ -8,6 +8,18 @@
   html, body { margin: 0; height: 100%; background: #1d120c; overflow: hidden; }
   body { font-variant-numeric: tabular-nums; }
   canvas { display: block; margin: 0 auto; }
+  /* The online panel: a name and a room code, over the canvas */
+  #online { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(20, 10, 6, 0.7); z-index: 10; padding: 16px; box-sizing: border-box; }
+  #online .op-card { width: min(420px, 100%); background: linear-gradient(#3b1712, #1f0c09); border: 2px solid #c9a24a; border-radius: 18px; padding: 22px 22px 16px; box-sizing: border-box; color: #fff8e6; font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif; }
+  #online h2 { margin: 0 0 16px; text-align: center; color: #f2c44a; font-size: 24px; }
+  #online label { display: block; margin: 0 0 12px; font-size: 16px; color: #e8d9b5; }
+  #online input { display: block; width: 100%; box-sizing: border-box; margin-top: 6px; padding: 12px 14px; font-size: 20px; border-radius: 10px; border: 2px solid #8a6a3a; background: #fbf3df; color: #2b1d12; }
+  #online input:focus { outline: none; border-color: #f2c44a; }
+  #online button { display: block; width: 100%; padding: 13px; margin: 0 0 12px; font-size: 19px; font-weight: bold; border-radius: 12px; border: 2px solid #f2c44a; background: #2b6cd6; color: #fff8e6; cursor: pointer; }
+  #online button.op-main { background: #c8201f; }
+  #online button.op-close { background: transparent; border-color: #6a4a2a; color: #cbb994; font-weight: normal; margin: 4px 0 0; }
+  #online .op-or { text-align: center; color: #cbb994; margin: 8px 0 12px; font-size: 15px; }
+  #online #op-error { min-height: 1.2em; margin: 0 0 8px; color: #ff9a8a; font-size: 15px; text-align: center; }
 </style>
 </head>
 <body>

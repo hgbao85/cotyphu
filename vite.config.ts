@@ -16,6 +16,8 @@ export default defineConfig(({ mode }) => ({
   // The game's page only: other pages in the project (one-shots in prototypes/)
   // are not scanned for packages.
   optimizeDeps: { entries: ['index.html'] },
+  // Online play in development: the dev page talks to `npm run server` (port 8787) through /ws.
+  server: { proxy: { '/ws': { target: 'ws://localhost:8787', ws: true } } },
   build: {
     outDir: mode === 'single' ? 'dist-single' : 'dist',
     emptyOutDir: true,

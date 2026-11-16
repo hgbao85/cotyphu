@@ -44,12 +44,16 @@ export interface Card {
   to?: number;
 }
 
-export type SeatKind = 'human' | 'ai' | 'off';
+/** human: plays on this screen · remote: a friend online · ai: the computer · off: empty. */
+export type SeatKind = 'human' | 'remote' | 'ai' | 'off';
 
 export interface Seat {
   kind: SeatKind;
   /** The AI level: 0 Dễ, 1 Vừa, 2 Khó. */
   lv?: number;
+  /** A remote seat: the friend's id in the room, and the name they typed. */
+  peer?: number;
+  name?: string;
 }
 
 export interface Player {
@@ -74,6 +78,9 @@ export interface Player {
   /** A jail card docks the next salary until a Thẻ Ra Tù clears it. */
   noSalary?: boolean;
   lastRoll?: number;
+  /** A friend playing online: their id in the room, and whether they are disconnected now. */
+  peer?: number;
+  offline?: boolean;
 }
 
 /** The state of one game: everything the rules read and change. */

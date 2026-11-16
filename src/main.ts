@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { CONFIG, tune } from './config';
 import { clock, install, params } from './hook';
 import { startAudio, setMuted, isMuted, sfx } from './audio';
+import * as net from './net/net';
 import { W, H, BW, FONT, canvas, ctx, screenScale, afterFit, fit, clear, text, rrect, wrapLines } from './screen';
 import { rng, setSeed, freshSeed, shuffled } from './game/rng';
 import { GROUPS, TILES, OWNABLE, LEVEL_NAMES, LEVEL_SHORT, MAX_LEVEL, PLAYER_COLORS, PLAYER_COLOR_NAMES, TOKEN_NAMES, AI_LEVELS, CARDS } from './game/data';
@@ -49,6 +50,176 @@ let wheel = 0;
 addEventListener('blur', () => { down.clear(); pointerHeld = false; });
 
 
+// ---- Online play -----------------------------------------------------------------------
+// The host's browser runs the rules exactly as on one screen. A friend's seat is 'remote': when it
+// is their turn the host builds that turn's buttons unseen, and the friend's acts press them. The
+// host sends the whole game state about 20 times a second; a guest's browser draws it, animates
+// the tokens, plays the sounds the host played, and sends its own presses back.
+const isHost = (): boolean => net.getRole() === 'host';
+const isGuest = (): boolean => net.getRole() === 'guest';
+let roomCode = '', myName = '', mySeat = -1;
+let linkUp = false, hostOnline = true, netError = '';
+let guestShaking = false;                    // guest: holding the shake button, waiting to let go
+let lobby: Loose = null;                     // guest: the host's seats before the game starts
+const peers = new Map<number, { name: string; online: boolean }>();   // host: friends in the room
+let pendingSfx: Loose[] = [];                // host: sounds played since the last state sent
+let sendEvery = 0;
+const rawSfx: Record<string, (...a: Loose[]) => void> = {};
+for (const k of Object.keys(sfx)) { // the host records each sound so the guests hear it too
+  const f = (sfx as Loose)[k] as (...a: Loose[]) => void;
+  rawSfx[k] = f;
+  (sfx as Loose)[k] = (...a: Loose[]) => { if (isHost() && k !== 'click') pendingSfx.push([k, ...a]); f(...a); };
+}
+const peerOnline = (id: number | undefined): boolean => id !== undefined && !!peers.get(id)?.online;
+
+/** Guest: an act for the host (the name of a button, and a tile for 'pick'). */
+function sendAct(act: string, i?: number) {
+  net.toHost({ k: 'act', act, i });
+}
+
+const handlers: net.NetHandlers = {
+  onRoom(code) { roomCode = code; netError = ''; if (isHost()) sendLobby(); },
+  onPeer(id, name, online) {
+    const known = peers.has(id);
+    peers.set(id, { name, online });
+    if (!known) seatPeer(id, name);
+    const seat = setup.seats.find(s => s.kind === 'remote' && s.peer === id);
+    if (seat) seat.name = name;
+    if (state && state.players) for (const p of state.players) if (p.peer === id) { p.offline = !online; if (online) p.name = name; }
+    if (online) sendYou(id);
+    sendLobby();
+  },
+  onFromPeer(from, d) { if (d && d.k === 'act') onGuestAct(from, d); },
+  onFromHost(d) { onHostMsg(d); },
+  onHost(online) { hostOnline = online; },
+  onLink(up) { linkUp = up; },
+  onError(msg) { netError = msg; roomCode = ''; showOnlinePanel(true); },
+};
+
+/** Host: a new friend takes the first empty or computer seat (seat 0 is the host's). */
+function seatPeer(id: number, name: string) {
+  if (scene !== 'title') { net.toOne(id, { k: 'full', msg: 'Ván đang chơi: chờ ván sau nhé.' }); return; }
+  const order = [1, 2, 3];
+  let i = order.find(k => setup.seats[k].kind === 'remote' && setup.seats[k].peer === undefined);
+  if (i === undefined) i = order.find(k => setup.seats[k].kind === 'off');
+  if (i === undefined) i = order.find(k => setup.seats[k].kind === 'ai');
+  if (i === undefined) { net.toOne(id, { k: 'full', msg: 'Phòng đã đủ người.' }); return; }
+  setup.seats[i] = { kind: 'remote', peer: id, name };
+}
+/** Host: tells a friend which seat is theirs. */
+function sendYou(id: number) {
+  const i = setup.seats.findIndex(s => s.kind === 'remote' && s.peer === id);
+  const p = state && state.players ? state.players.find(q => q.peer === id) : undefined;
+  net.toOne(id, { k: 'you', seat: p ? p.id : i });
+}
+/** Host: the seats before a game, for the friends' waiting screen. */
+function sendLobby() {
+  if (!isHost()) return;
+  net.toAll({ k: 'lobby', code: roomCode, mode: setup.mode, hostName: myName, seats: setup.seats.map(s => ({ ...s })) });
+  for (const id of peers.keys()) sendYou(id);
+}
+
+/** Host: a friend pressed a button. Only their own turn's buttons count, checked as for a press here. */
+function onGuestAct(from: number, a: Loose) {
+  if (scene !== 'play' || !state.players) return;
+  const p = curP();
+  if (p.kind !== 'remote' || p.peer !== from) return;
+  if (a.act === 'throw') { if (state.shaking && state.shaking.remote) state.shaking.released = true; return; }
+  if (a.act === 'pick') { if (state.phase === 'pick' && Number.isInteger(a.i) && a.i >= 0 && a.i < 40) state.pick = a.i; return; }
+  const row = /^(sell|mort|unmort):(\d+)$/.exec(String(a.act));
+  if (row) { // the property list: allowed while the turn's buttons show it
+    if (!['roll', 'end', 'debt', 'jail'].includes(state.phase)) return;
+    const i = Number(row[2]);
+    if (row[1] === 'sell') sellLevel(state.cur, i); else if (row[1] === 'mort') mortgage(state.cur, i); else unmortgage(state.cur, i);
+    return;
+  }
+  const saved = ui; ui = [];
+  buildTurnUI();
+  const b = ui.find(x => x.act === a.act && x.enabled);
+  ui = saved;
+  if (!b) return;
+  b.fn();
+  if (a.act === 'shake' && state.shaking) state.shaking.remote = true;
+}
+
+/** Guest: a message from the host. */
+function onHostMsg(d: Loose) {
+  if (!d) return;
+  if (d.k === 'you') mySeat = d.seat;
+  else if (d.k === 'full') { netError = d.msg; }
+  else if (d.k === 'lobby') { lobby = d; if (scene !== 'title') { scene = 'title'; clearVis(); } }
+  else if (d.k === 'state') {
+    const fresh = scene !== d.scene && d.scene === 'play' && scene === 'title';
+    state = d.state; scene = d.scene;
+    if (fresh) { clearVis(); propScroll = 0; }
+    for (const s of d.sfx || []) rawSfx[s[0]]?.(...s.slice(1));
+  }
+}
+
+/** Every step: the host sends the state; a guest lets go of the dice when the finger lifts. */
+function netStep() {
+  if (isHost() && (scene === 'play' || scene === 'results')) {
+    for (const p of state.players) if (p.kind === 'remote') p.offline = !peerOnline(p.peer);
+    if (++sendEvery >= 3 || pendingSfx.length) { // about 20 times a second, at once when a sound plays
+      sendEvery = 0;
+      net.toAll({ k: 'state', scene, state, sfx: pendingSfx });
+      pendingSfx = [];
+    }
+  } else if (isHost() && scene === 'title') {
+    if (++sendEvery >= 30) { sendEvery = 0; sendLobby(); }
+  }
+  if (isGuest() && guestShaking && !(pointerHeld || down.has('Space') || down.has('Enter'))) {
+    guestShaking = false; sendAct('throw');
+  }
+}
+
+// The online panel: plain HTML over the canvas, so phones get their own keyboard for the name and code.
+let onlinePanel: HTMLDivElement | null = null;
+function showOnlinePanel(on: boolean) {
+  if (!onlinePanel) {
+    const d = document.createElement('div');
+    d.id = 'online';
+    d.innerHTML = `
+      <div class="op-card">
+        <h2>Chơi online với bạn bè</h2>
+        <label>Tên của bạn<input id="op-name" maxlength="20" autocomplete="nickname" placeholder="Ví dụ: Bảo"></label>
+        <button id="op-create" class="op-main">Tạo phòng mới</button>
+        <div class="op-or">hoặc vào phòng của bạn bè</div>
+        <label>Mã phòng<input id="op-code" maxlength="6" autocapitalize="characters" placeholder="Ví dụ: HN42"></label>
+        <button id="op-join">Vào phòng</button>
+        <p id="op-error"></p>
+        <button id="op-close" class="op-close">Đóng</button>
+      </div>`;
+    document.body.appendChild(d);
+    onlinePanel = d;
+    const name = d.querySelector('#op-name') as HTMLInputElement, code = d.querySelector('#op-code') as HTMLInputElement;
+    name.value = net.savedName();
+    const nameOk = (): string => { const n = name.value.trim(); if (!n) { setErr('Nhập tên của bạn trước nhé.'); name.focus(); } return n; };
+    (d.querySelector('#op-create') as HTMLButtonElement).onclick = () => {
+      const n = nameOk(); if (!n) return;
+      myName = n; peers.clear(); setup.seats[0] = { kind: 'human' };
+      net.createRoom(n, handlers); showOnlinePanel(false);
+    };
+    (d.querySelector('#op-join') as HTMLButtonElement).onclick = () => {
+      const n = nameOk(); if (!n) return;
+      if (!/^[A-Za-z]{2}\d{2}$/.test(code.value.trim())) { setErr('Mã phòng gồm 2 chữ và 2 số, ví dụ HN42.'); code.focus(); return; }
+      myName = n; mySeat = -1; lobby = null;
+      net.joinRoom(code.value, n, handlers); showOnlinePanel(false);
+    };
+    (d.querySelector('#op-close') as HTMLButtonElement).onclick = () => showOnlinePanel(false);
+    d.addEventListener('keydown', e => e.stopPropagation()); // typing a name never moves the game
+  }
+  const setErr = (m: string) => { (onlinePanel!.querySelector('#op-error') as HTMLElement).textContent = m; };
+  setErr(netError);
+  onlinePanel.style.display = on ? 'flex' : 'none';
+}
+/** Leaves the room and goes back to playing on this screen. */
+function leaveRoom() {
+  net.leave(); roomCode = ''; mySeat = -1; lobby = null; peers.clear(); netError = '';
+  setup.seats.forEach((s, i) => { if (s.kind === 'remote') setup.seats[i] = { kind: 'ai', lv: 1 }; });
+  scene = 'title'; reset(); clearVis();
+}
+
 // ---- Rules --------------------------------------------------------------------------
 let setup: { seats: Seat[]; mode: 'bankrupt' | 'rounds' } = { seats: [{ kind: 'human' }, { kind: 'ai', lv: 1 }, { kind: 'ai', lv: 0 }, { kind: 'off' }], mode: 'bankrupt' };
 let scene: string;
@@ -67,10 +238,14 @@ function reset() {
   const players: Player[] = [];
   setup.seats.forEach((s, i) => {
     if (s.kind === 'off') return;
+    // a friend's seat with nobody in it when the game starts is played by the computer
+    const kind = s.kind === 'remote' && !peerOnline(s.peer) ? 'ai' : s.kind;
+    const name = kind === 'remote' ? (s.name || `Bạn ${PLAYER_COLOR_NAMES[i]}`)
+      : kind === 'human' ? (isHost() && i === 0 && myName ? myName : `Người ${PLAYER_COLOR_NAMES[i]}`) : `Máy ${PLAYER_COLOR_NAMES[i]}`;
     players.push({
-      id: i, kind: s.kind, lv: s.lv || 0, color: PLAYER_COLORS[i], token: i,
-      name: s.kind === 'human' ? `Người ${PLAYER_COLOR_NAMES[i]}` : `Máy ${PLAYER_COLOR_NAMES[i]}`,
+      id: i, kind, lv: kind === 'remote' ? 1 : kind === 'ai' && s.kind === 'remote' ? 1 : s.lv || 0, color: PLAYER_COLORS[i], token: i, name,
       cash: tune.start_cash, pos: 0, laps: 0, inJail: false, jailTries: 0, freeCards: [], bankrupt: false, doubles: 0,
+      ...(kind === 'remote' ? { peer: s.peer } : {}),
     });
   });
   state = {
@@ -1048,10 +1223,17 @@ function syncBuildings(dt: number) {
     if (u >= 1) { a.obj.scale.setScalar(a.s); riseAnims.splice(k, 1); }
   }
 }
+const lastPos: number[] = [];
 function updateTokens(dt: number) {
   state.players.forEach((p, pi) => {
     const k = p.id, tgt = tokenSpot(k, p.pos, p.inJail);
     if (!tokVis[k]) tokVis[k] = { x: tgt.x, y: 0, z: tgt.z };
+    if (isGuest() && lastPos[k] !== undefined && lastPos[k] !== p.pos && !tokAnim[k]) { // a guest sees the host's moves as hops
+      const step1 = (p.pos - lastPos[k] + 40) % 40 === 1 || (lastPos[k] - p.pos + 40) % 40 === 1;
+      tokAnim[k] = { from: { x: tokVis[k]!.x, z: tokVis[k]!.z }, to: tgt, t: 0, dur: step1 ? tune.hop_time * 0.95 : 0.7, h: step1 ? 0.45 : 1.8 };
+      if (step1) rawSfx.tick();
+    }
+    lastPos[k] = p.pos;
     const a = tokAnim[k];
     if (a) {
       a.t += dt; const u = Math.min(1, a.t / a.dur);
@@ -1140,95 +1322,148 @@ const PX = BW, PW = W - BW;
 let ui: Loose[] = []; // buttons this frame: { x, y, w, h, label, fn, role: 'primary'|'secondary'|'', enabled, color }
 let propScroll = 0;
 let inspect = -1, hoverTile = -1, drawingInspect = false; // the tile whose card is open from a click, and the tile under the mouse
-function btn(x: number, y: number, w: number, h: number, label: string, fn: () => void, role = '', enabled = true, color?: string) { ui.push({ x, y, w, h, label, fn, role, enabled, color }); }
-function humanTurn() { return state && state.players && !isAI(curP()) && state.phase !== 'over'; }
+/** Adds a button for this frame. act names it for online play: a guest sends the act, and the host
+ * presses its own button with that act, so the rules and their checks run in one place. */
+function btn(x: number, y: number, w: number, h: number, label: string, fn: () => void, role = '', enabled = true, color?: string, act?: string) { ui.push({ x, y, w, h, label, fn, role, enabled, color, act }); }
+/** True when the player whose turn it is plays on this screen. */
+function humanTurn(): boolean {
+  if (!state || !state.players || state.phase === 'over') return false;
+  const p = curP();
+  return isGuest() ? p.id === mySeat : p.kind === 'human';
+}
+/** Host: a friend online is taking their turn. */
+function remoteTurn(): boolean {
+  return isHost() && !!state && !!state.players && state.phase !== 'over' && curP().kind === 'remote';
+}
 function buildUI() {
   ui = [];
   if (scene === 'title') { buildTitleUI(); return; }
-  if (scene === 'results') { btn(BW / 2 - 200, 560, 190, 52, 'Chơi lại (Enter)', () => { reset(); clearVis(); scene = 'play'; }, 'primary'); btn(BW / 2 + 10, 560, 190, 52, 'Ván mới (N)', () => { scene = 'title'; }, 'secondary'); return; }
+  if (scene === 'results') {
+    if (isGuest()) return; // only the host starts the next game
+    btn(BW / 2 - 200, 560, 190, 52, 'Chơi lại (Enter)', () => { reset(); clearVis(); scene = 'play'; }, 'primary');
+    btn(BW / 2 + 10, 560, 190, 52, 'Ván mới (N)', () => { scene = 'title'; }, 'secondary');
+    return;
+  }
   if (scene !== 'play') return;
-  btn(W - 52, 12, 40, 34, '', () => setMuted(!muted), 'mute');
+  btn(W - 52, 12, 40, 34, '', () => setMuted(!muted()), 'mute');
   if (inspect >= 0) { btn(BW / 2 - 90, 548, 180, 50, 'Đóng', () => { inspect = -1; }, 'close'); return; }
   { // click a row of the property list to see that land's card
     const mine = owned(state.cur), rows = Math.floor((H - 16 - 400) / 30);
     mine.slice(propScroll, propScroll + rows).forEach((i, r) => btn(PX + 14, 400 + r * 30, 250, 30, '', () => { inspect = i; }, 'hidden'));
   }
-  const p = curP(), human = humanTurn();
-  const ax = BW / 2, ay = 372; // the action area sits in the board's open centre
-  if (human) {
-    switch (state.phase) {
-      case 'roll': btn(ax - 130, ay, 260, 58, state.shaking ? 'Thả ra để ném!' : 'Giữ để lắc xúc xắc', () => startShake(), 'primary', true, '#c8201f'); break;
-      case 'jail': {
-        btn(ax - 230, ay, 220, 54, state.shaking ? 'Thả ra để ném!' : 'Giữ lắc tìm đôi', () => startShake(), 'primary', true, '#c8201f');
-        const card = p.freeCards.length > 0;
-        if (card) btn(ax + 10, ay, 220, 54, 'Dùng thẻ ra tù', payJail, 'secondary', true);
-        break;
-      }
-      case 'buy': { const t = TILES[state.popup.tile]; btn(ax - 230, 600, 220, 54, `Mua ${money(t.p!)}`, doBuy, 'primary', p.cash >= t.p!, '#2f8a3a'); btn(ax + 10, 600, 220, 54, 'Bỏ qua', () => { log(`${p.name} bỏ qua ${t.n}.`); skip(); }, 'secondary'); break; }
-      case 'build': {
-        const i = state.popup.tile, to = state.level[i] + 1, cost = buildCost(i, to);
-        btn(ax - 230, 600, 220, 54, `Xây ${LEVEL_NAMES[to]}: ${money(cost)}`, () => { doBuild(i); state.popup = null; afterAction(); }, 'primary', p.cash >= cost, '#2f8a3a');
-        btn(ax + 10, 600, 220, 54, 'Không xây', () => { state.popup = null; afterAction(); }, 'secondary');
-        break;
-      }
-      case 'card': btn(ax - 110, 600, 220, 54, 'Đồng ý', applyCard, 'primary', true, '#c8201f'); break;
-      case 'rentShow': btn(ax - 110, 600, 220, 54, 'Tiếp tục', () => { state.popup = null; afterAction(); }, 'primary'); break;
-      case 'taxChoice': {
-        const pp = state.popup;
-        btn(ax - 230, 600, 220, 54, `Trả ${Math.round(tune.prop_tax_pct * 100)}%: ${money(pp.pct)}`, () => payTax(pp.pct), pp.pct <= pp.flat ? 'primary' : 'secondary', true, '#8a5a2a');
-        btn(ax + 10, 600, 220, 54, `Trả ${money(pp.flat)}`, () => payTax(pp.flat), pp.pct <= pp.flat ? 'secondary' : 'primary', true, '#8a5a2a');
-        break;
-      }
-      case 'pick': btn(ax - 110, 600, 220, 54, `Bay tới ${TILES[state.pick].n}`, () => flyTo(state.pick), 'primary', true, '#2f8a3a'); break;
-      case 'debt': {
-        const d = state.debt;
-        btn(ax - 255, 600, 160, 54, 'Trả nợ', payDebt, 'primary', p.cash >= d.total, '#2f8a3a');
-        btn(ax - 80, 600, 160, 54, 'Tự bán bớt', () => { autoRaise(state.cur, d.total); }, '', liquidValue(state.cur) > 0);
-        btn(ax + 95, 600, 160, 54, 'Phá sản', declareBankrupt, 'secondary', true, '#6a6a6a');
-        break;
-      }
-      case 'end': btn(ax - 110, ay, 220, 58, 'Kết thúc lượt', nextTurn, 'primary', true, '#c8201f'); break;
-    }
-    if (['roll', 'end', 'debt', 'jail'].includes(state.phase)) buildPropUI(state.cur);
-  }
+  if (humanTurn()) buildTurnUI();
 }
+/** The buttons of the current player's turn: drawn when they play here, built unseen on the host
+ * when a friend online plays, so the friend's act finds the same button. */
+function buildTurnUI() {
+  const p = curP();
+  const ax = BW / 2, ay = 372; // the action area sits in the board's open centre
+  switch (state.phase) {
+    case 'roll': btn(ax - 130, ay, 260, 58, state.shaking ? 'Thả ra để ném!' : 'Giữ để lắc xúc xắc', () => startShake(), 'primary', true, '#c8201f', 'shake'); break;
+    case 'jail': {
+      btn(ax - 230, ay, 220, 54, state.shaking ? 'Thả ra để ném!' : 'Giữ lắc tìm đôi', () => startShake(), 'primary', true, '#c8201f', 'shake');
+      if (p.freeCards.length > 0) btn(ax + 10, ay, 220, 54, 'Dùng thẻ ra tù', payJail, 'secondary', true, undefined, 'jailCard');
+      break;
+    }
+    case 'buy': { const t = TILES[state.popup.tile]; btn(ax - 230, 600, 220, 54, `Mua ${money(t.p!)}`, doBuy, 'primary', p.cash >= t.p!, '#2f8a3a', 'buy'); btn(ax + 10, 600, 220, 54, 'Bỏ qua', () => { log(`${p.name} bỏ qua ${t.n}.`); skip(); }, 'secondary', true, undefined, 'skip'); break; }
+    case 'build': {
+      const i = state.popup.tile, to = state.level[i] + 1, cost = buildCost(i, to);
+      btn(ax - 230, 600, 220, 54, `Xây ${LEVEL_NAMES[to]}: ${money(cost)}`, () => { doBuild(i); state.popup = null; afterAction(); }, 'primary', p.cash >= cost, '#2f8a3a', 'build');
+      btn(ax + 10, 600, 220, 54, 'Không xây', () => { state.popup = null; afterAction(); }, 'secondary', true, undefined, 'noBuild');
+      break;
+    }
+    case 'card': btn(ax - 110, 600, 220, 54, 'Đồng ý', applyCard, 'primary', true, '#c8201f', 'cardOk'); break;
+    case 'rentShow': btn(ax - 110, 600, 220, 54, 'Tiếp tục', () => { state.popup = null; afterAction(); }, 'primary', true, undefined, 'continue'); break;
+    case 'taxChoice': {
+      const pp = state.popup;
+      btn(ax - 230, 600, 220, 54, `Trả ${Math.round(tune.prop_tax_pct * 100)}%: ${money(pp.pct)}`, () => payTax(pp.pct), pp.pct <= pp.flat ? 'primary' : 'secondary', true, '#8a5a2a', 'taxPct');
+      btn(ax + 10, 600, 220, 54, `Trả ${money(pp.flat)}`, () => payTax(pp.flat), pp.pct <= pp.flat ? 'secondary' : 'primary', true, '#8a5a2a', 'taxFlat');
+      break;
+    }
+    case 'pick': btn(ax - 110, 600, 220, 54, `Bay tới ${TILES[state.pick].n}`, () => flyTo(state.pick), 'primary', true, '#2f8a3a', 'fly'); break;
+    case 'debt': {
+      const d = state.debt;
+      btn(ax - 255, 600, 160, 54, 'Trả nợ', payDebt, 'primary', p.cash >= d.total, '#2f8a3a', 'payDebt');
+      btn(ax - 80, 600, 160, 54, 'Tự bán bớt', () => { autoRaise(state.cur, d.total); }, '', liquidValue(state.cur) > 0, undefined, 'autoRaise');
+      btn(ax + 95, 600, 160, 54, 'Phá sản', declareBankrupt, 'secondary', true, '#6a6a6a', 'bankrupt');
+      break;
+    }
+    case 'end': btn(ax - 110, ay, 220, 58, 'Kết thúc lượt', nextTurn, 'primary', true, '#c8201f', 'endTurn'); break;
+  }
+  if (['roll', 'end', 'debt', 'jail'].includes(state.phase)) buildPropUI(state.cur);
+}
+/** What a seat is, in the seat's button. */
+function seatLabel(s: Seat): string {
+  if (s.kind === 'human') return 'Người chơi';
+  if (s.kind === 'remote') return s.peer === undefined ? 'Chờ bạn online...' : `Online · ${s.name || 'Bạn'}${peerOnline(s.peer) || isGuest() ? '' : ' (đã rời)'}`;
+  if (s.kind === 'ai') return `Máy · ${AI_LEVELS[s.lv!]}`;
+  return 'Không chơi';
+}
+function startGame() { reset(); clearVis(); scene = 'play'; }
 function buildTitleUI() {
   const x0 = BW / 2 - 300, y0 = 250;
+  if (isGuest()) { btn(BW / 2 - 140, 600, 280, 60, 'Rời phòng', leaveRoom, 'secondary', true, '#6a4a2a'); return; }
   setup.seats.forEach((s, i) => {
-    const label = s.kind === 'human' ? 'Người chơi' : s.kind === 'ai' ? `Máy · ${AI_LEVELS[s.lv!]}` : 'Không chơi';
-    btn(x0 + 280, y0 + i * 62, 300, 50, label, () => {
-      const order = i < 2 ? ['human', 'ai0', 'ai1', 'ai2'] : ['human', 'ai0', 'ai1', 'ai2', 'off'];
+    // online, the host plays seat 0, and a friend who is in the room keeps their seat
+    const locked = isHost() && (i === 0 || (s.kind === 'remote' && peerOnline(s.peer)));
+    btn(x0 + 280, y0 + i * 62, 300, 50, seatLabel(s), () => {
+      const base = isHost() ? ['human', 'remote', 'ai0', 'ai1', 'ai2'] : ['human', 'ai0', 'ai1', 'ai2'];
+      const order = i < 2 ? base : [...base, 'off'];
       const curKey = s.kind === 'ai' ? 'ai' + s.lv : s.kind;
       const nk = order[(order.indexOf(curKey) + 1) % order.length];
       setup.seats[i] = nk.startsWith('ai') ? { kind: 'ai', lv: Number(nk[2]) } : { kind: nk as Seat['kind'] };
-    }, 'seat', true);
+      sendLobby();
+    }, 'seat', !locked);
   });
-  btn(x0 + 280, y0 + 4 * 62 + 10, 300, 50, setup.mode === 'rounds' ? `${tune.max_rounds} vòng, giàu nhất thắng` : 'Tới khi phá sản', () => { setup.mode = setup.mode === 'rounds' ? 'bankrupt' : 'rounds'; }, 'seat');
-  btn(BW / 2 - 140, 600, 280, 60, 'Bắt đầu (Enter)', () => { reset(); clearVis(); scene = 'play'; }, 'primary', true, '#c8201f');
+  btn(x0 + 280, y0 + 4 * 62 + 10, 300, 50, setup.mode === 'rounds' ? `${tune.max_rounds} vòng, giàu nhất thắng` : 'Tới khi phá sản', () => { setup.mode = setup.mode === 'rounds' ? 'bankrupt' : 'rounds'; sendLobby(); }, 'seat');
+  btn(BW / 2 - 290, 600, 280, 60, 'Bắt đầu (Enter)', startGame, 'primary', true, '#c8201f');
+  if (isHost()) btn(BW / 2 + 10, 600, 280, 60, `Rời phòng ${roomCode}`, leaveRoom, '', true, '#6a4a2a');
+  else btn(BW / 2 + 10, 600, 280, 60, 'Chơi online', () => showOnlinePanel(true), '', true, '#2b6cd6');
 }
-function clearVis() { inspect = -1; tokVis.length = 0; tokAnim.length = 0; for (let i = 0; i < 40; i++) tileShown[i] = -1; riseAnims.length = 0; }
+/** A line about the connection, over the board, when something is wrong with it. */
+function drawNetBanner() {
+  let msg = '';
+  if (net.getRole() !== 'off' && !linkUp) msg = 'Mất kết nối mạng, đang nối lại...';
+  else if (isGuest() && !hostOnline) msg = 'Chủ phòng mất kết nối, đang chờ quay lại...';
+  else if (netError && scene !== 'title') msg = netError;
+  if (msg) messageBox([msg], BW / 2, 676, 620);
+}
+function clearVis() { inspect = -1; lastPos.length = 0; tokVis.length = 0; tokAnim.length = 0; for (let i = 0; i < 40; i++) tileShown[i] = -1; riseAnims.length = 0; }
 function buildPropUI(pi: number) {
   const mine = owned(pi);
   const rowH = 30, y0 = 400, rows = Math.floor((H - 16 - y0) / rowH);
   propScroll = Math.max(0, Math.min(propScroll, mine.length - rows));
   mine.slice(propScroll, propScroll + rows).forEach((i, r) => {
     const y = y0 + r * rowH, p = state.players[pi];
-    if (state.level[i] > 0) btn(W - 104, y + 3, 92, 24, 'Bán 1 cấp', () => sellLevel(pi, i), 'row');
-    else if (state.mort[i]) btn(W - 104, y + 3, 92, 24, 'Chuộc', () => unmortgage(pi, i), 'row', p.cash >= TILES[i].p! * tune.unmortgage_pct);
-    else btn(W - 104, y + 3, 92, 24, 'Cầm cố', () => mortgage(pi, i), 'row');
+    if (state.level[i] > 0) btn(W - 104, y + 3, 92, 24, 'Bán 1 cấp', () => sellLevel(pi, i), 'row', true, undefined, `sell:${i}`);
+    else if (state.mort[i]) btn(W - 104, y + 3, 92, 24, 'Chuộc', () => unmortgage(pi, i), 'row', p.cash >= TILES[i].p! * tune.unmortgage_pct, undefined, `unmort:${i}`);
+    else btn(W - 104, y + 3, 92, 24, 'Cầm cố', () => mortgage(pi, i), 'row', true, undefined, `mort:${i}`);
   });
   if (mine.length > rows) {
     btn(PX + PW / 2 - 70, H - 4 - 22, 60, 20, 'up', () => { propScroll = Math.max(0, propScroll - rows); }, 'arrowUp', propScroll > 0);
     btn(PX + PW / 2 + 10, H - 4 - 22, 60, 20, 'down', () => { propScroll += rows; }, 'arrowDown', propScroll + rows < mine.length);
   }
 }
+/** A button pressed here: a guest sends its act to the host; everyone else runs it. */
+function pressBtn(b: Loose) {
+  sfx.click();
+  if (isGuest() && b.act) { sendAct(b.act); if (b.act === 'shake') guestShaking = true; return; }
+  b.fn();
+}
+/** The same for an act with no button (picking a tile with the plane ticket). */
+function pressAct(act: string, run: () => void) {
+  if (isGuest()) sendAct(act); else run();
+}
+function pickTile(i: number) {
+  if (isGuest()) sendAct('pick', i); else state.pick = i;
+}
 function handleInput() {
   for (const c of clicks) {
     const b = ui.find(b => c.x >= b.x && c.x <= b.x + b.w && c.y >= b.y && c.y <= b.y + b.h);
-    if (b) { if (b.enabled) { sfx.click(); b.fn(); } continue; }
+    if (b) { if (b.enabled) pressBtn(b); continue; }
     if (scene === 'play' && state.phase === 'pick' && humanTurn() && c.x < BW) {
       const pt = boardPointAt(c.x, c.y);
-      if (pt) { const i = tileAt(pt.x, pt.z); if (i >= 0) { if (i === state.pick) flyTo(i); else state.pick = i; } }
+      if (pt) { const i = tileAt(pt.x, pt.z); if (i >= 0) { if (i === state.pick) pressAct('fly', () => flyTo(i)); else pickTile(i); } }
     } else if (scene === 'play' && c.x < BW) { // anywhere else on the board: open that tile's card, or close it
       const pt = boardPointAt(c.x, c.y), i = pt ? tileAt(pt.x, pt.z) : -1;
       inspect = i >= 0 && i !== inspect ? i : -1;
@@ -1238,11 +1473,11 @@ function handleInput() {
   clicks.length = 0;
   if (inspect >= 0 && (pressed('Space') || pressed('Enter') || pressed('Escape') || pressed('KeyN'))) { inspect = -1; return; }
   if (wheel && scene === 'play') { propScroll = Math.max(0, propScroll + wheel); wheel = 0; }
-  if (pressed('Space') || pressed('Enter')) { const b = ui.find(b => b.role === 'primary' && b.enabled); if (b) { sfx.click(); b.fn(); return; } }
-  if (pressed('KeyN') || pressed('Escape')) { const b = ui.find(b => b.role === 'secondary' && b.enabled); if (b) { sfx.click(); b.fn(); return; } }
+  if (pressed('Space') || pressed('Enter')) { const b = ui.find(b => b.role === 'primary' && b.enabled); if (b) { pressBtn(b); return; } }
+  if (pressed('KeyN') || pressed('Escape')) { const b = ui.find(b => b.role === 'secondary' && b.enabled); if (b) { pressBtn(b); return; } }
   if (scene === 'play' && state.phase === 'pick' && humanTurn()) {
-    if (pressed('ArrowRight') || pressed('ArrowUp')) state.pick = (state.pick + 1) % 40;
-    if (pressed('ArrowLeft') || pressed('ArrowDown')) state.pick = (state.pick + 39) % 40;
+    if (pressed('ArrowRight') || pressed('ArrowUp')) pickTile((state.pick + 1) % 40);
+    if (pressed('ArrowLeft') || pressed('ArrowDown')) pickTile((state.pick + 39) % 40);
   }
 }
 
@@ -1325,7 +1560,7 @@ function drawPanel() {
     ctx.fillStyle = '#f4ead2'; ctx.beginPath(); ctx.arc(PX + 52, y + 32, 22, 0, 7); ctx.fill();
     drawTokenIcon(p.token, PX + 52, y + 34, 38, p.color);
     text(p.name, PX + 84, y + 18, 18, '#fff8e6', 'left', 'bold');
-    const sub = (isAI(p) ? `Máy ${AI_LEVELS[p.lv]}` : 'Người chơi') + ` · ${owned(pi).length} ô` + (firstLap(p) && !p.bankrupt ? ' · vòng đầu' : '') + (p.inJail ? ' · trong tù' : '') + (p.noSalary ? ' · mất lương' : '') + (p.freeCards.length ? ' · có thẻ ra tù' : '') + (p.bankrupt ? ' · phá sản' : '');
+    const sub = (isAI(p) ? `Máy ${AI_LEVELS[p.lv]}` : p.kind === 'remote' ? (p.offline ? 'Online · mất kết nối' : 'Online') : 'Người chơi') + ` · ${owned(pi).length} ô` + (firstLap(p) && !p.bankrupt ? ' · vòng đầu' : '') + (p.inJail ? ' · trong tù' : '') + (p.noSalary ? ' · mất lương' : '') + (p.freeCards.length ? ' · có thẻ ra tù' : '') + (p.bankrupt ? ' · phá sản' : '');
     text(sub, PX + 84, y + 45, 15, '#d9c8a6', 'left');
     text(money(p.cash), PX + PW - 26, y + 18, 18, p.cash < 0 ? '#ff8a7a' : '#f2c44a', 'right', 'bold');
     ctx.restore();
@@ -1547,8 +1782,18 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
       ctx.save(); ctx.fillStyle = 'rgba(30,12,8,0.9)'; rrect(ctx, BW / 2 - 330, 40, 660, 640, 20); ctx.fill(); ctx.strokeStyle = '#c9a24a'; ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
       text(TITLE.toUpperCase(), BW / 2, 100, 50, '#f2c44a', 'center', 'bold');
       text('Cờ tỷ phú trên bản đồ Việt Nam · 2 đến 4 người', BW / 2, 150, 19, '#e8d9b5');
-      text('Bấm từng chỗ ngồi để đổi: Người chơi, Máy (Dễ, Vừa, Khó), Không chơi', BW / 2, 200, 16, '#cbb994');
-      setup.seats.forEach((s, i) => {
+      const hint = isGuest() ? (lobby ? `Phòng ${roomCode} · chờ ${lobby.hostName || 'chủ phòng'} bắt đầu ván` : `Đang vào phòng ${roomCode}...`)
+        : isHost() ? `Gửi mã phòng ${roomCode} cho bạn bè: họ sẽ vào chỗ "Chờ bạn online"` : 'Bấm từng chỗ ngồi để đổi: Người chơi, Máy (Dễ, Vừa, Khó), Không chơi';
+      text(hint, BW / 2, 200, 16, isGuest() || isHost() ? '#f2c44a' : '#cbb994');
+      const seatsShown: Seat[] = isGuest() ? (lobby ? lobby.seats : []) : setup.seats;
+      if (isGuest()) seatsShown.forEach((s, i) => { // a guest sees the seats, not their buttons
+        const y = 250 + i * 62;
+        ctx.save(); ctx.fillStyle = i === mySeat ? '#5a2a1c' : '#2c140f'; rrect(ctx, BW / 2 - 20, y, 300, 50, 12); ctx.fill();
+        ctx.strokeStyle = i === mySeat ? '#f2c44a' : '#6a4a2a'; ctx.lineWidth = i === mySeat ? 3 : 1; ctx.stroke(); ctx.restore();
+        text(seatLabel(s) + (i === mySeat ? ' (bạn)' : ''), BW / 2 + 130, y + 26, 18, '#fff8e6', 'center', 'bold');
+      });
+      if (isGuest() && lobby) text(lobby.mode === 'rounds' ? `${tune.max_rounds} vòng, giàu nhất thắng` : 'Tới khi phá sản', BW / 2 + 130, 250 + 4 * 62 + 35, 18, '#fff8e6', 'center', 'bold');
+      seatsShown.forEach((s, i) => {
         const y = 250 + i * 62 + 25;
         ctx.fillStyle = '#f4ead2'; ctx.beginPath(); ctx.arc(BW / 2 - 300 + 40, y, 24, 0, 7); ctx.fill();
         drawTokenIcon(i, BW / 2 - 300 + 40, y + 2, 40, PLAYER_COLORS[i]);
@@ -1556,17 +1801,24 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
       });
       text('Kiểu ván', BW / 2 - 300 + 76, 250 + 4 * 62 + 35, 20, '#fff8e6', 'left', 'bold');
       ui.forEach(drawButton);
+      drawNetBanner();
       lacquer(PX, 0, PW, H);
       text('Cách chơi', PX + PW / 2, 44, 24, '#f2c44a', 'center', 'bold');
-      const rules = ['Đổ 2 xúc xắc, đi quân, mua đất trống.', 'Vòng đầu (tới khi qua Xuất Phát): chưa mua đất, miễn thuế.', 'Bấm vào một ô bất kỳ để xem thông tin.', 'Dẫm lại đất của mình: xây thêm 1 cấp.', 'Cấp xây: Nhà 1 tới Nhà 4, Khách sạn, Landmark.', 'Gom đủ một nhóm màu: tiền thuê × 2.', 'Tiền 2 ô thuế dồn vào hũ giữa bàn.', 'Dừng ở Bến Đỗ Tự Do: lấy cả hũ.', 'Thiếu tiền: bán nhà, cầm cố đất.', 'Hết tiền: phá sản, bị loại.'];
-      rules.forEach((r, j) => text(r, PX + 24, 90 + j * 32, 16, '#e8d9b5', 'left'));
+      const rules = ['Đổ 2 xúc xắc, đi quân, mua đất trống.', 'Vòng đầu (tới khi qua Xuất Phát):', '   chưa mua đất, miễn thuế.', 'Bấm vào một ô bất kỳ để xem thông tin.', 'Dẫm lại đất của mình: xây thêm 1 cấp.', 'Cấp xây: Nhà 1 tới Nhà 4, Khách sạn, Landmark.', 'Gom đủ một nhóm màu: tiền thuê × 2.', 'Tiền 2 ô thuế dồn vào hũ giữa bàn.', 'Dừng ở Bến Đỗ Tự Do: lấy cả hũ.', 'Thiếu tiền: bán nhà, cầm cố đất.', 'Hết tiền: phá sản, bị loại.'];
+      rules.forEach((r, j) => text(r, PX + 24, 86 + j * 29, 16, '#e8d9b5', 'left'));
       text('Phím', PX + PW / 2, 420, 22, '#f2c44a', 'center', 'bold');
       CONTROLS.forEach((c, i) => text(c, PX + 24, 460 + i * 32, 16, '#e8d9b5', 'left'));
+      if (roomCode) { // the room code, big enough to read out to a friend
+        ctx.save(); ctx.fillStyle = '#5a2a1c'; rrect(ctx, PX + 20, 590, PW - 40, 100, 14); ctx.fill(); ctx.strokeStyle = '#f2c44a'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
+        text('MÃ PHÒNG', PX + PW / 2, 612, 16, '#e8d9b5', 'center', 'bold');
+        text(roomCode, PX + PW / 2, 655, 44, '#f2c44a', 'center', 'bold');
+      }
     },
   },
   play: {
     update(dt: number) {
-      state.t += dt; buildUI(); handleInput();
+      if (!isGuest()) state.t += dt;
+      buildUI(); handleInput();
       if (scene !== 'play') return;
       { // the tile under the mouse lights up and the cursor says it can be clicked
         const onBtn = ui.some(b => b.role !== 'hidden' && pointer.x >= b.x && pointer.x <= b.x + b.w && pointer.y >= b.y && pointer.y <= b.y + b.h);
@@ -1574,6 +1826,7 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
         hoverTile = pt ? tileAt(pt.x, pt.z) : -1;
         canvas.style.cursor = hoverTile >= 0 || onBtn ? 'pointer' : 'default';
       }
+      if (isGuest()) { updateTokens(dt); syncBuildings(dt); return; } // the host runs the turns
       updateTurn(dt);
       updateTokens(dt); syncBuildings(dt);
       state.flash.t += dt;
@@ -1591,12 +1844,15 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
       ui.forEach(drawButton);
       drawFloaters();
       drawInspect();
+      drawNetBanner();
     },
   },
   results: {
     update(dt: number) {
-      state.t += dt; buildUI(); handleInput();
+      if (!isGuest()) state.t += dt;
+      buildUI(); handleInput();
       updateTokens(dt); syncBuildings(dt);
+      if (isGuest()) return;
       for (const f of state.floaters) f.t += dt; state.floaters = state.floaters.filter(f => f.t < 1.4);
     },
     draw() {
@@ -1634,7 +1890,7 @@ function updateTurn(dt: number) {
   if (state.shaking) {
     const sh = state.shaking; sh.t += dt; sh.rattle -= dt;
     if (sh.rattle <= 0) { sfx.rattle(sh.t); sh.rattle = 0.09; }
-    const held = sh.ai ? sh.t < sh.holdFor : (pointerHeld || down.has('Space') || down.has('Enter'));
+    const held = sh.ai ? sh.t < sh.holdFor : sh.remote ? !sh.released && peerOnline(p.peer) : (pointerHeld || down.has('Space') || down.has('Enter'));
     if (!held || sh.t > tune.shake_max_time) throwDice();
     return;
   }
@@ -1662,25 +1918,26 @@ function updateTurn(dt: number) {
     return;
   }
   if (state.phase === 'landing') { if (state.timer >= 0.25) resolveLanding(); return; }
-  if (isAI(p) && state.phase !== 'over' && state.timer >= tune.ai_delay) { state.timer = 0; aiAct(); }
+  const auto = isAI(p) || (p.kind === 'remote' && !peerOnline(p.peer));
+  if (auto && state.phase !== 'over' && state.timer >= tune.ai_delay) { state.timer = 0; aiAct(); }
 }
 
 // ---- Loop: fixed step, frame time clamped ---------------------------------------------
 function step() {
-  if (pressed('KeyM')) { setMuted(!muted); hit.delete('KeyM'); }
-  scenes[scene].update(STEP); hit.clear();
+  if (pressed('KeyM')) { setMuted(!muted()); hit.delete('KeyM'); }
+  scenes[scene].update(STEP); netStep(); hit.clear();
 }
 let last = 0, acc = 0, ALPHA = 1;
 function tick() {
   const now = clock.now();
-  acc += Math.min(now - last, 0.25); last = now;
+  acc += Math.min(now - last, isHost() ? 1 : 0.25); last = now;
   while (acc >= STEP) { step(); acc -= STEP; }
   ALPHA = acc / STEP;
   drawFrame();
 }
 function drawFrame() { scenes[scene].draw(); }
 function frame() { tick(); requestAnimationFrame(frame); }
-function timer() { if (document.visibilityState === 'visible' && clock.now() - last > 0.1) tick(); }
+function timer() { if ((document.visibilityState === 'visible' || isHost()) && clock.now() - last > 0.1) tick(); }
 
 // ---- What a check can read and drive (?manual=1 stops the loop; players never see it) ----
 install({

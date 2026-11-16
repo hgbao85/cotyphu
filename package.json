@@ -13,7 +13,9 @@
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "vitest run",
     "test:e2e": "npm run build:single && playwright test",
-    "smoke": "npm run build:single && playwright test --grep @boot"
+    "smoke": "npm run build:single && playwright test --grep @boot",
+    "server": "node server/server.mjs",
+    "start": "node server/server.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",
@@ -24,6 +26,7 @@
     "vitest": "5.0.5"
   },
   "dependencies": {
-    "three": "0.186.1"
+    "three": "0.186.1",
+    "ws": "8.22.1"
   }
 }

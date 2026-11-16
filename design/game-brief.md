@@ -37,6 +37,7 @@ After play: Tôi cảm thấy thảy xúc xắc vẫn chưa ngẫu nhiên đúng
 After play: Random cơ hội và khí vận mỗi ván để tăng kịch tính (Xáo lại khi hết bộ)
 After play: Thuế tài sản sẽ trả 10% hiện có chứ không phải là tổng tài sản
 After play: Lúc ở trong tù thảy đôi được đi rồi thì được thảy tiếp
+After play: Tôi muốn chơi online với bạn bè (Qua Internet; Cả điện thoại)
 
 **Pitch:** Cờ tỷ phú trên bản đồ Việt Nam cho 2–4 người, mỗi chỗ là người hoặc máy: đổ xúc xắc, mua đất từ Hà Giang tới Cà Mau, dẫm lại đất mình để xây nhà, khách sạn rồi Landmark, rút thẻ Cơ Hội và Khí Vận vui nhộn; ai trụ lại (hoặc giàu nhất sau 30 vòng) là tỷ phú.
 
@@ -85,6 +86,9 @@ Màn tạo ván: chọn 2–4 chỗ ngồi, mỗi chỗ Người hoặc Máy (D�
 - [x] Giữ để lắc xúc xắc (có thanh lực), thả ra để ném; xúc xắc dừng thì hiện số to, đổ đôi có hiệu ứng riêng
 - [x] Rút thẻ Vào tù: lần qua Xuất Phát tới mất lương, trừ khi ra tù bằng Thẻ Ra Tù
 - [x] Hũ tiền giữa bàn: chỉ tiền 2 ô thuế dồn vào hũ, dừng ở Bến Đỗ Tự Do lấy cả hũ
+- [x] Chơi online: tạo phòng có mã, bạn bè vào bằng mã, mỗi người chơi trên máy mình; rớt mạng vào lại đúng chỗ, lúc vắng thì máy đi thay
+- [ ] Chơi trên điện thoại (giao diện dọc, nút to)
+- [ ] Đưa lên Internet (Render hoặc Railway)
 
 ## Your systems
 - người hoặc máy cho từng chỗ ngồi · in the slice
@@ -106,7 +110,7 @@ Màn tạo ván: chọn 2–4 chỗ ngồi, mỗi chỗ Người hoặc Máy (D�
 
 ## Out of scope
 - Đổi và bán đất giữa người chơi: add it as a feature
-- Chơi online qua mạng: needs a server
+- Người lạ vào xem, xếp hạng online: not built yet
 - Luật nhà và biến thể khác (đấu giá đất): change it after play
 - Gợi ý nước đi hay: change it after play
 - Lưu ván dở để chơi tiếp: add it as a feature

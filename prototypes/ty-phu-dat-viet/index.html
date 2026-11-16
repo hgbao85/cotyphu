@@ -536,6 +536,10 @@ function resolveLanding() {
   events.push({ type: 'land', who: pi, tile: i });
   if (OWNABLE(t)) {
     const o = state.owner[i];
+    if (o < 0 && state.round <= tune.no_buy_rounds) { // the first round is for looking around: no buying yet
+      state.popup = { kind: 'nobuy', tile: i }; state.phase = 'rentShow'; state.timer = 0;
+      log(`Vòng ${state.round}: chưa được mua đất. ${p.name} chỉ ghé xem ${t.n}.`); return;
+    }
     if (o < 0) { state.popup = { kind: 'buy', tile: i }; state.phase = 'buy'; state.timer = 0; return; }
     if (o === pi) {
       if (t.t === 'prop' && !state.mort[i] && state.level[i] < MAX_LEVEL) {
@@ -694,7 +698,7 @@ function aiPickTile(pi) {
   for (let i = 0; i < 40; i++) {
     const t = TILES[i];
     let v = -1;
-    if (OWNABLE(t) && state.owner[i] < 0 && t.p <= p.cash - (p.lv ? aiReserve(p) : 0)) v = t.p;
+    if (OWNABLE(t) && state.owner[i] < 0 && state.round > tune.no_buy_rounds && t.p <= p.cash - (p.lv ? aiReserve(p) : 0)) v = t.p;
     else if (state.owner[i] === pi && t.t === 'prop' && state.level[i] < MAX_LEVEL && !state.mort[i]) v = t.p * 0.8;
     else if (t.t === 'free') v = state.pot;
     if (p.lv === 0) v = OWNABLE(t) && state.owner[i] < 0 ? rng() * 1000 : v;
@@ -1575,11 +1579,12 @@ function drawPopup() {
   if (!pop && state.phase !== 'pick' && state.phase !== 'debt') return;
   if (state.phase === 'pick') { messageBox([human ? 'Vé máy bay: bấm một ô trên bàn cờ (hoặc dùng phím mũi tên) để bay tới.' : `${p.name} đang chọn nơi bay tới...`], cx, 545, 600); return; }
   if (state.phase === 'debt') { const d = state.debt; messageBox([`${p.name} cần trả ${money(d.total)}, đang có ${money(p.cash)}.`, 'Bán bớt nhà hoặc cầm cố đất ở danh sách bên phải, rồi bấm Trả nợ.'], cx, 520, 620); return; }
-  if (pop.kind === 'buy' || pop.kind === 'build' || pop.kind === 'rent') {
+  if (pop.kind === 'buy' || pop.kind === 'build' || pop.kind === 'rent' || pop.kind === 'nobuy') {
     tileCard(pop.tile, cx, cy - 10);
     if (pop.kind === 'rent') messageBox([`${p.name} trả ${state.players[pop.owner].name} ${money(pop.rent)}`], cx, 548, 520);
     if (pop.kind === 'build') messageBox([`Đất của bạn! Xây thêm 1 cấp?`], cx, 548, 420);
-    if (!human && pop.kind !== 'rent') messageBox([`${p.name} đang suy nghĩ...`], cx, 548, 420);
+    if (pop.kind === 'nobuy') messageBox([`Vòng ${state.round <= 1 ? 'đầu' : state.round} chưa được mua đất: chỉ ghé xem.`], cx, 548, 520);
+    if (!human && pop.kind !== 'rent' && pop.kind !== 'nobuy') messageBox([`${p.name} đang suy nghĩ...`], cx, 548, 420);
   }
   if (pop.kind === 'card') {
     const w = 380, h = 250, x = cx - w / 2, y = cy - h / 2;
@@ -1642,10 +1647,10 @@ const scenes = {
       ui.forEach(drawButton);
       lacquer(PX, 0, PW, H);
       text('Cách chơi', PX + PW / 2, 44, 24, '#f2c44a', 'center', 'bold');
-      const rules = ['Đổ 2 xúc xắc, đi quân, mua đất trống.', 'Dẫm lại đất của mình: xây thêm 1 cấp.', 'Cấp xây: Nhà 1 tới Nhà 4, Khách sạn, Landmark.', 'Gom đủ một nhóm màu: tiền thuê × 2.', 'Thuế, tiền phạt dồn vào hũ giữa bàn.', 'Dừng ở Bến Đỗ Tự Do: lấy cả hũ.', 'Thiếu tiền: bán nhà, cầm cố đất.', 'Hết tiền: phá sản, bị loại.'];
+      const rules = ['Đổ 2 xúc xắc, đi quân, mua đất trống.', 'Vòng đầu tiên chưa được mua đất.', 'Dẫm lại đất của mình: xây thêm 1 cấp.', 'Cấp xây: Nhà 1 tới Nhà 4, Khách sạn, Landmark.', 'Gom đủ một nhóm màu: tiền thuê × 2.', 'Thuế, tiền phạt dồn vào hũ giữa bàn.', 'Dừng ở Bến Đỗ Tự Do: lấy cả hũ.', 'Thiếu tiền: bán nhà, cầm cố đất.', 'Hết tiền: phá sản, bị loại.'];
       rules.forEach((r, j) => text(r, PX + 24, 90 + j * 32, 16, '#e8d9b5', 'left'));
-      text('Phím', PX + PW / 2, 380, 22, '#f2c44a', 'center', 'bold');
-      CONTROLS.forEach((c, i) => text(c, PX + 24, 420 + i * 32, 16, '#e8d9b5', 'left'));
+      text('Phím', PX + PW / 2, 400, 22, '#f2c44a', 'center', 'bold');
+      CONTROLS.forEach((c, i) => text(c, PX + 24, 440 + i * 32, 16, '#e8d9b5', 'left'));
     },
   },
   play: {

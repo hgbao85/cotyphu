@@ -36,6 +36,11 @@ const CONTROLS = ['Chuột: bấm các nút', 'Space / Enter: đổ xúc xắc, 
 const clock = window.GAME_CLOCK || { now: () => performance.now() / 1000 }; // a check may inject one
 const CHEAP = params.get('render') === 'cheap'; // a headless shot or check: 3D draws cheap; players never see it
 let seed;
+function freshSeed() { // a new random seed for a new game; gameplay still draws only from rng()
+  const u = new Uint32Array(1);
+  if (window.crypto && crypto.getRandomValues) crypto.getRandomValues(u); else u[0] = (Date.now() * 2654435761) >>> 0;
+  return (u[0] | 0) || 1;
+}
 function rng() { // mulberry32; every gameplay random call reads this, never Math.random
   seed = (seed + 0x6D2B79F5) | 0;
   let t = Math.imul(seed ^ (seed >>> 15), seed | 1);
@@ -286,7 +291,10 @@ let setup = { seats: [{ kind: 'human' }, { kind: 'ai', lv: 1 }, { kind: 'ai', lv
 let scene, state;
 function shuffled(n) { const a = [...Array(n).keys()]; for (let i = n - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 function reset() {
-  seed = Number(params.get('seed')) || CONFIG.seed;
+  // Every new game gets a fresh seed, so no two games roll alike. A fixed seed is used only when one is
+  // asked for (?seed=) or when an automated check drives the page, so its runs repeat.
+  const checked = params.has('seed') || CHEAP || params.get('manual') === '1' || !!window.GAME_CLOCK;
+  seed = checked ? (Number(params.get('seed')) || CONFIG.seed) : freshSeed();
   const players = [];
   setup.seats.forEach((s, i) => {
     if (s.kind === 'off') return;

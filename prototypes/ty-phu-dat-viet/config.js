@@ -30,7 +30,7 @@ window.CONFIG = {
   rent_l5: { value: 1.1, min: 0, max: 4, step: 0.05 },              // Khách sạn
   rent_l6: { value: 1.5, min: 0, max: 5, step: 0.05 },              // Landmark
   full_group_mult: { value: 2, min: 1, max: 4, step: 0.5 },         // gom đủ nhóm màu: thuê × này
-  port_rent: { value: 200, min: 0, max: 1000, step: 10 },           // 1 bến cảng/sân bay; gấp đôi mỗi bến thêm
+  port_rent: { value: 250, min: 0, max: 1000, step: 10 },           // 1 bến cảng/sân bay; gấp đôi mỗi bến thêm
   util_mult_one: { value: 40, min: 0, max: 200, step: 5 },          // 1 công ty: tổng xúc xắc × này
   util_mult_two: { value: 100, min: 0, max: 400, step: 5 },         // 2 công ty: tổng xúc xắc × này
 

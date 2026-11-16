@@ -6,3 +6,4 @@ iteration 5	Công ty Điện and Công ty Nước price 1.500.000 -> 2.000.000 �
 iteration 6	Thuế Thu Nhập 1.500.000 -> 1.000.000 flat; Thuế Tài Sản now the player picks 10% of net worth or 2.000.000 (AI picks the cheaper)	errors: none	evidence/iteration-6-play.png
 iteration 7	added click a tile (or a property row) to open its info card; hover lights the tile	errors: none	evidence/iteration-7-play.png (cards checked by clicking in the browser pane)
 iteration 8	board tile names and prices drawn larger (auto-fit up to 54px in the board texture, was 36px); Tân Sơn Nhất shortened on the board	errors: none	evidence/iteration-8-play.png
+iteration 9	added hold to shake the dice (power bar, rattle) and release to throw (harder throw = more spin and bounces); a big "a + b = n" pops up when they stop, gold with stars on a double	errors: none	evidence/iteration-9-play.png (shake and number checked in the browser pane)

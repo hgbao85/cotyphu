@@ -53,5 +53,7 @@ window.CONFIG = {
 
   // ---- Motion (seconds) ----
   dice_time: { value: 1.1, min: 0.3, max: 3, step: 0.05 },          // xúc xắc lăn bao lâu
+  shake_full_time: { value: 1.2, min: 0.3, max: 3, step: 0.1 },     // giữ lắc bao lâu thì đầy lực ném (s)
+  shake_max_time: { value: 4, min: 1, max: 10, step: 0.5 },         // giữ quá lâu thì tự ném (s)
   hop_time: { value: 0.17, min: 0.05, max: 0.6, step: 0.01 },       // quân cờ nhảy một ô
 };

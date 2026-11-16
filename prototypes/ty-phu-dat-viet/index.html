@@ -98,11 +98,14 @@ function toLogical(e) {
   const r = canvas.getBoundingClientRect();
   return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H };
 }
-addEventListener('pointerdown', e => { startAudio(); clicks.push(toLogical(e)); });
+let pointerHeld = false;
+addEventListener('pointerdown', e => { startAudio(); pointerHeld = true; clicks.push(toLogical(e)); });
+addEventListener('pointerup', () => { pointerHeld = false; });
+addEventListener('pointercancel', () => { pointerHeld = false; });
 addEventListener('pointermove', e => { pointer = toLogical(e); });
 addEventListener('wheel', e => { wheel += Math.sign(e.deltaY); }, { passive: true });
 let wheel = 0;
-addEventListener('blur', () => down.clear());
+addEventListener('blur', () => { down.clear(); pointerHeld = false; });
 
 // ---- Audio: started on first input, mute on M --------------------------------------------
 let audio = null, muted = false;
@@ -135,6 +138,9 @@ const sfx = {
   broke() { [300, 250, 200, 140].forEach((f, i) => tone(f, 0.25, 'sawtooth', 0.12, i * 0.18)); },
   win() { [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, 0.18, 'triangle', 0.25, i * 0.13)); },
   click() { tone(600, 0.03, 'square', 0.08); },
+  rattle(t) { tone(240 + (Math.floor(t * 37) % 5) * 45, 0.035, 'square', 0.07); tone(520 + (Math.floor(t * 53) % 4) * 60, 0.025, 'triangle', 0.05, 0.03); },
+  land() { tone(150, 0.08, 'triangle', 0.3); tone(110, 0.1, 'triangle', 0.25, 0.08); },
+  double() { tone(150, 0.08, 'triangle', 0.3); [784, 988, 1175].forEach((f, i) => tone(f, 0.12, 'triangle', 0.2, 0.08 + i * 0.07)); },
 };
 
 // ---- Data: the board ------------------------------------------------------------------
@@ -481,17 +487,28 @@ function nextTurn() {
   state.cur = i;
   startTurn();
 }
-function roll() {
+// Throwing: hold to shake the dice in the air, let go to throw. The longer the shake, the harder
+// the throw: more spin, higher bounces, a longer tumble. The faces are rolled by rng() either way.
+function startShake(ai = false) {
+  if (state.shaking) return;
+  state.shaking = { t: 0, ai, holdFor: ai ? 0.35 + rng() * 0.7 : 0, rattle: 0 };
+}
+function shakePower() { return state.shaking ? Math.min(1, state.shaking.t / tune.shake_full_time) : 0; }
+function throwDice() { const pw = shakePower(); state.shaking = null; roll(pw); }
+function roll(power = 0.5) {
   const p = curP();
   const a = 1 + Math.floor(rng() * 6), b = 1 + Math.floor(rng() * 6);
   state.dice = [a, b]; state.diceT = 0; state.phase = 'dice'; state.timer = 0;
-  state.diceSpin = [0, 1].map(() => ({ ax: rng() * 2 - 1, ay: rng() * 2 - 1, az: rng() * 2 - 1, yaw: rng() * Math.PI * 2, n: 2 + Math.floor(rng() * 2) }));
+  state.throwPower = power; state.diceDur = tune.dice_time * (0.75 + 0.6 * power); state.diceShow = null;
+  state.diceSpin = [0, 1].map(() => ({ ax: rng() * 2 - 1, ay: rng() * 2 - 1, az: rng() * 2 - 1, yaw: rng() * Math.PI * 2, n: 2 + Math.floor(rng() * 2) + Math.round(power * 3) }));
   sfx.dice();
   events.push({ type: 'roll', who: state.cur, dice: [a, b] });
   p.lastRoll = a + b;
 }
 function afterDice() {
   const p = curP(), [a, b] = state.dice, dbl = a === b;
+  state.diceShow = { t: 0, a, b, dbl };
+  if (dbl) sfx.double(); else sfx.land();
   if (p.inJail) {
     if (dbl) { p.inJail = false; p.jailTries = 0; log(`${p.name} đổ đôi ${a}-${b}: ra tù!`); beginMove(a + b); state.rolledDouble = false; return; }
     p.jailTries++;
@@ -719,11 +736,11 @@ function aiPickTile(pi) {
 function aiAct() { // one decision for the computer player, after its think delay
   const pi = state.cur, p = curP();
   switch (state.phase) {
-    case 'roll': roll(); return;
+    case 'roll': startShake(true); return;
     case 'jail': {
       const early = TILES.some((t, i) => OWNABLE(t) && state.owner[i] < 0 && i > 10);
       const pay = p.freeCards.length || (p.lv === 1 && early && p.cash > 3000) || (p.lv === 2 && early && p.cash > 2500);
-      if (pay && (p.freeCards.length || p.cash >= tune.jail_fine)) payJail(); else roll();
+      if (pay && (p.freeCards.length || p.cash >= tune.jail_fine)) payJail(); else startShake(true);
       return;
     }
     case 'buy': if (aiWantsBuy(pi, state.popup.tile)) doBuy(); else { log(`${p.name} bỏ qua ${TILES[state.popup.tile].n}.`); skip(); } return;
@@ -1293,13 +1310,27 @@ function diceFinalQuat(v, yaw) {
   const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(e[0], e[1], e[2]));
   return new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw).multiply(q);
 }
+const SHAKE_AT = [{ x: -0.3, y: 1.9, z: 0.9 }, { x: 0.3, y: 2.0, z: 1.0 }];
 function placeDice() {
-  const u = Math.min(1, state.diceT / tune.dice_time), ease = 1 - Math.pow(1 - u, 3);
+  if (state && state.shaking) { // rattling in the air: the harder the shake, the wilder the jiggle
+    const t = state.shaking.t, pw = shakePower(), amp = 0.06 + 0.22 * pw;
+    for (let k = 0; k < 2; k++) {
+      const d = dice3[k], h = SHAKE_AT[k], f = 22 + k * 5;
+      d.position.set(h.x + Math.sin(t * f + k) * amp, h.y + Math.abs(Math.sin(t * (f + 9))) * amp * 1.2, h.z + Math.cos(t * (f - 4) + k * 2) * amp);
+      d.rotation.set(t * (9 + 6 * pw) + k, t * (7 + 5 * pw) * (k ? -1 : 1), Math.sin(t * 13) * 1.5);
+    }
+    return;
+  }
+  const dur = state && state.diceDur || tune.dice_time, pw = state && state.throwPower !== undefined ? state.throwPower : 0.5;
+  const u = Math.min(1, state.diceT / dur), ease = 1 - Math.pow(1 - u, 3);
+  const bounces = 2 + 2.5 * pw, height = 1.2 + 1.6 * pw;
   for (let k = 0; k < 2; k++) {
     const d = dice3[k], spin = state.diceSpin ? state.diceSpin[k] : { ax: 0, ay: 1, az: 0, yaw: 0.3 + k, n: 0 };
-    const sx = -4.0 + k * 0.4, sz = 0.6 + k * 0.5, ex = -0.5 + k * 1.0, ez = -1.7 + k * 0.25;
-    d.position.x = sx + (ex - sx) * ease; d.position.z = sz + (ez - sz) * ease;
-    d.position.y = BOARD_TOP + 0.275 + 1.6 * Math.pow(1 - u, 1.6) * Math.abs(Math.cos(u * Math.PI * 2.5));
+    const sx = SHAKE_AT[k].x, sz = SHAKE_AT[k].z, ex = -0.5 + k * 1.0, ez = -1.7 + k * 0.25;
+    const over = Math.sin(u * Math.PI) * 0.35 * pw; // a hard throw skids a little past and slides back
+    d.position.x = sx + (ex - sx) * ease + over * (k ? 1 : -1) * 0.4; d.position.z = sz + (ez - sz) * ease - over;
+    const fall = u < 0.18 ? (SHAKE_AT[k].y - BOARD_TOP - 0.275) * (1 - u / 0.18) : 0;
+    d.position.y = BOARD_TOP + 0.275 + Math.max(fall, height * Math.pow(1 - u, 1.6) * Math.abs(Math.cos(u * Math.PI * bounces)) * Math.min(1, u / 0.18));
     const qf = diceFinalQuat(state.dice[k], spin.yaw);
     const ax = new THREE.Vector3(spin.ax, spin.ay, spin.az).normalize();
     const extra = new THREE.Quaternion().setFromAxisAngle(ax, (1 - ease) * spin.n * Math.PI * 2);
@@ -1364,9 +1395,9 @@ function buildUI() {
   const ax = BW / 2, ay = 372; // the action area sits in the board's open centre
   if (human) {
     switch (state.phase) {
-      case 'roll': btn(ax - 110, ay, 220, 58, 'Đổ xúc xắc', roll, 'primary', true, '#c8201f'); break;
+      case 'roll': btn(ax - 130, ay, 260, 58, state.shaking ? 'Thả ra để ném!' : 'Giữ để lắc xúc xắc', () => startShake(), 'primary', true, '#c8201f'); break;
       case 'jail': {
-        btn(ax - 230, ay, 220, 54, 'Đổ tìm đôi', roll, 'primary', true, '#c8201f');
+        btn(ax - 230, ay, 220, 54, state.shaking ? 'Thả ra để ném!' : 'Giữ lắc tìm đôi', () => startShake(), 'primary', true, '#c8201f');
         const card = p.freeCards.length > 0;
         btn(ax + 10, ay, 220, 54, card ? 'Dùng thẻ ra tù' : `Nộp ${money(tune.jail_fine)}`, payJail, 'secondary', card || p.cash >= tune.jail_fine);
         break;
@@ -1552,6 +1583,29 @@ function drawPanel() {
     if (tag) text(tag, PX + 230, y + 15, 14, state.mort[i] ? '#ff9a8a' : '#7ee08a', 'center', 'bold');
   });
 }
+function drawDiceFeel() {
+  if (state.shaking && !state.shaking.ai) { // the power bar under the shaking dice
+    const pw = shakePower(), x = BW / 2 - 130, y = 446, w = 260, h = 16;
+    ctx.save();
+    ctx.fillStyle = 'rgba(20,10,6,0.8)'; rrect(ctx, x - 4, y - 4, w + 8, h + 8, 8); ctx.fill();
+    const g = ctx.createLinearGradient(x, 0, x + w, 0); g.addColorStop(0, '#3fcf5a'); g.addColorStop(0.6, '#f2c44a'); g.addColorStop(1, '#e8402a');
+    ctx.fillStyle = g; rrect(ctx, x, y, Math.max(8, w * pw), h, 6); ctx.fill();
+    text(pw >= 1 ? 'Lực tối đa!' : 'Lực ném', BW / 2, y + 34, 16, '#fff8e6', 'center', 'bold');
+    ctx.restore();
+  }
+  const ds = state.diceShow;
+  if (!ds || ds.t > 1.6) return;
+  const s = project((dice3[0].position.x + dice3[1].position.x) / 2, BOARD_TOP + 1.1, (dice3[0].position.z + dice3[1].position.z) / 2);
+  const pop = ds.t < 0.18 ? 0.4 + 0.6 * (ds.t / 0.18) * 1.25 : 1 + 0.25 * Math.max(0, 1 - (ds.t - 0.18) * 5);
+  const alpha = ds.t > 1.2 ? Math.max(0, 1 - (ds.t - 1.2) / 0.4) : 1;
+  const label = ds.dbl ? `ĐÔI! ${ds.a} + ${ds.b} = ${ds.a + ds.b}` : `${ds.a} + ${ds.b} = ${ds.a + ds.b}`;
+  ctx.save(); ctx.globalAlpha = alpha; ctx.translate(s.x, s.y - ds.t * 12); ctx.scale(pop, pop);
+  ctx.font = `bold 44px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.lineWidth = 8; ctx.strokeStyle = 'rgba(40,14,8,0.9)'; ctx.strokeText(label, 0, 0);
+  ctx.fillStyle = ds.dbl ? '#f2c44a' : '#fff8e6'; ctx.fillText(label, 0, 0);
+  if (ds.dbl) { ctx.fillStyle = '#ffe9a8'; for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4 + ds.t * 2, r = 150 + 20 * Math.sin(ds.t * 9 + k); star(ctx, Math.cos(a) * r, Math.sin(a) * r * 0.45, 10); } }
+  ctx.restore();
+}
 function drawPotLabel() {
   const s = project(POT_X, BOARD_TOP + 1.05, POT_Z);
   const label = `Hũ tiền: ${money(state.pot)}`;
@@ -1618,8 +1672,8 @@ function messageBox(lines, cx, cy, w) {
 function drawPopup() {
   const p = curP(), pop = state.popup, human = humanTurn();
   const cx = BW / 2, cy = 330;
-  if (state.phase === 'roll' && human) messageBox([`Lượt của ${p.name}${state.rolledDouble ? ': đổ đôi, được đổ tiếp!' : ''}`], cx, 322, 460);
-  if (state.phase === 'jail' && human) messageBox([`${p.name} đang ở tù. Đổ được đôi thì ra, hoặc nộp phạt (lần thử ${p.jailTries + 1}/3).`], cx, 312, 520);
+  if (state.phase === 'roll' && human && !state.shaking) messageBox([`Lượt của ${p.name}${state.rolledDouble ? ': đổ đôi, được đổ tiếp!' : ''}`], cx, 322, 460);
+  if (state.phase === 'jail' && human && !state.shaking) messageBox([`${p.name} đang ở tù. Đổ được đôi thì ra, hoặc nộp phạt (lần thử ${p.jailTries + 1}/3).`], cx, 312, 520);
   if (state.phase === 'end' && human) messageBox([`${p.name}: hết lượt. Quản lý tài sản ở bên phải nếu cần.`], cx, 318, 640);
   if (!pop && state.phase !== 'pick' && state.phase !== 'debt') return;
   if (state.phase === 'pick') { messageBox([human ? 'Vé máy bay: bấm một ô trên bàn cờ (hoặc dùng phím mũi tên) để bay tới.' : `${p.name} đang chọn nơi bay tới...`], cx, 545, 600); return; }
@@ -1767,6 +1821,7 @@ const scenes = {
       drawBoardView();
       drawLog();
       drawPotLabel();
+      drawDiceFeel();
       drawPopup();
       drawPanel();
       ui.forEach(drawButton);
@@ -1811,12 +1866,20 @@ const scenes = {
 function updateTurn(dt) {
   const p = curP();
   state.timer += dt;
-  if (state.phase === 'dice') {
-    state.diceT += dt;
-    if (state.diceT >= tune.dice_time) afterDice();
+  if (state.diceShow) state.diceShow.t += dt;
+  if (state.shaking) {
+    const sh = state.shaking; sh.t += dt; sh.rattle -= dt;
+    if (sh.rattle <= 0) { sfx.rattle(sh.t); sh.rattle = 0.09; }
+    const held = sh.ai ? sh.t < sh.holdFor : (pointerHeld || down.has('Space') || down.has('Enter'));
+    if (!held || sh.t > tune.shake_max_time) throwDice();
     return;
   }
-  if (state.diceT < tune.dice_time) state.diceT += dt;
+  if (state.phase === 'dice') {
+    state.diceT += dt;
+    if (state.diceT >= state.diceDur) afterDice();
+    return;
+  }
+  if (state.diceT < (state.diceDur || tune.dice_time)) state.diceT += dt;
   if (state.phase === 'move') {
     const hopDur = state.hopFast ? tune.hop_time * 0.6 : tune.hop_time;
     state.hopT += dt;

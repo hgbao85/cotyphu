@@ -23,12 +23,13 @@ After play: Tăng 2 giá mua ô công ty lên 2.000.000
 After play: 1 ô sẽ thu 1.000.000. 1 ô sẽ thu 10% tài sản đang có hoặc 2.000.000.
 After play: Chưa thể click vào xem thông tin của ô đất
 After play: Làm chữ trên bàn cờ to hơn
+After play: Thêm cảm giác thảy xúc sắc (Giữ để lắc, thả để ném; Hiện số to khi dừng)
 
 **Pitch:** Cờ tỷ phú trên bản đồ Việt Nam cho 2–4 người, mỗi chỗ là người hoặc máy: đổ xúc xắc, mua đất từ Hà Giang tới Cà Mau, dẫm lại đất mình để xây nhà, khách sạn rồi Landmark, rút thẻ Cơ Hội và Khí Vận vui nhộn; ai trụ lại (hoặc giàu nhất sau 30 vòng) là tỷ phú.
 
 **Genre:** board game, property trading with dice (cờ tỷ phú)
 
-**Controls:** chuột: bấm vào ô để xem thông tin, bấm nút Đổ xúc xắc, Mua, Bỏ qua, Xây, Cầm cố; phím Space hoặc Enter để đổ xúc xắc / xác nhận *(guessed)*
+**Controls:** chuột: bấm vào ô để xem thông tin, giữ nút (hoặc Space) để lắc xúc xắc rồi thả ra để ném, bấm nút Mua, Bỏ qua, Xây, Cầm cố; phím Space hoặc Enter để đổ xúc xắc / xác nhận *(guessed)*
 
 **Question:** một ván cờ tỷ phú đất Việt với luật xây khi dẫm lại ô có vui từ đầu tới cuối không?
 
@@ -68,6 +69,7 @@ Màn tạo ván: chọn 2–4 chỗ ngồi, mỗi chỗ Người hoặc Máy (D�
 - [x] Màn kết thúc: bảng xếp hạng tài sản và nút Chơi lại
 - [x] Vòng đầu tiên chưa được mua đất: dẫm vào đất trống chỉ ghé xem
 - [x] Bấm vào ô bất kỳ trên bàn (hoặc dòng trong danh sách tài sản) để xem thẻ thông tin
+- [x] Giữ để lắc xúc xắc (có thanh lực), thả ra để ném; xúc xắc dừng thì hiện số to, đổ đôi có hiệu ứng riêng
 - [x] Hũ tiền giữa bàn: thuế và tiền phạt dồn vào hũ, dừng ở Bến Đỗ Tự Do lấy cả hũ
 
 ## Your systems

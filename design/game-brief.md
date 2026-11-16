@@ -42,6 +42,8 @@ After play: Chủ phòng tạo phòng thì phải chiếm 1 slot chứ?
 After play: Thêm nút rời phòng chơi nữa, Chủ phòng sẽ có nút giải tán phòng chơi
 After play: Trong phòng phải có hiển thị lại mã phòng nếu là phòng online
 After play: Thêm tính năng bỏ phiếu chơi lại ván mới (Cả hai; Tất cả đồng ý)
+After play: Ví dụ người chơi thoát ra xong vào lại thì sao → Làm cả 3 (nút Vào lại phòng; giữ ván khi chủ phòng tải lại; lấy lại ghế)
+After play: Thêm luật chọn thứ tự đi, người chơi sẽ thảy xúc xắc để tìm thứ tự đi, thấp nhất sẽ đi trước
 
 **Pitch:** Cờ tỷ phú trên bản đồ Việt Nam cho 2–4 người, mỗi chỗ là người hoặc máy: đổ xúc xắc, mua đất từ Hà Giang tới Cà Mau, dẫm lại đất mình để xây nhà, khách sạn rồi Landmark, rút thẻ Cơ Hội và Khí Vận vui nhộn; ai trụ lại (hoặc giàu nhất sau 30 vòng) là tỷ phú.
 
@@ -77,6 +79,8 @@ Màn tạo ván: chọn 2–4 chỗ ngồi, mỗi chỗ Người hoặc Máy (D�
 - Thua: không trả nổi tiền kể cả sau khi cầm cố hết đất: phá sản, bị loại.
 
 ## Features
+- [x] Đầu ván tung xúc xắc chọn thứ tự đi: thấp nhất đi trước, hòa thì tung lại
+- [x] Vào lại phòng: nút Vào lại phòng (30 phút), chủ phòng tải lại vẫn giữ ván, người đã rời vào lại cùng tên lấy lại ghế
 - [x] Màn tạo ván: 2–4 chỗ ngồi, mỗi chỗ Người hoặc Máy (Dễ/Vừa/Khó), kiểu ván Phá sản hoặc 30 vòng
 - [x] Bàn 40 ô: 22 tỉnh thành chia 8 nhóm theo miền, 4 bến cảng/sân bay, 2 công ty (Điện, Nước), Cơ Hội ×3, Khí Vận ×3, Thuế ×2, Xuất Phát, Nhà Tù, Đi Tù, Bến Đỗ Tự Do
 - [x] Xúc xắc 3D lăn trên bàn, quân cờ nhảy từng ô; đổ đôi được đi tiếp, đôi 3 lần vào tù

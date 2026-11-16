@@ -475,7 +475,65 @@ function reset() {
     flash: { tile: -1, t: 0 }, ranking: null, turns: 0, pot: tune.pot_start,
   };
   log(`Ván mới: ${players.length} người chơi, ${setup.mode === 'rounds' ? `${tune.max_rounds} vòng` : 'chơi tới khi phá sản'}.`);
+  if (tune.order_roll && players.length > 1) startOrder(); else startTurn();
+}
+
+// ---- Choosing who goes first ----------------------------------------------------------------
+// With order_roll on, a game opens with everyone throwing the dice once, in seat order. The lowest
+// total goes first, then upwards. Players who tie throw again among themselves.
+/** Starts the throws for the order of play. */
+function startOrder() {
+  state.ordering = true;
+  state.order = state.players.map(() => null);
+  log('Tung xúc xắc chọn thứ tự đi: ai thấp nhất đi trước.');
+  nextOrderThrow();
+}
+/** The next player who still has to throw, or the order decided. */
+function nextOrderThrow() {
+  const i = state.order!.findIndex(v => v === null);
+  if (i < 0) { finishOrder(); return; }
+  state.cur = i; state.phase = 'order'; state.timer = 0; state.popup = null;
+}
+/** A throw for the order landed: note it, show it for a moment. */
+function orderThrown(total: number) {
+  const p = curP();
+  state.order![state.cur] = total; p.orderRoll = total;
+  log(`${p.name} tung được ${total}.`);
+  state.phase = 'orderShow'; state.timer = 0;
+}
+/** Everyone has thrown: ties throw again; otherwise the players are put in order, lowest first. */
+function finishOrder() {
+  const totals = state.order as number[];
+  const tied = totals.map((v, i) => i).filter(i => totals.filter(v => v === totals[i]).length > 1);
+  if (tied.length) {
+    log(`Hòa điểm: ${tied.map(i => state.players[i].name).join(', ')} tung lại.`);
+    for (const i of tied) state.order![i] = null;
+    nextOrderThrow();
+    return;
+  }
+  const idx = totals.map((v, i) => i).sort((a, b) => totals[a] - totals[b]);
+  state.players = idx.map(i => state.players[i]);
+  state.ordering = false; state.order = undefined;
+  log(`Thứ tự đi: ${state.players.map(p => p.name).join(' → ')}.`);
+  state.cur = 0;
   startTurn();
+}
+/** The board of throws while the order is chosen. */
+function drawOrder() {
+  if (!state.ordering) return;
+  const n = state.players.length, w = Math.min(400, L.maxW), h = 120 + n * 34, x = L.cx - w / 2, y = L.popCy - h / 2 - 20;
+  ctx.save(); ctx.fillStyle = 'rgba(30,12,8,0.92)'; rrect(ctx, x, y, w, h, 16); ctx.fill();
+  ctx.strokeStyle = '#c9a24a'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
+  text('Chọn thứ tự đi', L.cx, y + 30, 22, '#f2c44a', 'center', 'bold');
+  text('Tung xúc xắc: ai thấp nhất đi trước', L.cx, y + 58, 15, '#e8d9b5');
+  state.players.forEach((p, i) => {
+    const yy = y + 92 + i * 34, cur = i === state.cur;
+    if (cur) { ctx.fillStyle = 'rgba(242,196,74,0.18)'; ctx.fillRect(x + 12, yy - 15, w - 24, 30); }
+    ctx.fillStyle = p.color; ctx.fillRect(x + 22, yy - 9, 12, 18);
+    text(p.name, x + 44, yy, 17, '#fff8e6', 'left', cur ? 'bold' : '');
+    const v = state.order![i];
+    text(v === null ? (cur ? 'đang tung...' : 'chờ') : String(v), x + w - 24, yy, v === null ? 15 : 20, v === null ? '#cbb994' : '#f2c44a', 'right', 'bold');
+  });
 }
 const curP = () => state.players[state.cur];
 const firstLap = (p: Player) => (p.laps || 0) < tune.first_lap_count; // still on the first lap: no buying, no tax
@@ -655,6 +713,7 @@ function afterDice() {
   const p = curP(), [a, b] = state.dice, dbl = a === b;
   state.diceShow = { t: 0, a, b, dbl };
   if (dbl) sfx.double(); else sfx.land();
+  if (state.ordering) { orderThrown(a + b); return; }
   if (p.inJail) {
     if (dbl) { // a double frees them and, like any double, earns another roll (it counts toward three in a row)
       p.inJail = false; p.jailTries = 0; p.doubles = 1; state.rolledDouble = true;
@@ -892,7 +951,7 @@ function aiPickTile(pi: number) {
 function aiAct() { // one decision for the computer player, after its think delay
   const pi = state.cur, p = curP();
   switch (state.phase) {
-    case 'roll': startShake(true); return;
+    case 'roll': case 'order': startShake(true); return;
     case 'jail': {
       if (p.freeCards.length) payJail(); else startShake(true);
       return;
@@ -1597,6 +1656,7 @@ function buildTurnUI() {
   const p = curP();
   const ax = L.cx, ay = L.rollY, by = L.btnY; // wide: the board's open centre; phone: the strip under the players
   switch (state.phase) {
+    case 'order': btn(ax - 130, ay, 260, 58, state.shaking ? 'Thả ra để ném!' : 'Giữ để lắc chọn lượt', () => startShake(), 'primary', true, '#c8201f', 'shake'); break;
     case 'roll': btn(ax - 130, ay, 260, 58, state.shaking ? 'Thả ra để ném!' : 'Giữ để lắc xúc xắc', () => startShake(), 'primary', true, '#c8201f', 'shake'); break;
     case 'jail': {
       btn(ax - 230, ay, 220, 54, state.shaking ? 'Thả ra để ném!' : 'Giữ lắc tìm đôi', () => startShake(), 'primary', true, '#c8201f', 'shake');
@@ -1946,6 +2006,7 @@ function messageBox(lines: string[], cx: number, cy: number, w: number) {
 function drawPopup() {
   const p = curP(), pop = state.popup, human = humanTurn();
   const cx = L.cx, cy = L.popCy, my = (y: number): number => L.phone ? L.msgY - 8 : y; // wide: over the board; phone: above the buttons
+  drawOrder();
   if (state.phase === 'roll' && human && !state.shaking) messageBox([`Lượt của ${p.name}${state.rolledDouble ? ': đổ đôi, được đổ tiếp!' : ''}`], cx, my(322), 460);
   if (state.phase === 'jail' && human && !state.shaking) messageBox([`${p.name} đang ở tù. Đổ được đôi thì ra ngay (lượt ${p.jailTries + 1}/3; ở đủ 3 lượt thì lượt sau được ra).${p.noSalary ? (p.freeCards.length ? ' Dùng Thẻ Ra Tù thì được nhận lương lại!' : ' Lần qua Xuất Phát tới sẽ mất lương.') : ''}`], cx, my(312), 520);
   if (state.phase === 'end' && human) messageBox([`${p.name}: hết lượt. Quản lý tài sản ${L.phone ? 'ở nút Tài sản' : 'ở bên phải'} nếu cần.`], cx, my(318), 640);
@@ -2365,6 +2426,7 @@ function updateTurn(dt: number) {
     return;
   }
   if (state.phase === 'landing') { if (state.timer >= 0.25) resolveLanding(); return; }
+  if (state.phase === 'orderShow') { if (state.timer >= tune.order_show_time) nextOrderThrow(); return; }
   const auto = isAI(p) || (p.kind === 'remote' && !peerOnline(p.peer));
   if (auto && state.phase !== 'over' && state.timer >= tune.ai_delay) { state.timer = 0; aiAct(); }
 }

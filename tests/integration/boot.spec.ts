@@ -48,23 +48,32 @@ test('lays out for a phone held upright and plays a turn there @boot', async ({ 
   expect(errors).toEqual([]);
 });
 
-test('a scripted turn shakes, throws and moves the token, and the same seed repeats it exactly', async ({ page }) => {
-  // ?manual=1 stops the loop, so only step() moves the game: the same keys the reference replay
-  // opened with (Enter to start, Space held to shake and let go to throw).
-  async function run(): Promise<{ scene: string; dice: number[]; pos: number; cash: number; state: unknown }> {
+test('throws for the order of play, puts the lowest first, and the same seed repeats it exactly', async ({ page }) => {
+  // ?manual=1 stops the loop, so only step() moves the game. Enter starts; the person throws with
+  // Space (held, then let go) whenever it is their throw; the computer throws on its own.
+  async function run(): Promise<{ scene: string; rolls: number[]; ordering: boolean; cash: number[]; state: unknown }> {
     await open(page, 'manual=1&seed=7');
     return page.evaluate(() => {
       const g = window.game!;
+      type S = { ordering?: boolean; phase: string; cur: number; players: { kind: string; orderRoll?: number; cash: number; pos: number }[] };
       g.press('Enter'); g.step();
-      g.press('Space'); g.hold('Space', true); g.step(30); g.hold('Space', false);
-      g.step(240, false);
-      const s = g.state as { dice: number[]; players: { pos: number; cash: number }[] };
-      return { scene: g.scene, dice: s.dice, pos: s.players[0].pos, cash: s.players[0].cash, state: g.state };
+      for (let k = 0; k < 60 && (g.state as S).ordering; k++) {
+        const s = g.state as S;
+        if (s.phase === 'order' && s.players[s.cur].kind === 'human') {
+          g.press('Space'); g.hold('Space', true); g.step(20); g.hold('Space', false);
+        }
+        g.step(90, false);
+      }
+      const s = g.state as S;
+      return { scene: g.scene, rolls: s.players.map(p => p.orderRoll ?? -1), ordering: !!s.ordering, cash: s.players.map(p => p.cash), state: g.state };
     });
   }
   const first = await run();
   expect(first.scene).toBe('play');
-  expect(first.pos).toBe((first.dice[0] + first.dice[1]) % 40);
-  expect(first.cash).toBe(config.start_cash.value);
+  expect(first.ordering).toBe(false);
+  expect(first.rolls.every(r => r >= 2 && r <= 12)).toBe(true);
+  expect([...first.rolls].sort((a, b) => a - b)).toEqual(first.rolls); // lowest first
+  expect(new Set(first.rolls).size).toBe(first.rolls.length);          // ties were thrown again
+  expect(first.cash.every(c => c === config.start_cash.value)).toBe(true); // nobody moved yet
   expect(await run()).toEqual(first);
 });

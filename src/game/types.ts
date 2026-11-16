@@ -83,6 +83,8 @@ export interface Player {
   offline?: boolean;
   /** A friend's seat the computer took over when they left: they can come back to it. */
   wasRemote?: boolean;
+  /** The throw that set this player's place in the order of play. */
+  orderRoll?: number;
 }
 
 /** The state of one game: everything the rules read and change. */
@@ -126,4 +128,7 @@ export interface GameState {
   reason?: string;
   /** Online: a vote for a new game: who asked, the time it has run, and each voter's answer. */
   vote?: Loose;
+  /** Choosing who goes first: each player's throw, null until they throw. */
+  ordering?: boolean;
+  order?: (number | null)[];
 }

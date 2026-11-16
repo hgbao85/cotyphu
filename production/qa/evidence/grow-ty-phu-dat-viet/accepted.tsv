@@ -1,5 +1,5 @@
 browser	/c/Program Files/Google/Chrome/Application/chrome.exe
-time	2026-11-16 18:26:00
+time	2026-11-16 19:34:00
 render	cheap
 webgl	ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)
 ua	HeadlessChrome/157.0.0.0
@@ -8,127 +8,127 @@ state	0	title	{"t":0,"score":0,"gained":"","players":[{"id":0,"kind":"human","lv
 scene	1	play
 state	1	play	{"t":0,"score":0,"gained":"","players":[{"id":0,"kind":"human","lv":0,"color":"#d62828","token":0,"name":"Người Đỏ","cash":2000,"pos":0,"laps":0,"inJail":false,"jailTries":0,"freeCards":[],"bankrupt":
 playinput	4	Space
-frame	3481	f703f7b
-frame	3482	1c3090e7
-frame	3483	bff331
-frame	3484	1430843b
-frame	3485	69c967d0
-frame	3486	dc42332f
-frame	3487	a254b073
-frame	3488	825ea98e
-frame	3489	c278c5e3
-frame	3490	dc4bbce9
-frame	3491	2adb4f08
-frame	3492	79cc79fb
-frame	3493	9e083b9b
-frame	3494	da2eb32e
-frame	3495	30297709
-frame	3496	66d17256
-frame	3497	602f0c7
-frame	3498	f61d8a26
-frame	3499	ef49c36f
-frame	3500	9685f5d5
-frame	3501	7551374
-frame	3502	5f2a64c1
-frame	3503	b3a0a546
-frame	3504	471e0156
-frame	3505	d0a52a6a
-frame	3506	4df40957
-frame	3507	2ef99383
-frame	3508	95105424
-frame	3509	63220062
-frame	3510	447f3a13
-frame	3511	40983958
-frame	3512	e07733f8
-frame	3513	fde3547d
-frame	3514	2cef99fb
-frame	3515	d4b57158
-frame	3516	19ddfe60
-frame	3517	962d1cda
-frame	3518	92e1b8a6
-frame	3519	990b64d
-frame	3520	308324c9
-frame	3521	a79140ce
-frame	3522	bdc2f4e7
-frame	3523	547c4208
-frame	3524	b2aa924d
-frame	3525	1d49f7c1
-frame	3526	bd59ebc2
-frame	3527	24852dee
-frame	3528	2676ab04
-frame	3529	7f309998
-frame	3530	8c5f86ca
-frame	3531	442b319a
-frame	3532	30b14a3e
-frame	3533	18076297
-frame	3534	61bb79a0
-frame	3535	9e7ee914
-frame	3536	b995ce92
-frame	3537	13d14fce
-frame	3538	d7ea57ef
-frame	3539	440bb356
-frame	3540	29ab3b72
-frame	3541	b567c1c2
-frame	3542	564fda1
-frame	3543	933c034e
-frame	3544	77579f1b
-frame	3545	a5da979
-frame	3546	6289915d
-frame	3547	6478bd87
-frame	3548	6025d793
-frame	3549	e948e1e8
-frame	3550	5120aef3
-frame	3551	780454
-frame	3552	ca219504
-frame	3553	7c2e14cf
-frame	3554	ab46e33b
-frame	3555	ba0f05c7
-frame	3556	b6ff0d01
-frame	3557	ae3cd8cb
-frame	3558	50d07f6
-frame	3559	b5d91f15
-frame	3560	b016a87a
-frame	3561	ac3ab425
-frame	3562	27581b11
-frame	3563	3b85b1de
-frame	3564	74099bd6
-frame	3565	fc6dc4dd
-frame	3566	9c31d028
-frame	3567	f97767b7
-frame	3568	e493b339
-frame	3569	2facfb0d
-frame	3570	1511f6a9
-frame	3571	ffa9f7be
-frame	3572	d25f8104
-frame	3573	799479bc
-frame	3574	bd06d228
-frame	3575	7f07a7de
-frame	3576	730a68db
-frame	3577	4fb5f226
-frame	3578	8f6dfdc
-frame	3579	781c7dbb
-frame	3580	866c93d7
-frame	3581	6d7d2da0
-frame	3582	bb080996
-frame	3583	24174e9f
-frame	3584	18782d74
-frame	3585	ab717368
-frame	3586	861466b3
-frame	3587	9f3f9bd5
-frame	3588	23283d49
-frame	3589	42c5ba1b
-frame	3590	6f9318ae
-frame	3591	882f09da
-frame	3592	8d1eba81
-frame	3593	3e873774
-frame	3594	c623a223
-frame	3595	c5a4fd0a
-frame	3596	30c3917f
-frame	3597	1e441ea
-frame	3598	fea17287
-frame	3599	83325071
-frame	3600	2972e9e6
-state	3600	play	{"t":59.98,"score":0,"gained":"","players":[{"id":0,"kind":"human","lv":0,"color":"#d62828","token":0,"name":"Người Đỏ","cash":2000,"pos":32,"laps":0,"inJail":false,"jailTries":0,"freeCards":[],"bankr
+frame	3481	1d54a310
+frame	3482	5354923f
+frame	3483	928d4904
+frame	3484	85ec856e
+frame	3485	84b71a2d
+frame	3486	31d8bb08
+frame	3487	e106454a
+frame	3488	42528bb
+frame	3489	bc44c953
+frame	3490	5848003f
+frame	3491	3f101fac
+frame	3492	bc5939a5
+frame	3493	1eeb6281
+frame	3494	aa473a97
+frame	3495	6fb41e10
+frame	3496	98640f97
+frame	3497	9357fbda
+frame	3498	792a5c14
+frame	3499	9e2672b8
+frame	3500	52daa6df
+frame	3501	74ab0fbf
+frame	3502	862ac25f
+frame	3503	41829a2c
+frame	3504	3239a34e
+frame	3505	70175e6
+frame	3506	cb40966f
+frame	3507	1564efc9
+frame	3508	e6336b92
+frame	3509	3392f3da
+frame	3510	9919ed24
+frame	3511	f92bfe9b
+frame	3512	2337fce1
+frame	3513	d13cd25f
+frame	3514	a2cabecd
+frame	3515	df9611fd
+frame	3516	6b606b86
+frame	3517	5406f64
+frame	3518	5d7456f9
+frame	3519	3129ecf8
+frame	3520	bf3ef8cf
+frame	3521	731d5825
+frame	3522	c3c6df5e
+frame	3523	a8647411
+frame	3524	1421cffd
+frame	3525	c2c0023b
+frame	3526	823291ad
+frame	3527	84f97127
+frame	3528	2cae6d4d
+frame	3529	7640ae39
+frame	3530	ad8c773c
+frame	3531	c43053ef
+frame	3532	2c272339
+frame	3533	3feda269
+frame	3534	76008bea
+frame	3535	cde6b086
+frame	3536	cfd8af5f
+frame	3537	e6753eb4
+frame	3538	3c568fd9
+frame	3539	cc4a5418
+frame	3540	2ab8d569
+frame	3541	2455398c
+frame	3542	9c0fb1e7
+frame	3543	6e3b0ce9
+frame	3544	631f7ebb
+frame	3545	f5c78fb6
+frame	3546	96d6e71f
+frame	3547	87316f4d
+frame	3548	ebb5b971
+frame	3549	567bb219
+frame	3550	f03d9a23
+frame	3551	62af8d37
+frame	3552	1c79e81b
+frame	3553	acfda389
+frame	3554	87c4e0d5
+frame	3555	d6e179c0
+frame	3556	e04f82ec
+frame	3557	99b9a24b
+frame	3558	bc86eafd
+frame	3559	2871aeae
+frame	3560	394cecc4
+frame	3561	3524aaf9
+frame	3562	9cfd2625
+frame	3563	be6ba34b
+frame	3564	81ad5bcd
+frame	3565	1831a683
+frame	3566	999216e2
+frame	3567	c2fdcfee
+frame	3568	590e684c
+frame	3569	9fc07c1a
+frame	3570	9a3ee08e
+frame	3571	d0e71dc4
+frame	3572	cbf58ee5
+frame	3573	861a2e1e
+frame	3574	60bb01ef
+frame	3575	78a8e369
+frame	3576	d4eb481a
+frame	3577	9a34341
+frame	3578	c58a93a4
+frame	3579	3edff547
+frame	3580	f9e9299d
+frame	3581	f4345f01
+frame	3582	ff99fe76
+frame	3583	44dc3cca
+frame	3584	551b4a34
+frame	3585	778f760a
+frame	3586	184a9f57
+frame	3587	b6f2d043
+frame	3588	8cde4f2
+frame	3589	2d35f01
+frame	3590	97ab9078
+frame	3591	578c2771
+frame	3592	36e2980f
+frame	3593	ca7e175c
+frame	3594	a856655
+frame	3595	3bc2df55
+frame	3596	3f484eea
+frame	3597	2b473157
+frame	3598	f6cef81c
+frame	3599	3a4fb1e8
+frame	3600	f39a3eb9
+state	3600	play	{"t":59.98,"score":0,"gained":"","players":[{"id":0,"kind":"human","lv":0,"color":"#d62828","token":0,"name":"Người Đỏ","cash":2000,"pos":11,"laps":0,"inJail":false,"jailTries":0,"freeCards":[],"bankr
 digits	log	bold 40px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
 digits	log	bold 32px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
 digits	log	19px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
@@ -136,27 +136,25 @@ digits	log	16px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
 digits	log	15px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
 digits	log	bold 16px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
 digits	log	bold 44px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
+digits	log	bold 20px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
 digits	log	bold 18px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
 digits	log	bold 15px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
-digits	log	bold 20px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
 loop	log	none	no loop() step was marked
 first	log	none	no state.beat
 pressure	none	the game set no number state.margin in play
-steptime	3600	0.015	2.300
-frametime	60	28.6	119.8	60	60	2
-done	3600	play	stop	60.0	8309
-console	0	[.WebGL-0x24640044b600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
-console	0	[.WebGL-0x24640044b600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
-console	0	[.WebGL-0x24640044b600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
-console	0	[.WebGL-0x24640044b600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)
+steptime	3600	0.020	4.400
+frametime	60	28.7	126.2	60	60	2
+done	3600	play	stop	60.0	8241
+console	0	[.WebGL-0x73bc001b7600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+console	0	[.WebGL-0x73bc001b7600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+console	0	[.WebGL-0x73bc001b7600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+console	0	[.WebGL-0x73bc001b7600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)
 measured	1280x720
-text	play	canvas	23,20,449,35	21.0	7.80	inside	Máy Vàng chưa qua Xuất Phát lần nào: chưa được mua Nghệ An.
-text	play	canvas	23,41,216,57	21.0	7.80	inside	Người Đỏ đổ 4 + 4 = 8 (đôi!).
-text	play	canvas	23,63,438,79	21.0	14.17	inside	Người Đỏ rút thẻ Khí Vận: Trúng số độc đắc! Nhận 1.500.000 đ
+text	play	canvas	23,19,181,35	21.0	7.80	inside	Máy Vàng được đổ tiếp!
+text	play	canvas	23,41,178,57	21.0	7.80	inside	Máy Vàng đổ 5 + 2 = 7.
+text	play	canvas	23,64,433,79	21.0	14.17	inside	Máy Vàng chưa qua Xuất Phát lần nào: chưa được mua Đà Lạt.
 text	play	canvas	407,164,495,176	22.5	7.81	inside	Hũ tiền: 0 đ
-text	play	canvas	419,240,541,275	42.0	4.75	inside	KHÍ VẬN
-text	play	canvas	290,327,610,348	28.5	5.38	inside	Trúng số độc đắc! Nhận 1.500.000
-text	play	canvas	441,356,459,371	28.5	5.38	inside	đ.
+text	play	canvas	366,312,536,330	25.5	12.64	inside	Lượt của Người Đỏ
 text	play	canvas	977,14,1176,41	34.5	9.74	inside	TỶ PHÚ ĐẤT VIỆT
 text	play	canvas	1006,50,1173,66	22.5	11.58	inside	Vòng 2 · tới khi phá sản
 text	play	canvas	985,85,1067,103	25.5	11.12	inside	Người Đỏ
@@ -170,7 +168,7 @@ text	play	canvas	985,255,1141,272	21.0	10.51	inside	Máy Dễ · 0 ô · vòng �
 text	play	canvas	1155,229,1255,243	25.5	10.52	inside	2.000.000 đ
 text	play	canvas	922,376,1043,392	24.0	10.70	inside	Tài sản của bạn
 text	play	canvas	922,410,1047,422	21.0	10.74	inside	Chưa có ô đất nào.
-text	play	canvas	413,616,486,639	30.0	5.38	inside	Đồng ý
-screen	3600	play	e60a6cab	drawn
+text	play	canvas	361,389,539,408	30.0	5.38	inside	Giữ để lắc xúc xắc
+screen	3600	play	18df24ad	drawn
 uncaught	0
-shot	/d/cotyphu/production/qa/evidence/grow-ty-phu-dat-viet/story.png	344213
+shot	/d/cotyphu/production/qa/evidence/grow-ty-phu-dat-viet/story.png	362833

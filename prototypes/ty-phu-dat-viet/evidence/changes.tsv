@@ -9,3 +9,4 @@ iteration 8	board tile names and prices drawn larger (auto-fit up to 54px in the
 iteration 9	added hold to shake the dice (power bar, rattle) and release to throw (harder throw = more spin and bounces); a big "a + b = n" pops up when they stop, gold with stars on a double	errors: none	evidence/iteration-9-play.png (shake and number checked in the browser pane)
 iteration 10	card money capped at 1.500.000 đ (card_max): jackpot 2.000.000 -> 1.500.000, repair cards capped	errors: none	evidence/iteration-10-play.png
 iteration 11	port rent 200k -> 250k base (250k / 500k / 1tr / 2tr)	errors: none	evidence/iteration-11-play.png
+iteration 12	first lap is now per player (until they pass Xuất Phát, first_lap_count 1): no buying and no tax on it; HUD shows "vòng đầu"	errors: none	evidence/iteration-12-play.png (first-lap tax waiver and buy block checked in the browser pane)

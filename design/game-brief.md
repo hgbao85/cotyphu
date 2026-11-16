@@ -26,6 +26,7 @@ After play: Làm chữ trên bàn cờ to hơn
 After play: Thêm cảm giác thảy xúc sắc (Giữ để lắc, thả để ném; Hiện số to khi dừng)
 After play: Tiền cơ hội, khí vận tối đa 1.500.000
 After play: Tăng tiền thuê bến: 1 bến 250k, 2 bến 500k, 3 bến 1tr, 4 bến 2tr
+After play: Vòng đầu tiên có nghĩa là đi qua ô xuất phát á, vào ô thuế ở vòng đầu tiên sẽ không bị trừ tiền
 
 **Pitch:** Cờ tỷ phú trên bản đồ Việt Nam cho 2–4 người, mỗi chỗ là người hoặc máy: đổ xúc xắc, mua đất từ Hà Giang tới Cà Mau, dẫm lại đất mình để xây nhà, khách sạn rồi Landmark, rút thẻ Cơ Hội và Khí Vận vui nhộn; ai trụ lại (hoặc giàu nhất sau 30 vòng) là tỷ phú.
 
@@ -69,7 +70,7 @@ Màn tạo ván: chọn 2–4 chỗ ngồi, mỗi chỗ Người hoặc Máy (D�
 - [x] Cầm cố và chuộc đất với ngân hàng; phá sản thì bị loại
 - [x] Máy chơi 3 mức: Dễ, Vừa, Khó
 - [x] Màn kết thúc: bảng xếp hạng tài sản và nút Chơi lại
-- [x] Vòng đầu tiên chưa được mua đất: dẫm vào đất trống chỉ ghé xem
+- [x] Vòng đầu của mỗi người (tới khi qua Xuất Phát lần đầu): chưa được mua đất, dẫm ô thuế được miễn
 - [x] Bấm vào ô bất kỳ trên bàn (hoặc dòng trong danh sách tài sản) để xem thẻ thông tin
 - [x] Giữ để lắc xúc xắc (có thanh lực), thả ra để ném; xúc xắc dừng thì hiện số to, đổ đôi có hiệu ứng riêng
 - [x] Hũ tiền giữa bàn: thuế và tiền phạt dồn vào hũ, dừng ở Bến Đỗ Tự Do lấy cả hũ
@@ -82,7 +83,7 @@ Màn tạo ván: chọn 2–4 chỗ ngồi, mỗi chỗ Người hoặc Máy (D�
 - thẻ Cơ Hội và Khí Vận · in the slice *(guessed)*
 - cầm cố đất · in the slice *(guessed)*
 - tiền phạt dồn giữa bàn · in the slice
-- vòng đầu không được mua đất · in the slice
+- vòng đầu (tới khi qua Xuất Phát): không mua đất, miễn thuế · in the slice
 
 ## Keep
 -

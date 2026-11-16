@@ -293,7 +293,7 @@ function reset() {
     players.push({
       id: i, kind: s.kind, lv: s.lv || 0, color: PLAYER_COLORS[i], token: i,
       name: s.kind === 'human' ? `Người ${PLAYER_COLOR_NAMES[i]}` : `Máy ${PLAYER_COLOR_NAMES[i]}`,
-      cash: tune.start_cash, pos: 0, inJail: false, jailTries: 0, freeCards: [], bankrupt: false, doubles: 0,
+      cash: tune.start_cash, pos: 0, laps: 0, inJail: false, jailTries: 0, freeCards: [], bankrupt: false, doubles: 0,
     });
   });
   state = {
@@ -307,6 +307,7 @@ function reset() {
   startTurn();
 }
 const curP = () => state.players[state.cur];
+const firstLap = p => (p.laps || 0) < tune.first_lap_count; // still on the first lap: no buying, no tax
 const isAI = p => p.kind === 'ai';
 function log(s) { state.log.push(s); if (state.log.length > 5) state.log.shift(); events.push({ type: 'log', text: s }); }
 function owned(pi) { const r = []; for (let i = 0; i < 40; i++) if (state.owner[i] === pi) r.push(i); return r; }
@@ -553,9 +554,9 @@ function resolveLanding() {
   events.push({ type: 'land', who: pi, tile: i });
   if (OWNABLE(t)) {
     const o = state.owner[i];
-    if (o < 0 && state.round <= tune.no_buy_rounds) { // the first round is for looking around: no buying yet
+    if (o < 0 && firstLap(p)) { // a player's first lap, until they pass Xuất Phát, is for looking around: no buying yet
       state.popup = { kind: 'nobuy', tile: i }; state.phase = 'rentShow'; state.timer = 0;
-      log(`Vòng ${state.round}: chưa được mua đất. ${p.name} chỉ ghé xem ${t.n}.`); return;
+      log(`${p.name} chưa qua Xuất Phát lần nào: chưa được mua ${t.n}.`); return;
     }
     if (o < 0) { state.popup = { kind: 'buy', tile: i }; state.phase = 'buy'; state.timer = 0; return; }
     if (o === pi) {
@@ -580,6 +581,10 @@ function resolveLanding() {
     state.phase = 'card'; state.timer = 0; sfx.card();
     log(`${p.name} rút thẻ ${t.n}: ${card.txt}`);
     return;
+  }
+  if (t.t === 'tax' && firstLap(p)) { // no tax on the first lap either
+    state.popup = { kind: 'notax', tile: i }; state.phase = 'rentShow'; state.timer = 0;
+    log(`${p.name} đang đi vòng đầu: miễn ${t.n}.`); return;
   }
   if (t.t === 'tax' && t.kind === 'prop') { // Thuế Tài Sản: pay 10% of everything you own, or the flat sum: your pick
     const pct = Math.round(netWorth(p) * tune.prop_tax_pct / 10) * 10;
@@ -727,7 +732,7 @@ function aiPickTile(pi) {
   for (let i = 0; i < 40; i++) {
     const t = TILES[i];
     let v = -1;
-    if (OWNABLE(t) && state.owner[i] < 0 && state.round > tune.no_buy_rounds && t.p <= p.cash - (p.lv ? aiReserve(p) : 0)) v = t.p;
+    if (OWNABLE(t) && state.owner[i] < 0 && !firstLap(p) && t.p <= p.cash - (p.lv ? aiReserve(p) : 0)) v = t.p;
     else if (state.owner[i] === pi && t.t === 'prop' && state.level[i] < MAX_LEVEL && !state.mort[i]) v = t.p * 0.8;
     else if (t.t === 'free') v = state.pot;
     if (p.lv === 0) v = OWNABLE(t) && state.owner[i] < 0 ? rng() * 1000 : v;
@@ -1565,7 +1570,7 @@ function drawPanel() {
     ctx.fillStyle = '#f4ead2'; ctx.beginPath(); ctx.arc(PX + 52, y + 32, 22, 0, 7); ctx.fill();
     drawTokenIcon(p.token, PX + 52, y + 34, 38, p.color);
     text(p.name, PX + 84, y + 18, 18, '#fff8e6', 'left', 'bold');
-    const sub = (isAI(p) ? `Máy ${AI_LEVELS[p.lv]}` : 'Người chơi') + ` · ${owned(pi).length} ô` + (p.inJail ? ' · trong tù' : '') + (p.freeCards.length ? ' · có thẻ ra tù' : '') + (p.bankrupt ? ' · phá sản' : '');
+    const sub = (isAI(p) ? `Máy ${AI_LEVELS[p.lv]}` : 'Người chơi') + ` · ${owned(pi).length} ô` + (firstLap(p) && !p.bankrupt ? ' · vòng đầu' : '') + (p.inJail ? ' · trong tù' : '') + (p.freeCards.length ? ' · có thẻ ra tù' : '') + (p.bankrupt ? ' · phá sản' : '');
     text(sub, PX + 84, y + 45, 15, '#d9c8a6', 'left');
     text(money(p.cash), PX + PW - 26, y + 18, 18, p.cash < 0 ? '#ff8a7a' : '#f2c44a', 'right', 'bold');
     ctx.restore();
@@ -1680,11 +1685,12 @@ function drawPopup() {
   if (!pop && state.phase !== 'pick' && state.phase !== 'debt') return;
   if (state.phase === 'pick') { messageBox([human ? 'Vé máy bay: bấm một ô trên bàn cờ (hoặc dùng phím mũi tên) để bay tới.' : `${p.name} đang chọn nơi bay tới...`], cx, 545, 600); return; }
   if (state.phase === 'debt') { const d = state.debt; messageBox([`${p.name} cần trả ${money(d.total)}, đang có ${money(p.cash)}.`, 'Bán bớt nhà hoặc cầm cố đất ở danh sách bên phải, rồi bấm Trả nợ.'], cx, 520, 620); return; }
+  if (pop.kind === 'notax') { messageBox([`Vòng đầu tiên (chưa qua Xuất Phát): miễn ${TILES[pop.tile].n}!`], cx, 330, 560); return; }
   if (pop.kind === 'buy' || pop.kind === 'build' || pop.kind === 'rent' || pop.kind === 'nobuy') {
     tileCard(pop.tile, cx, cy - 10);
     if (pop.kind === 'rent') messageBox([`${p.name} trả ${state.players[pop.owner].name} ${money(pop.rent)}`], cx, 548, 520);
     if (pop.kind === 'build') messageBox([`Đất của bạn! Xây thêm 1 cấp?`], cx, 548, 420);
-    if (pop.kind === 'nobuy') messageBox([`Vòng ${state.round <= 1 ? 'đầu' : state.round} chưa được mua đất: chỉ ghé xem.`], cx, 548, 520);
+    if (pop.kind === 'nobuy') messageBox([`Vòng đầu tiên (chưa qua Xuất Phát): chưa được mua, chỉ ghé xem.`], cx, 548, 600);
     if (!human && pop.kind !== 'rent' && pop.kind !== 'nobuy') messageBox([`${p.name} đang suy nghĩ...`], cx, 548, 420);
   }
   if (pop.kind === 'tax') {
@@ -1723,7 +1729,7 @@ const SPECIAL_INFO = {
   gojail: () => ['Dừng ở đây: vào thẳng Nhà Tù, không đi qua Xuất Phát, không nhận lương.'],
   co: () => ['Rút một thẻ Cơ Hội: thường là đi tới đâu đó (về Xuất Phát, bay đi du lịch, lùi lại...), đôi khi được tiền hoặc bị phạt.'],
   kv: () => ['Rút một thẻ Khí Vận (bao lì xì): thường là được tiền hoặc mất tiền: lì xì, sinh nhật, khám răng, trúng số...'],
-  tax: t => t.kind === 'income' ? [`Trả cố định ${money(tune.income_tax)}. Tiền vào hũ giữa bàn.`] : [`Chọn trả ${Math.round(tune.prop_tax_pct * 100)}% tổng tài sản hoặc ${money(tune.prop_tax_flat)}. Tiền vào hũ giữa bàn.`],
+  tax: t => [t.kind === 'income' ? `Trả cố định ${money(tune.income_tax)}. Tiền vào hũ giữa bàn.` : `Chọn trả ${Math.round(tune.prop_tax_pct * 100)}% tổng tài sản hoặc ${money(tune.prop_tax_flat)}. Tiền vào hũ giữa bàn.`, 'Vòng đầu (chưa qua Xuất Phát lần nào): được miễn.'],
 };
 function drawInspect() {
   if (inspect < 0 || scene !== 'play') return;
@@ -1796,7 +1802,7 @@ const scenes = {
       ui.forEach(drawButton);
       lacquer(PX, 0, PW, H);
       text('Cách chơi', PX + PW / 2, 44, 24, '#f2c44a', 'center', 'bold');
-      const rules = ['Đổ 2 xúc xắc, đi quân, mua đất trống.', 'Vòng đầu tiên chưa được mua đất.', 'Bấm vào một ô bất kỳ để xem thông tin.', 'Dẫm lại đất của mình: xây thêm 1 cấp.', 'Cấp xây: Nhà 1 tới Nhà 4, Khách sạn, Landmark.', 'Gom đủ một nhóm màu: tiền thuê × 2.', 'Thuế, tiền phạt dồn vào hũ giữa bàn.', 'Dừng ở Bến Đỗ Tự Do: lấy cả hũ.', 'Thiếu tiền: bán nhà, cầm cố đất.', 'Hết tiền: phá sản, bị loại.'];
+      const rules = ['Đổ 2 xúc xắc, đi quân, mua đất trống.', 'Vòng đầu (tới khi qua Xuất Phát): chưa mua đất, miễn thuế.', 'Bấm vào một ô bất kỳ để xem thông tin.', 'Dẫm lại đất của mình: xây thêm 1 cấp.', 'Cấp xây: Nhà 1 tới Nhà 4, Khách sạn, Landmark.', 'Gom đủ một nhóm màu: tiền thuê × 2.', 'Thuế, tiền phạt dồn vào hũ giữa bàn.', 'Dừng ở Bến Đỗ Tự Do: lấy cả hũ.', 'Thiếu tiền: bán nhà, cầm cố đất.', 'Hết tiền: phá sản, bị loại.'];
       rules.forEach((r, j) => text(r, PX + 24, 90 + j * 32, 16, '#e8d9b5', 'left'));
       text('Phím', PX + PW / 2, 420, 22, '#f2c44a', 'center', 'bold');
       CONTROLS.forEach((c, i) => text(c, PX + 24, 460 + i * 32, 16, '#e8d9b5', 'left'));
@@ -1891,6 +1897,7 @@ function updateTurn(dt) {
       p.pos = (p.pos + state.moveDir + 40) % 40;
       hop(pi, from, p.pos, hopDur * 0.95);
       sfx.tick();
+      if (p.pos === 0 && state.moveDir > 0) p.laps++;
       if (p.pos === 0 && state.moveDir > 0) gain(pi, tune.salary, `${p.name} qua Xuất Phát: nhận lương ${money(tune.salary)}.`);
       state.moveLeft--;
       if (state.moveLeft <= 0) { state.phase = 'landing'; state.timer = 0; }

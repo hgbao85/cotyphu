@@ -16,7 +16,7 @@ window.CONFIG = {
   prop_tax_flat: { value: 2000, min: 0, max: 10000, step: 100 },    // ...hoặc số tiền cố định này (người chơi chọn)
   jail_fine: { value: 500, min: 0, max: 3000, step: 50 },           // tiền nộp phạt ra tù
   card_max: { value: 1500, min: 0, max: 5000, step: 100 },         // tiền trên một thẻ Cơ Hội / Khí Vận tối đa
-  no_buy_rounds: { value: 1, min: 0, max: 5, step: 1 },            // bao nhiêu vòng đầu chưa được mua đất
+  first_lap_count: { value: 1, min: 0, max: 5, step: 1 },          // mỗi người: phải qua Xuất Phát bấy nhiêu lần mới được mua đất và phải đóng thuế
   pot_start: { value: 0, min: 0, max: 5000, step: 100 },           // hũ tiền giữa bàn lúc bắt đầu ván
   pot_share: { value: 1, min: 0, max: 1, step: 0.05 },              // phần thuế/tiền phạt rơi vào hũ (1 = tất cả)
 

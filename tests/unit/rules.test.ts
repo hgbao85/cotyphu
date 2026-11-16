@@ -1,0 +1,99 @@
+// Vitest: the money rules in src/game/, run in Node with no browser. Values come from
+// data/config.json, so a tuning change moves the expected numbers with it.
+// Design record: design/game-brief.md (Core loop: rent, building, full group ×2).
+import { describe, expect, it } from 'vitest';
+import config from '../../data/config.json';
+import { TILES } from '../../src/game/data';
+import { buildCost, money, netWorth, ownsGroup, rentOf } from '../../src/game/rules';
+import { rng, setSeed, shuffled } from '../../src/game/rng';
+import type { GameState, Player } from '../../src/game/types';
+
+const HA_NOI = 14, BAC_NINH = 11, NAM_DINH = 12;           // group 2 (Bắc · Đồng bằng)
+const PORTS = [5, 15, 25, 35];
+const ELECTRIC = 13, WATER = 27;
+
+function player(id: number, cash: number): Player {
+  return {
+    id, kind: 'human', lv: 0, color: '#000', token: id, name: `P${id}`, cash, pos: 0, laps: 1,
+    inJail: false, jailTries: 0, freeCards: [], bankrupt: false, doubles: 0,
+  };
+}
+
+/** A game state with only what the money rules read: owners, levels, mortgages, players. */
+function board(): GameState {
+  return {
+    owner: Array(40).fill(-1), level: Array(40).fill(0), mort: Array(40).fill(false),
+    players: [player(0, 1000), player(1, 1000)],
+  } as unknown as GameState;
+}
+
+const price = (i: number): number => TILES[i].p as number;
+const roundTo10 = (v: number): number => Math.round(v / 10) * 10;
+
+describe('rentOf', () => {
+  it('charges the empty-land rate on a lone province, nothing when unowned or mortgaged', () => {
+    const s = board();
+    expect(rentOf(s, HA_NOI, 7)).toBe(0);
+    s.owner[HA_NOI] = 0;
+    expect(rentOf(s, HA_NOI, 7)).toBe(roundTo10(price(HA_NOI) * config.rent_l0.value * config.rent_scale.value));
+    s.mort[HA_NOI] = true;
+    expect(rentOf(s, HA_NOI, 7)).toBe(0);
+  });
+
+  it('multiplies rent by full_group_mult when one player owns the whole colour group', () => {
+    const s = board();
+    s.owner[HA_NOI] = 0; s.level[HA_NOI] = 5;
+    const alone = rentOf(s, HA_NOI, 7);
+    s.owner[BAC_NINH] = 0; s.owner[NAM_DINH] = 0;
+    expect(ownsGroup(s, 0, TILES[HA_NOI].g as number)).toBe(true);
+    expect(rentOf(s, HA_NOI, 7)).toBe(roundTo10(price(HA_NOI) * config.rent_l5.value * config.rent_scale.value * config.full_group_mult.value));
+    expect(rentOf(s, HA_NOI, 7)).toBeGreaterThan(alone);
+  });
+
+  it('doubles port rent for each port the owner holds', () => {
+    const s = board();
+    PORTS.forEach((p, k) => {
+      s.owner[p] = 0;
+      expect(rentOf(s, p, 7)).toBe(Math.round(config.port_rent.value * 2 ** k * config.rent_scale.value));
+    });
+  });
+
+  it('charges utilities by the dice total, more when the owner has both', () => {
+    const s = board();
+    s.owner[ELECTRIC] = 1;
+    expect(rentOf(s, ELECTRIC, 9)).toBe(Math.round(9 * config.util_mult_one.value * config.rent_scale.value));
+    s.owner[WATER] = 1;
+    expect(rentOf(s, ELECTRIC, 9)).toBe(Math.round(9 * config.util_mult_two.value * config.rent_scale.value));
+  });
+});
+
+describe('buildCost and netWorth', () => {
+  it('prices each level as its share of the land price', () => {
+    expect(buildCost(HA_NOI, 1)).toBe(roundTo10(price(HA_NOI) * config.house_cost_pct.value));
+    expect(buildCost(HA_NOI, 5)).toBe(roundTo10(price(HA_NOI) * config.hotel_cost_pct.value));
+    expect(buildCost(HA_NOI, 6)).toBe(roundTo10(price(HA_NOI) * config.landmark_cost_pct.value));
+  });
+
+  it('counts cash, land (half when mortgaged) and what was spent building', () => {
+    const s = board(), p = s.players[0];
+    s.owner[HA_NOI] = 0; s.level[HA_NOI] = 2;
+    s.owner[BAC_NINH] = 0; s.mort[BAC_NINH] = true;
+    const expected = p.cash + price(HA_NOI) + buildCost(HA_NOI, 1) + buildCost(HA_NOI, 2) + price(BAC_NINH) * config.mortgage_pct.value;
+    expect(netWorth(s, p)).toBeCloseTo(expected, 6);
+  });
+});
+
+describe('money and rng', () => {
+  it('shows thousands of đồng as full đồng', () => {
+    expect(money(1500)).toBe((1500000).toLocaleString('vi-VN') + ' đ');
+  });
+
+  it('repeats the same numbers and the same shuffle for the same seed', () => {
+    setSeed(7); const a = [rng(), rng(), rng()], deckA = shuffled(16);
+    setSeed(7); const b = [rng(), rng(), rng()], deckB = shuffled(16);
+    expect(b).toEqual(a);
+    expect(deckB).toEqual(deckA);
+    expect(a.every(n => n >= 0 && n < 1)).toBe(true);
+    expect([...deckA].sort((x, y) => x - y)).toEqual([...Array(16).keys()]);
+  });
+});

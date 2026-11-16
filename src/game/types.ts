@@ -96,6 +96,10 @@ export interface GameState {
   cur: number;
   round: number;
   mode: 'bankrupt' | 'rounds';
+  /** Every log line of the game with its round, "V3: ...", for the history page (kept on the host). */
+  history?: string[];
+  /** Quick emotes showing over the pieces online: seat, which one, its age in seconds, a unique id. */
+  emotes?: { seat: number; i: number; t: number; id: string }[];
   /** Per tile: the owner's player index or -1, the building level 0-6, mortgaged or not. */
   owner: number[];
   level: number[];

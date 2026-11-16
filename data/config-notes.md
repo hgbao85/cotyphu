@@ -56,3 +56,5 @@ holds no comments. The values themselves are in `data/config.json`.
 - vote_time: online, how long a vote for a new game stays open (seconds)
 - order_roll: 1 = each game opens with everyone throwing the dice; the lowest total goes first (0 = seat order)
 - order_show_time: how long a throw for the order stays on screen before the next player throws (seconds)
+- emote_time: seconds a quick emote's bubble stays over the piece online
+- emote_gap: seconds a player waits between two emotes, so nobody floods the table

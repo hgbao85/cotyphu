@@ -174,6 +174,8 @@ function onGuestAct(from: number, a: Loose) {
     if (a.act === 'voteStart') { hostStartVote('p' + from); return; }
     if (a.act === 'vote:yes' || a.act === 'vote:no') { hostCastVote('p' + from, a.act === 'vote:yes'); return; }
   }
+  if (scene === 'play' && state.players && a.act === 'emote') { const q = state.players.find(x => x.peer === from); if (q) hostEmote(q.id, a.i); return; }
+  if (a.act === 'history' && state.players) { net.toOne(from, { k: 'history', list: state.history || [] }); return; }
   if (scene !== 'play' || !state.players) return;
   const p = curP();
   if (p.kind !== 'remote' || p.peer !== from) return;
@@ -200,6 +202,7 @@ function onHostMsg(d: Loose) {
   if (!d) return;
   if (d.k === 'you') mySeat = d.seat;
   else if (d.k === 'full') { netError = d.msg; }
+  else if (d.k === 'history') showHistory(d.list || []);
   else if (d.k === 'lobby') { lobby = d; if (scene !== 'title') { scene = 'title'; clearVis(); } }
   else if (d.k === 'state') {
     const fresh = scene !== d.scene && d.scene === 'play' && scene === 'title';
@@ -213,11 +216,13 @@ function onHostMsg(d: Loose) {
 function netStep() {
   if (isHost() && (scene === 'play' || scene === 'results')) {
     voteStep(STEP);
+    if (state.emotes) { for (const e of state.emotes) e.t += STEP; state.emotes = state.emotes.filter(e => e.t < tune.emote_time); }
     keepHostGame();
     for (const p of state.players) if (p.kind === 'remote') p.offline = !peerOnline(p.peer);
     if (++sendEvery >= 3 || pendingSfx.length) { // about 20 times a second, at once when a sound plays
       sendEvery = 0;
-      net.toAll({ k: 'state', scene, state, sfx: pendingSfx });
+      const { history: _h, ...shared } = state; // the history is long: a friend asks for it when they open it
+      net.toAll({ k: 'state', scene, state: shared, sfx: pendingSfx });
       pendingSfx = [];
     }
   } else if (isHost() && scene === 'title') {
@@ -521,25 +526,26 @@ function finishOrder() {
 }
 /** The board of throws while the order is chosen. */
 function drawOrder() {
+  // A slim table low on the board, so the dice thrown above it stay in view.
   if (!state.ordering) return;
-  const n = state.players.length, w = Math.min(400, L.maxW), h = 120 + n * 34, x = L.cx - w / 2, y = L.popCy - h / 2 - 20;
-  ctx.save(); ctx.fillStyle = 'rgba(30,12,8,0.92)'; rrect(ctx, x, y, w, h, 16); ctx.fill();
+  const n = state.players.length, cols = 2, rows = Math.ceil(n / cols);
+  const w = Math.min(460, L.maxW), h = 52 + rows * 32, x = L.cx - w / 2, y = L.by + L.bh - h - (L.phone ? 10 : 70), cw = (w - 24) / cols;
+  ctx.save(); ctx.fillStyle = 'rgba(30,12,8,0.88)'; rrect(ctx, x, y, w, h, 14); ctx.fill();
   ctx.strokeStyle = '#c9a24a'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
-  text('Chọn thứ tự đi', L.cx, y + 30, 22, '#f2c44a', 'center', 'bold');
-  text('Tung xúc xắc: ai thấp nhất đi trước', L.cx, y + 58, 15, '#e8d9b5');
+  text('Chọn thứ tự đi · ai thấp nhất đi trước', L.cx, y + 22, 17, '#f2c44a', 'center', 'bold');
   state.players.forEach((p, i) => {
-    const yy = y + 92 + i * 34, cur = i === state.cur;
-    if (cur) { ctx.fillStyle = 'rgba(242,196,74,0.18)'; ctx.fillRect(x + 12, yy - 15, w - 24, 30); }
-    ctx.fillStyle = p.color; ctx.fillRect(x + 22, yy - 9, 12, 18);
-    text(p.name, x + 44, yy, 17, '#fff8e6', 'left', cur ? 'bold' : '');
+    const cx = x + 12 + (i % cols) * cw, yy = y + 56 + Math.floor(i / cols) * 32, cur = i === state.cur;
+    if (cur) { ctx.fillStyle = 'rgba(242,196,74,0.2)'; rrect(ctx, cx, yy - 14, cw - 6, 28, 6); ctx.fill(); }
+    ctx.fillStyle = p.color; ctx.fillRect(cx + 8, yy - 8, 10, 16);
+    text(p.name, cx + 26, yy, 16, '#fff8e6', 'left', cur ? 'bold' : '');
     const v = state.order![i];
-    text(v === null ? (cur ? 'đang tung...' : 'chờ') : String(v), x + w - 24, yy, v === null ? 15 : 20, v === null ? '#cbb994' : '#f2c44a', 'right', 'bold');
+    text(v === null ? (cur ? 'đang tung' : 'chờ') : String(v), cx + cw - 16, yy, v === null ? 14 : 20, v === null ? '#cbb994' : '#f2c44a', 'right', 'bold');
   });
 }
 const curP = () => state.players[state.cur];
 const firstLap = (p: Player) => (p.laps || 0) < tune.first_lap_count; // still on the first lap: no buying, no tax
 const isAI = (p: Player) => p.kind === 'ai';
-function log(s: string) { state.log.push(s); if (state.log.length > 5) state.log.shift(); events.push({ type: 'log', text: s }); }
+function log(s: string) { (state.history ||= []).push(`V${state.round}: ${s}`); if (state.history.length > 300) state.history.shift(); state.log.push(s); if (state.log.length > 5) state.log.shift(); events.push({ type: 'log', text: s }); }
 // The money rules, read against this game's state (src/game/rules.ts).
 const owned = (pi: number): number[] => R.owned(state, pi);
 const ownsGroup = (pi: number, g: number): boolean => R.ownsGroup(state, pi, g);
@@ -1641,10 +1647,12 @@ function buildUI() {
   if (!isGuest() && state.players.some(p => p.kind !== 'human')) { const r = speedSpot(); btn(r.x, r.y, r.w, r.h, `×${gameSpeed}`, cycleSpeed, 'room'); }
   if (roomCode) {
     const r = roomPill();
-    btn(r.x, r.y, r.w, r.h, `Phòng ${roomCode}`, () => { roomMenu = true; inspect = -1; sheetOpen = false; }, 'room');
+    btn(r.x, r.y, r.w, r.h, `Phòng ${roomCode}`, () => { roomMenu = true; emoteMenu = false; inspect = -1; sheetOpen = false; }, 'room');
   }
+  buildToolbar();
   if (state.vote) { buildVoteUI(); return; }
   if (roomMenu) { buildRoomMenu(); return; }
+  if (emoteMenu) { buildEmoteMenu(); return; }
   if (inspect >= 0) { btn(L.cx - 90, L.closeY, 180, 50, 'Đóng', () => { inspect = -1; }, 'close'); return; }
   if (sheetOpen) { buildSheetUI(state.cur); return; }
   if (!L.phone) { // click a row of the property list to see that land's card
@@ -2288,6 +2296,69 @@ function speedSpot(): { x: number; y: number; w: number; h: number } {
   return L.phone ? { x: W - 78, y: L.btnY + 64, w: 64, h: 44 } : { x: W - 60, y: 48, w: 48, h: 26 };
 }
 
+// ---- The toolbar: the game's history, quick emotes online ----------------------------------
+/** The row of small pills: over the board's top-left corner on a phone, its bottom-left on a wide screen. */
+function buildToolbar() {
+  let x = 12; const y = L.phone ? L.by + 6 : H - 42, h = L.phone ? 32 : 30;
+  const pill = (w: number, label: string, fn: () => void) => { btn(x, y, w, h, label, fn, 'room'); x += w + 8; };
+  pill(84, 'Lịch sử', () => { if (isGuest()) sendAct('history'); else showHistory(state.history || []); });
+  if (roomCode) pill(96, 'Biểu cảm', () => { emoteMenu = !emoteMenu; roomMenu = false; inspect = -1; sheetOpen = false; });
+}
+const EMOTES = ['Haha!', 'Trả tiền đi!', 'Hên quá!', 'Xui thế!', 'Nhanh lên!', 'Cảm ơn nha!', 'Chờ đó!', 'Hay lắm!'];
+let emoteMenu = false;
+const emoteLast: number[] = [];       // host: when each seat last sent one, so nobody floods the table
+const emoteSeen = new Set<string>();  // the bubbles already heard here, so each pops once
+/** Host: a player sends a quick emote; it shows over their piece for everyone. */
+function hostEmote(seat: number, i: unknown) {
+  if (typeof i !== 'number' || !Number.isInteger(i) || i < 0 || i >= EMOTES.length) return;
+  if (state.t - (emoteLast[seat] ?? -99) < tune.emote_gap) return;
+  emoteLast[seat] = state.t;
+  (state.emotes ||= []).push({ seat, i, t: 0, id: `${seat}:${state.t.toFixed(2)}` });
+}
+function sendEmote(i: number) {
+  emoteMenu = false;
+  if (isGuest()) sendAct('emote', i); else hostEmote(0, i); // the host always sits in seat 0
+}
+function buildEmoteMenu() {
+  const bw = L.phone ? 200 : 180, bh = 48, cols = L.phone ? 2 : 4, x0 = L.cx - (cols * bw + (cols - 1) * 10) / 2, y0 = L.phone ? 400 : 270;
+  EMOTES.forEach((e, k) => btn(x0 + (k % cols) * (bw + 10), y0 + Math.floor(k / cols) * (bh + 10), bw, bh, e, () => sendEmote(k), 'menu', true, '#8a5a2a'));
+  const rows = Math.ceil(EMOTES.length / cols);
+  btn(L.cx - 80, y0 + rows * (bh + 10) + 6, 160, 46, 'Đóng', () => { emoteMenu = false; }, 'menuSecondary', true, '#6a4a2a');
+}
+function drawEmoteMenu() {
+  if (!emoteMenu || !roomCode) return;
+  ctx.save(); ctx.fillStyle = 'rgba(10,5,3,0.55)'; ctx.fillRect(0, 0, W, H); ctx.restore();
+  text('Gửi biểu cảm', L.cx, L.phone ? 370 : 240, 24, '#f2c44a', 'center', 'bold');
+  drawingMenu = true; ui.forEach(b => { if (b.role === 'menu' || b.role === 'menuSecondary') drawButton(b); }); drawingMenu = false;
+}
+/** The speech bubbles over the pieces, with a pop the first time each one shows. */
+function drawEmotes() {
+  for (const e of state.emotes || []) {
+    const v = tokVis[e.seat], p = state.players[e.seat];
+    if (!v || !p) continue;
+    if (!emoteSeen.has(e.id)) { if (emoteSeen.size > 200) emoteSeen.clear(); emoteSeen.add(e.id); rawSfx.emote(); }
+    const s = project(v.x, BOARD_TOP + v.y + 1.1, v.z), msg = EMOTES[e.i] || '', fs = L.phone ? 17 : 18;
+    const pop = Math.min(1, e.t / 0.15), fade = Math.max(0, Math.min(1, (tune.emote_time - e.t) / 0.4));
+    ctx.save(); ctx.globalAlpha = fade;
+    ctx.font = `bold ${fs}px "Segoe UI", Arial, sans-serif`;
+    const w = ctx.measureText(msg).width + 24, h = 34, x = Math.max(6, Math.min(W - 6 - w, s.x - w / 2)), y = s.y - h - 10 - (1 - pop) * 8;
+    ctx.fillStyle = '#fff8e6'; ctx.strokeStyle = p.color; ctx.lineWidth = 3;
+    rrect(ctx, x, y, w, h, 14); ctx.fill(); ctx.stroke();
+    const tx = Math.max(x + 16, Math.min(x + w - 16, s.x));
+    ctx.beginPath(); ctx.moveTo(tx - 8, y + h - 1); ctx.lineTo(tx + 8, y + h - 1); ctx.lineTo(s.x, y + h + 10); ctx.closePath(); ctx.fill();
+    text(msg, x + w / 2, y + h / 2 + 1, fs, '#2a1a10', 'center', 'bold');
+    ctx.restore();
+  }
+}
+/** The game's history, newest first: every line of the log, with its round. */
+function showHistory(list: string[]) {
+  const rows = [...list].reverse().map(l => { const m = /^V(\d+): (.*)$/.exec(l); return m ? `<li><b>Vòng ${m[1]}</b> · ${esc(m[2])}</li>` : `<li>${esc(l)}</li>`; });
+  showPage('Lịch sử ván', rows.length ? `<ul>${rows.join('')}</ul>` : '<p>Chưa có gì.</p>');
+}
+function esc(t: string): string {
+  return t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+}
+
 // ---- Installing as an app, and keeping the screen on -------------------------------------------
 // Served over http(s), the page offers its manifest and service worker, so a phone can add it to the
 // home screen and open it full screen. Opened from a file (the checks), none of this is asked for.
@@ -2394,12 +2465,26 @@ function rulesHtml(): string {
     sec('Mẹo', [
       'Bấm vào một ô bất kỳ trên bàn cờ để xem thông tin ô đó.',
       'Nhấn M (hoặc nút loa) để tắt hay bật tiếng.',
+      'Nút Lịch sử: xem lại mọi diễn biến của ván, theo vòng.',
+      'Chơi online: nút Biểu cảm gửi một câu nhanh, hiện trên quân của bạn cho cả phòng thấy.',
     ]),
   ].join('');
 }
 let rulesPanel: HTMLDivElement | null = null;
 /** Opens or closes the rules page. */
 function showRules(on: boolean) {
+  if (on) showPage('Luật chơi', rulesHtml()); else hidePage();
+}
+/** Opens the reading page over the game with a title and its HTML. */
+function showPage(title: string, html: string) {
+  pagePanel();
+  (rulesPanel!.querySelector('h2') as HTMLElement).textContent = title;
+  (rulesPanel!.querySelector('.ru-body') as HTMLElement).innerHTML = html;
+  rulesPanel!.style.display = 'flex';
+  (rulesPanel!.querySelector('.ru-body') as HTMLElement).scrollTop = 0;
+}
+function hidePage() { if (rulesPanel) rulesPanel.style.display = 'none'; }
+function pagePanel() {
   if (!rulesPanel) {
     const d = document.createElement('div');
     d.id = 'rules';
@@ -2410,9 +2495,6 @@ function showRules(on: boolean) {
     d.addEventListener('keydown', e => e.stopPropagation());
     rulesPanel = d;
   }
-  if (on) (rulesPanel.querySelector('.ru-body') as HTMLElement).innerHTML = rulesHtml();
-  rulesPanel.style.display = on ? 'flex' : 'none';
-  if (on) (rulesPanel.querySelector('.ru-body') as HTMLElement).scrollTop = 0;
 }
 const rulesOpen = (): boolean => !!rulesPanel && rulesPanel.style.display === 'flex';
 addEventListener('keydown', e => { if (!rulesOpen()) return; if (e.code === 'Escape' || e.code === 'Enter') showRules(false); e.stopImmediatePropagation(); }, true); // the game hears no keys while the rules are open
@@ -2511,6 +2593,8 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
       drawFloaters();
       drawInspect();
       drawNetBanner();
+      drawEmotes();
+      drawEmoteMenu();
       drawRoomMenu();
       drawVote();
     },

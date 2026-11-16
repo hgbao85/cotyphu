@@ -233,3 +233,8 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
+
+# === Web: Vite, Vitest and Playwright output ===
+dist-single/
+.vitest/
+/playwright-report/

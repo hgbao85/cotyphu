@@ -2,7 +2,8 @@
 //
 //   npm run build:single
 //   node tools/balance/self-play.mjs <name> <games> <seats> <mode> <out.json> [maxRounds] [tuneJSON]
-//     tuneJSON: values to try instead of data/config.json's, e.g. '{"rent_scale":2}'
+//     tuneJSON: values to try instead of data/config.json's, e.g. '{"rent_scale":2}' (or '{}')
+//   [seedBase]: the first game's seed (default 1000), so runs can be split and added up
 //     seats: comma list of ai0 (Dễ), ai1 (Vừa), ai2 (Khó), e.g. ai1,ai1,ai1,ai1
 //     mode:  bankrupt (until one is left) or rounds (max_rounds, richest wins)
 //
@@ -16,7 +17,7 @@ import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const [name, gamesArg, seatsArg, mode, out, capArg, tuneArg] = process.argv.slice(2);
+const [name, gamesArg, seatsArg, mode, out, capArg, tuneArg, seedArg] = process.argv.slice(2);
 const tune = tuneArg ? JSON.parse(tuneArg) : {};
 if (!out) { console.error('usage: self-play.mjs <name> <games> <seats> <mode> <out.json>'); process.exit(2); }
 const games = Number(gamesArg);
@@ -36,25 +37,35 @@ const MAX_ROUNDS = Number(capArg) || 150; // a game still going after this round
 const results = [];
 const t0 = Date.now();
 for (let g = 0; g < games; g++) {
-  const seed = 1000 + g;
+  const seed = (Number(seedArg) || 1000) + g;
   const r = await page.evaluate(({ seats, mode, seed, MAX_ROUNDS, tune }) => {
     const game = window.game;
     game.configure({ seats, mode, seed, tune });
     game.events.length = 0;
     game.press('Enter'); game.step(1, false);
-    const rents = {};
+    const rents = {}, paid = [], got = [], firstBuy = [], broke = [], props10 = [];
     let steps = 0;
     while (game.scene === 'play' && game.state.round <= MAX_ROUNDS && steps < 3e6) {
       game.step(600, false); steps += 600;
-      for (const e of game.events) if (e.type === 'rent') rents[e.tile] = (rents[e.tile] || 0) + e.amt;
+      for (const e of game.events) if (e.type === 'rent') {
+        rents[e.tile] = (rents[e.tile] || 0) + e.amt;
+        paid[e.from] = (paid[e.from] || 0) + e.amt; got[e.to] = (got[e.to] || 0) + e.amt;
+      }
       game.events.length = 0;
+      const s = game.state; // by place in the turn order: the first land, going broke, land at round 10
+      s.players.forEach((p, pos) => {
+        const n = s.owner.filter(o => o === pos).length;
+        if (firstBuy[pos] === undefined && n > 0) firstBuy[pos] = s.round;
+        if (broke[pos] === undefined && p.bankrupt) broke[pos] = s.round;
+        if (s.round <= 10) props10[pos] = n;
+      });
     }
     const s = game.state;
     return {
       seed, steps, finished: game.scene === 'results', rounds: s.round, reason: s.reason || '',
       players: s.players.map((p, pos) => ({ pos, seat: p.id, lv: p.lv, bankrupt: p.bankrupt, cash: p.cash })),
       winnerPos: game.scene === 'results' ? s.ranking[0].i : -1,
-      owner: s.owner, level: s.level, rents,
+      owner: s.owner, level: s.level, rents, paid, got, firstBuy, broke, props10,
     };
   }, { seats, mode, seed, MAX_ROUNDS, tune });
   results.push(r);

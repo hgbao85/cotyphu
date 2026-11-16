@@ -793,7 +793,7 @@ function resolveLanding() {
     }
     if (state.mort[i]) { log(`${t.n} đang cầm cố: không mất tiền thuê.`); afterAction(); return; }
     const rent = rentOf(i, p.lastRoll || 7);
-    events.push({ type: 'rent', tile: i, amt: rent }); // for checks: which land earns what
+    events.push({ type: 'rent', tile: i, amt: rent, from: pi, to: o }); // for checks: which land earns what, who pays whom
     const owner = state.players[o];
     state.popup = { kind: 'rent', tile: i, rent, owner: o };
     charge([{ to: o, amt: rent }], `${p.name} trả ${owner.name} ${money(rent)} tiền thuê ở ${t.n}.`, () => { state.phase = 'rentShow'; state.timer = 0; });
@@ -867,7 +867,7 @@ function applyCard() {
     case 'collect':
       state.players.forEach((q, j) => {
         if (j === pi || q.bankrupt) return;
-        if (q.cash < c.v) autoRaise(j, c.v);
+        if (q.cash < c.v) raiseCash(j, c.v);
         if (q.cash >= c.v) { lose(j, c.v); gain(pi, c.v); }
         else { const part = Math.max(0, q.cash); if (part) { lose(j, part); gain(pi, part); } goBankrupt(j, []); }
       });
@@ -919,15 +919,73 @@ function declareBankrupt() {
 // ---- AI ------------------------------------------------------------------------------
 function aiTurnStart(p: Player) {
   const pi = state.players.indexOf(p);
-  if (p.lv >= 1) { // buy back mortgaged land when comfortable
+  if (p.lv === 2) { // Hard: buy back the land that earns most first, while the cash covers the danger ahead
+    const back = owned(pi).filter(i => state.mort[i]).sort((a, b) => earnWhenFree(pi, b) - earnWhenFree(pi, a));
+    for (const i of back) if (p.cash - TILES[i].p! * tune.unmortgage_pct >= hardReserve(pi) + tune.ai_hard_unmortgage_spare) unmortgage(pi, i);
+  } else if (p.lv >= 1) { // buy back mortgaged land when comfortable
     for (const i of owned(pi)) if (state.mort[i] && p.cash > TILES[i].p! * tune.unmortgage_pct + 3000) unmortgage(pi, i);
   }
+}
+// ---- Hard: reads the board instead of keeping a fixed sum ----
+/** The dearest rent among other players' land 2 to 12 steps ahead: what this turn's throw could cost. */
+function dangerAhead(pi: number) {
+  const p = state.players[pi];
+  let m = 0;
+  for (let k = 2; k <= 12; k++) { const i = (p.pos + k) % 40; if (state.owner[i] >= 0 && state.owner[i] !== pi && !state.mort[i]) m = Math.max(m, rentOf(i, 7)); }
+  return m;
+}
+/** Hard: the cash to keep: the danger just ahead, and a share of the worst rent anywhere on the board. */
+function hardReserve(pi: number) {
+  return Math.max(tune.ai_reserve_hard, dangerAhead(pi), maxRentAgainst(pi) * tune.ai_hard_danger);
+}
+/** What a tile of this player earns when it is not mortgaged: its rent as it stands. */
+function earnWhenFree(pi: number, i: number) {
+  const was = state.mort[i]; state.mort[i] = false;
+  const r = rentOf(i, 7); state.mort[i] = was;
+  return r;
+}
+/** Hard: what a free tile is worth to this player beyond its price: ports, a group to finish, a group to spoil. */
+function hardWantsTile(pi: number, i: number): 'must' | 'good' | 'plain' {
+  const t = TILES[i];
+  if (t.t === 'port') return 'must'; // the ports earned the most in self-play
+  if (t.t !== 'prop') return 'plain';
+  const group = TILES.map((u, j) => j).filter(j => TILES[j].t === 'prop' && TILES[j].g === t.g);
+  const mine = group.filter(j => state.owner[j] === pi).length;
+  const owners = new Set(group.map(j => state.owner[j]).filter(o => o >= 0 && o !== pi));
+  if (mine === group.length - 1) return 'must';                                  // it finishes my group
+  if (owners.size === 1 && group.filter(j => state.owner[j] >= 0 && state.owner[j] !== pi).length === group.length - 1) return 'must'; // it stops another finishing theirs
+  if (mine > 0 && owners.size === 0) return 'good';                               // on the way to a group
+  return 'plain';
+}
+/** Hard: raises cash by giving up what earns least: bare land with the lowest rent first, then single levels. */
+function hardRaise(pi: number, need: number) {
+  const p = state.players[pi];
+  let guard = 200;
+  while (p.cash < need && guard-- > 0) {
+    const mine = owned(pi);
+    const bare = mine.filter(i => !state.mort[i] && state.level[i] === 0).sort((a, b) => rentOf(a, 7) - rentOf(b, 7) || TILES[a].p! - TILES[b].p!);
+    if (bare.length) { mortgage(pi, bare[0]); continue; }
+    const built = mine.filter(i => state.level[i] > 0).sort((a, b) => rentOf(a, 7) - rentOf(b, 7));
+    if (built.length) { sellLevel(pi, built[0]); continue; }
+    break;
+  }
+  return p.cash >= need;
+}
+/** Raises cash for a player: Hard computers choose what to give up, everyone else the plain way. */
+function raiseCash(pi: number, need: number) {
+  const p = state.players[pi];
+  return isAI(p) && p.lv === 2 ? hardRaise(pi, need) : autoRaise(pi, need);
 }
 function aiReserve(p: Player) { return p.lv === 2 ? tune.ai_reserve_hard : tune.ai_reserve_mid; }
 function aiWantsBuy(pi: number, i: number) {
   const p = state.players[pi], t = TILES[i];
   if (p.cash < t.p!) return false;
   if (p.lv === 0) return rng() < tune.ai_easy_buy_chance;
+  if (p.lv === 2) { // Hard: ports and key group tiles nearly always; the rest while the board is safe enough
+    const left = p.cash - t.p!, kind = hardWantsTile(pi, i);
+    if (kind === 'must') return left >= tune.ai_hard_must_spare;
+    return left >= hardReserve(pi) * (kind === 'good' ? tune.ai_hard_buy_keep * 0.5 : tune.ai_hard_buy_keep);
+  }
   const left = p.cash - t.p!;
   let want = left >= aiReserve(p);
   if (t.t === 'prop') { // finishing or blocking a group is worth dipping into the reserve
@@ -949,7 +1007,7 @@ function aiWantsBuild(pi: number, i: number) {
   const p = state.players[pi], cost = buildCost(i, state.level[i] + 1);
   if (p.cash < cost) return false;
   if (p.lv === 0) return rng() < 0.7;
-  const keep = p.lv === 2 ? Math.max(tune.ai_reserve_hard, maxRentAgainst(pi) * 0.6) : tune.ai_reserve_mid + 300;
+  const keep = p.lv === 2 ? hardReserve(pi) * tune.ai_hard_build_keep : tune.ai_reserve_mid + 300;
   let want = p.cash - cost >= keep;
   if (p.lv === 1 && rng() < tune.ai_mid_mistake) want = !want;
   return want;
@@ -973,7 +1031,9 @@ function aiAct() { // one decision for the computer player, after its think dela
   switch (state.phase) {
     case 'roll': case 'order': startShake(true); return;
     case 'jail': {
-      if (p.freeCards.length) payJail(); else startShake(true);
+      // Hard keeps its Thẻ Ra Tù while the board is full of others' land: a cell pays no rent
+      if (p.freeCards.length && !(p.lv === 2 && state.owner.filter(o => o >= 0 && o !== pi).length >= tune.ai_hard_jail_tiles)) payJail();
+      else startShake(true);
       return;
     }
     case 'buy': if (aiWantsBuy(pi, state.popup.tile)) doBuy(); else { log(`${p.name} bỏ qua ${TILES[state.popup.tile].n}.`); skip(); } return;
@@ -983,7 +1043,7 @@ function aiAct() { // one decision for the computer player, after its think dela
     case 'taxChoice': payTax(Math.min(state.popup.pct, state.popup.flat)); return;
     case 'pick': flyTo(state.pick); return;
     case 'debt':
-      if (autoRaise(pi, state.debt.total)) payDebt(); else declareBankrupt();
+      if (raiseCash(pi, state.debt.total)) payDebt(); else declareBankrupt();
       return;
     case 'end': nextTurn(); return;
   }

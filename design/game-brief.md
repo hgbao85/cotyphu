@@ -51,6 +51,7 @@ After play: Thêm tính năng chọn nhân vật, con vật 3D dễ thương →
 After play: Đổi lại luật thứ tự, thấp nhất sẽ đi cuối cùng
 After play: Làm hoạt cảnh cho quân con vật
 After play: Cân bằng ván bằng máy tự đánh → tăng tiền thuê, không giảm lương → áp bộ R6: mọi tiền thuê × 5 (rent_scale 5); design/balance/self-play-2026-11-16.md
+After play: Làm máy Khó thật sự khó (mục tiêu 65–70% thắng máy Dễ) + tìm hiểu vì sao người đi đầu thiệt → máy Khó 67% ở kiểu phá sản; người đi đầu không thiệt (16% là ngẫu nhiên)
 
 **Pitch:** Cờ tỷ phú trên bản đồ Việt Nam cho 2–4 người, mỗi chỗ là người hoặc máy: đổ xúc xắc, mua đất từ Hà Giang tới Cà Mau, dẫm lại đất mình để xây nhà, khách sạn rồi Landmark, rút thẻ Cơ Hội và Khí Vận vui nhộn; ai trụ lại (hoặc giàu nhất sau 30 vòng) là tỷ phú.
 

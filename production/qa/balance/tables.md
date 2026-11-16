@@ -4,7 +4,7 @@
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | A-4vua-phasan | 100 | tới khi phá sản (giới hạn 150 vòng) | 98 | 2 | 73 | 46 – 119 | 100.0% |
 | B-4vua-30vong | 200 | theo vòng | 200 | 0 | 31 | 31 – 31 | 43.5% |
-| C-kho-de-30vong | 200 | theo vòng | 200 | 0 | 31 | 31 – 31 | 49.5% |
+| C-kho-de-30vong | 200 | theo vòng | 200 | 0 | 31 | 31 – 31 | 58.5% |
 | D-2vua-phasan | 100 | tới khi phá sản (giới hạn 150 vòng) | 99 | 1 | 66 | 31 – 107 | 99.0% |
 
 ## Thắng theo thứ tự đi
@@ -30,8 +30,8 @@ Vị trí 1 là người đi đầu (tung cao nhất). Công bằng là 100% chi
 
 | C-kho-de-30vong (200 ván xong) | Số ghế | Thắng | Nếu ngang sức |
 | --- | --- | --- | --- |
-| Máy Khó | 2 | 50.0% | 50.0% |
-| Máy Dễ | 2 | 50.0% | 50.0% |
+| Máy Khó | 2 | 58.5% | 50.0% |
+| Máy Dễ | 2 | 41.5% | 50.0% |
 
 ## Tiền thuê theo ô
 

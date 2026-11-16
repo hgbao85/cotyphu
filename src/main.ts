@@ -264,6 +264,7 @@ function showOnlinePanel(on: boolean) {
     };
     (d.querySelector('#op-close') as HTMLButtonElement).onclick = () => showOnlinePanel(false);
     d.addEventListener('keydown', e => e.stopPropagation()); // typing a name never moves the game
+    d.addEventListener('pointerdown', e => e.stopPropagation()); // a press on the panel never reaches a button under it
   }
   const setErr = (m: string) => { (onlinePanel!.querySelector('#op-error') as HTMLElement).textContent = m; };
   setErr(netError);
@@ -1636,6 +1637,7 @@ function buildUI() {
   }
   if (scene !== 'play') return;
   btn(W - 52, 12, 40, 34, '', () => setMuted(!muted()), 'mute');
+  { const r = rulesSpot(); btn(r.x, r.y, r.w, r.h, 'Luật', () => showRules(true), 'room'); }
   if (roomCode) {
     const r = roomPill();
     btn(r.x, r.y, r.w, r.h, `Phòng ${roomCode}`, () => { roomMenu = true; inspect = -1; sheetOpen = false; }, 'room');
@@ -1725,6 +1727,7 @@ function seatLabel(s: Seat, i = -1): string {
 function startGame() { reset(); clearVis(); scene = 'play'; }
 function buildTitleUI() {
   const T = titleSpots();
+  { const r = rulesSpot(); btn(r.x, r.y, r.w, r.h, 'Luật chơi', () => showRules(true), 'room'); }
   const b4 = (r: number[], label: string, fn: () => void, role: string, color: string) => btn(r[0], r[1], r[2], r[3], label, fn, role, true, color);
   if (isGuest()) { b4(T.leave, 'Rời phòng', leaveRoom, 'secondary', '#6a4a2a'); return; }
   setup.seats.forEach((s, i) => {
@@ -1882,7 +1885,7 @@ function drawTokenIcon(kind: number, x: number, y: number, s: number, color: str
 }
 function drawPanel() {
   lacquer(PX, 0, PW, H);
-  text('TỶ PHÚ ĐẤT VIỆT', PX + PW / 2 - 14, 30, 24, '#f2c44a', 'center', 'bold');
+  text('TỶ PHÚ ĐẤT VIỆT', PX + PW / 2 + 14, 30, 24, '#f2c44a', 'center', 'bold');
   const roundTxt = state.mode === 'rounds' ? `Vòng ${Math.min(state.round, tune.max_rounds)} / ${tune.max_rounds}` : `Vòng ${state.round} · tới khi phá sản`;
   if (roomCode) text(state.mode === 'rounds' ? `Vòng ${Math.min(state.round, tune.max_rounds)}/${tune.max_rounds}` : `Vòng ${state.round}`, PX + 24, 59, 16, '#e8d9b5', 'left');
   else text(roundTxt, PX + PW / 2, 58, 16, '#e8d9b5');
@@ -2112,7 +2115,7 @@ function phoneCard(pi: number): { x: number; y: number; w: number; h: number } {
 /** The header, the log line, the players and the strip behind the buttons. */
 function drawPhoneChrome() {
   lacquer(0, 0, W, L.by);
-  text('TỶ PHÚ ĐẤT VIỆT', 14, L.by / 2, 19, '#f2c44a', 'left', 'bold');
+  text('TỶ PHÚ ĐẤT VIỆT', 12, L.by / 2, 17, '#f2c44a', 'left', 'bold');
   const roundTxt = state.mode === 'rounds' ? `Vòng ${Math.min(state.round, tune.max_rounds)}/${tune.max_rounds}` : `Vòng ${state.round}`;
   if (roomCode) text(roundTxt, W - 176, L.by / 2, 15, '#e8d9b5', 'right'); else text(roundTxt, W - 64, L.by / 2, 15, '#e8d9b5', 'right');
   const top = L.by + L.bh;
@@ -2261,6 +2264,111 @@ function drawResultsPhone() {
   drawVote();
 }
 
+// ---- The rules, for players to read ----------------------------------------------------------
+// Plain HTML over the canvas, so it scrolls on a phone. Every number comes from data/config.json and
+// the board, so the page stays true when a value is tuned.
+function rulesHtml(): string {
+  const pct = (v: number): string => `${Math.round(v * 100)}%`;
+  const lands = TILES.filter(t => t.t === 'prop').map(t => t.p!);
+  const ports = TILES.filter(t => t.t === 'port'), utils = TILES.filter(t => t.t === 'util');
+  const portRents = [1, 2, 3, 4].map(n => money(tune.port_rent * Math.pow(2, n - 1) * tune.rent_scale)).join(' / ');
+  const levels = [0, 1, 2, 3, 4, 5, 6].map(l => `${LEVEL_NAMES[l]} ${pct(rentPct(l) * tune.rent_scale)}`).join(', ');
+  const sec = (title: string, items: string[]): string => `<h3>${title}</h3><ul>${items.map(i => `<li>${i}</li>`).join('')}</ul>`;
+  return [
+    sec('Chuẩn bị', [
+      '2 đến 4 người chơi. Mỗi chỗ ngồi là Người, Máy (Dễ, Vừa, Khó) hoặc Bạn online.',
+      `Kiểu ván: chơi tới khi phá sản, hoặc ${tune.max_rounds} vòng (hết vòng thì ai giàu nhất thắng).`,
+      `Mỗi người bắt đầu với ${money(tune.start_cash)} ở ô Xuất Phát.`,
+      ...(tune.order_roll ? ['Đầu ván mỗi người tung xúc xắc một lần: <b>ai thấp nhất đi trước</b>, rồi tăng dần. Hòa điểm thì những người hòa tung lại.'] : []),
+    ]),
+    sec('Mỗi lượt', [
+      'Giữ nút (hoặc Space) để lắc xúc xắc, thả ra để ném.',
+      'Đổ đôi: được đổ tiếp. Đôi 3 lần liền: vào tù.',
+      `Đi qua hoặc dừng ở Xuất Phát: nhận lương ${money(tune.salary)}.`,
+    ]),
+    sec('Vòng đầu (mỗi người, tới khi qua Xuất Phát lần đầu)', [
+      'Chưa được mua đất: dẫm vào đất trống chỉ được xem.',
+      'Được miễn cả 2 ô thuế.',
+      'Tiền thuê đất người khác và tiền phạt trên thẻ vẫn phải trả.',
+    ]),
+    sec('Đất', [
+      `${lands.length} tỉnh thành, 8 nhóm màu theo miền. Giá đất từ ${money(Math.min(...lands))} tới ${money(Math.max(...lands))}.`,
+      'Dẫm vào đất trống thì được mua. Không có đấu giá, không đổi đất, không mua lại đất của người khác.',
+      '<b>Dẫm lại đất của mình</b> thì được xây thêm 1 cấp: Nhà 1 → Nhà 4 → Khách sạn → Landmark của tỉnh.',
+      `Giá xây mỗi cấp: nhà ${pct(tune.house_cost_pct)}, khách sạn ${pct(tune.hotel_cost_pct)}, Landmark ${pct(tune.landmark_cost_pct)} giá đất.`,
+      `Tiền thuê theo giá đất: ${levels}.`,
+      `Gom đủ cả nhóm màu: tiền thuê × ${tune.full_group_mult}.`,
+    ]),
+    sec('Bến cảng, sân bay và công ty', [
+      `${ports.length} bến, giá ${money(ports[0].p!)} mỗi ô. Tiền thuê theo số bến chủ có: ${portRents}.`,
+      `${utils.length} công ty, giá ${money(utils[0].p!)} mỗi ô. Tiền thuê = tổng xúc xắc × ${money(tune.util_mult_one * tune.rent_scale)} (có 1 công ty) hoặc × ${money(tune.util_mult_two * tune.rent_scale)} (có cả 2).`,
+      'Bến và công ty không xây được.',
+    ]),
+    sec('Thuế và hũ tiền', [
+      `Thuế Tài Sản: tự chọn trả ${pct(tune.prop_tax_pct)} tiền mặt đang có, hoặc ${money(tune.prop_tax_flat)}.`,
+      `Thuế Thu Nhập: trả ${money(tune.income_tax)}.`,
+      'Tiền của 2 ô thuế dồn vào <b>hũ giữa bàn</b>. Dừng ở Bến Đỗ Tự Do thì lấy cả hũ.',
+    ]),
+    sec('Thẻ Cơ Hội và Khí Vận', [
+      'Mỗi loại 16 thẻ. Cơ Hội thiên về di chuyển, Khí Vận thiên về tiền.',
+      `Mỗi thẻ được hoặc mất tối đa ${money(tune.card_max)}. Tiền phạt trên thẻ trả cho ngân hàng.`,
+      'Rút hết bộ thì xáo lại. Thẻ Ra Tù đang có người giữ thì không bị xáo vào.',
+    ]),
+    sec('Nhà tù', [
+      'Vào tù khi: dẫm ô Đi Tù, đổ đôi 3 lần liền, hoặc rút thẻ Vào tù.',
+      'Không nộp tiền để ra tù. Mỗi lượt ở tù được lắc 1 lần, tối đa 3 lượt:',
+      '· Lắc ra đôi: ra tù, đi theo số vừa lắc, rồi được lắc tiếp.',
+      '· Dùng Thẻ Ra Tù: ra ngay ở bất kỳ lượt nào.',
+      '· Lắc trượt cả 3 lượt: tới lượt thứ 4 mới được ra.',
+      'Rút thẻ Vào tù: lần qua Xuất Phát kế tiếp mất lương. Chỉ ra tù bằng Thẻ Ra Tù mới gỡ được.',
+    ]),
+    sec('Thiếu tiền và phá sản', [
+      `Bán bớt 1 cấp nhà: hoàn ${pct(tune.sell_pct)} giá xây cấp đó.`,
+      `Cầm cố đất (phải bán hết nhà trên ô trước): nhận ${pct(tune.mortgage_pct)} giá đất. Đất cầm cố không thu tiền thuê. Chuộc lại: ${pct(tune.unmortgage_pct)} giá đất.`,
+      'Bán và cầm cố hết mà vẫn không đủ trả: phá sản, bị loại. Đất trả về ngân hàng.',
+    ]),
+    sec('Kết thúc', [
+      'Tới khi phá sản: người cuối cùng còn trụ lại thắng.',
+      `${tune.max_rounds} vòng: hết vòng ${tune.max_rounds} thì ai có tổng tài sản lớn nhất thắng (tiền mặt + giá đất, đất cầm cố tính nửa giá, + tiền đã xây).`,
+    ]),
+    sec('Chơi online', [
+      'Tạo phòng để nhận mã, bạn bè vào phòng bằng mã. Chủ phòng luôn ngồi ghế Đỏ.',
+      'Trong ván, bấm mã phòng ở góc trên để rời phòng (bạn bè), giải tán phòng (chủ phòng) hoặc bỏ phiếu chơi lại.',
+      `Bỏ phiếu chơi lại: cần tất cả người chơi thật đồng ý trong ${tune.vote_time} giây.`,
+      'Rớt mạng: máy đi thay lúc vắng. Mở lại trang, bấm "Vào lại phòng" (trong 30 phút) để về đúng ghế. Người đã rời vào lại cùng tên thì lấy lại ghế.',
+      'Chủ phòng tải lại trang: bấm "Vào lại phòng" là ván chơi tiếp.',
+    ]),
+    sec('Mẹo', [
+      'Bấm vào một ô bất kỳ trên bàn cờ để xem thông tin ô đó.',
+      'Nhấn M (hoặc nút loa) để tắt hay bật tiếng.',
+    ]),
+  ].join('');
+}
+let rulesPanel: HTMLDivElement | null = null;
+/** Opens or closes the rules page. */
+function showRules(on: boolean) {
+  if (!rulesPanel) {
+    const d = document.createElement('div');
+    d.id = 'rules';
+    d.innerHTML = '<div class="ru-card"><h2>Luật chơi</h2><div class="ru-body"></div><button class="ru-close">Đóng</button></div>';
+    document.body.appendChild(d);
+    (d.querySelector('.ru-close') as HTMLButtonElement).onclick = () => showRules(false);
+    d.addEventListener('pointerdown', e => { if (e.target === d) showRules(false); e.stopPropagation(); }); // a tap outside closes it
+    d.addEventListener('keydown', e => e.stopPropagation());
+    rulesPanel = d;
+  }
+  if (on) (rulesPanel.querySelector('.ru-body') as HTMLElement).innerHTML = rulesHtml();
+  rulesPanel.style.display = on ? 'flex' : 'none';
+  if (on) (rulesPanel.querySelector('.ru-body') as HTMLElement).scrollTop = 0;
+}
+const rulesOpen = (): boolean => !!rulesPanel && rulesPanel.style.display === 'flex';
+addEventListener('keydown', e => { if (!rulesOpen()) return; if (e.code === 'Escape' || e.code === 'Enter') showRules(false); e.stopImmediatePropagation(); }, true); // the game hears no keys while the rules are open
+/** Where the rules button sits: the title's corner, the panel's top, or the phone's header. */
+function rulesSpot(): { x: number; y: number; w: number; h: number } {
+  if (scene === 'title') return L.phone ? { x: W - 92, y: 6, w: 80, h: 30 } : { x: PX + PW - 104, y: 28, w: 84, h: 32 };
+  return L.phone ? { x: 186, y: 9, w: 56, h: 32 } : { x: PX + 14, y: 14, w: 64, h: 30 };
+}
+
 // ---- Scenes ------------------------------------------------------------------------------
 const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
   figures: {
@@ -2315,6 +2423,7 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
         text('MÃ PHÒNG', PX + PW / 2, 612, 16, '#e8d9b5', 'center', 'bold');
         text(roomCode, PX + PW / 2, 655, 44, '#f2c44a', 'center', 'bold');
       }
+      ui.forEach(b => { if (b.role === 'room') drawButton(b); }); // the rules button sits on the panel
     },
   },
   play: {

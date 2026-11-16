@@ -23,6 +23,16 @@
   #online button.op-main { background: #c8201f; }
   #online button.op-close { background: transparent; border-color: #6a4a2a; color: #cbb994; font-weight: normal; margin: 4px 0 0; }
   #online .op-or { text-align: center; color: #cbb994; margin: 8px 0 12px; font-size: 15px; }
+  /* The rules page: scrolls on a phone */
+  #rules { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(20, 10, 6, 0.72); z-index: 11; padding: 12px; box-sizing: border-box; }
+  #rules .ru-card { width: min(640px, 100%); max-height: 100%; display: flex; flex-direction: column; background: linear-gradient(#3b1712, #1f0c09); border: 2px solid #c9a24a; border-radius: 18px; padding: 18px 18px 14px; box-sizing: border-box; color: #f4ead2; font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif; }
+  #rules h2 { margin: 0 0 8px; text-align: center; color: #f2c44a; font-size: 24px; }
+  #rules .ru-body { overflow-y: auto; -webkit-overflow-scrolling: touch; padding-right: 6px; font-size: 16px; line-height: 1.45; }
+  #rules h3 { margin: 14px 0 4px; color: #f2c44a; font-size: 18px; }
+  #rules ul { margin: 0; padding-left: 20px; }
+  #rules li { margin: 3px 0; }
+  #rules b { color: #ffe9a8; }
+  #rules .ru-close { margin-top: 12px; padding: 12px; font-size: 18px; font-weight: bold; border-radius: 12px; border: 2px solid #f2c44a; background: #6a4a2a; color: #fff8e6; cursor: pointer; }
   #online #op-error { min-height: 1.2em; margin: 0 0 8px; color: #ff9a8a; font-size: 15px; text-align: center; }
 </style>
 </head>

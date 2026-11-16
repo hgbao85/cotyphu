@@ -9,7 +9,7 @@ window.CONFIG = {
   volume: { value: 0.5, min: 0, max: 1, step: 0.05 },
 
   // ---- Money (k đồng) ----
-  start_cash: { value: 15000, min: 5000, max: 40000, step: 500 },   // tiền khởi đầu mỗi người
+  start_cash: { value: 2000, min: 500, max: 40000, step: 500 },   // tiền khởi đầu mỗi người
   salary: { value: 2000, min: 0, max: 5000, step: 100 },            // lương khi qua Xuất Phát
   income_tax: { value: 1500, min: 0, max: 5000, step: 100 },        // ô Thuế Thu Nhập
   prop_tax_base: { value: 1000, min: 0, max: 5000, step: 100 },     // ô Thuế Tài Sản: phần cố định

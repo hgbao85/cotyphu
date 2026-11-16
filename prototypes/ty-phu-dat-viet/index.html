@@ -743,7 +743,7 @@ function aiAct() { // one decision for the computer player, after its think dela
 let renderer = null, scene3, camera, figScene, figCamera;
 const tok3 = [], tokAnim = [], tokVis = [];
 const tileGroups = [], tileShown = [], ownerMarks = [], riseAnims = [];
-let dice3 = [], ring3, flash3, pick3;
+let dice3 = [], ring3, flash3, pick3, hover3;
 function sizeRenderer() {
   renderer.setPixelRatio(CHEAP ? 0.5 : Math.min(2, screenScale));
   renderer.setSize(BW, H, false);
@@ -1171,6 +1171,7 @@ function build3D() {
   ring3 = mesh(new THREE.TorusGeometry(0.3, 0.035, 8, 32), new THREE.MeshBasicMaterial({ color: 0xffffff }), 0, BOARD_TOP + 0.02, 0); ring3.rotation.x = Math.PI / 2; ring3.castShadow = false; scene3.add(ring3);
   flash3 = mesh(new THREE.BoxGeometry(1, 0.02, 1), new THREE.MeshBasicMaterial({ color: 0xfff2a0, transparent: true, opacity: 0.5 }), 0, BOARD_TOP + 0.012, 0); flash3.castShadow = false; flash3.visible = false; scene3.add(flash3);
   buildPot();
+  hover3 = mesh(new THREE.BoxGeometry(1, 0.02, 1), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.28 }), 0, BOARD_TOP + 0.015, 0); hover3.castShadow = false; hover3.visible = false; scene3.add(hover3);
   pick3 = mesh(new THREE.BoxGeometry(1, 0.03, 1), new THREE.MeshBasicMaterial({ color: 0x3fcf5a, transparent: true, opacity: 0.55 }), 0, BOARD_TOP + 0.02, 0); pick3.castShadow = false; pick3.visible = false; scene3.add(pick3);
   buildFigures();
 }
@@ -1310,6 +1311,8 @@ function render3D() {
     placeDice(); syncPot();
     flash3.visible = state.flash.tile >= 0 && state.flash.t < 1.2;
     if (flash3.visible) { const ti = tileInfo(state.flash.tile); flash3.position.x = ti.x; flash3.position.z = ti.z; const hz = ti.side === 0 || ti.side === 2; flash3.scale.set(ti.side < 0 ? 1.6 : hz ? 1 : 1.6, 1, ti.side < 0 ? 1.6 : hz ? 1.6 : 1); flash3.material.opacity = 0.55 * (1 - state.flash.t / 1.2); }
+    hover3.visible = hoverTile >= 0 && state.phase !== 'pick';
+    if (hover3.visible) { const ti = tileInfo(hoverTile); const hz = ti.side === 0 || ti.side === 2; hover3.position.set(ti.x, BOARD_TOP + 0.015, ti.z); hover3.scale.set(ti.side < 0 ? 1.6 : hz ? 1 : 1.6, 1, ti.side < 0 ? 1.6 : hz ? 1.6 : 1); }
     pick3.visible = state.phase === 'pick';
     if (pick3.visible) { const ti = tileInfo(state.pick); const hz = ti.side === 0 || ti.side === 2; pick3.position.set(ti.x, BOARD_TOP + 0.02, ti.z); pick3.scale.set(ti.side < 0 ? 1.6 : hz ? 1 : 1.6, 1, ti.side < 0 ? 1.6 : hz ? 1.6 : 1); pick3.material.opacity = 0.35 + 0.25 * Math.sin(state.t * 8); }
   } else { ring3.visible = false; flash3.visible = false; pick3.visible = false; placeDice(); }
@@ -1330,6 +1333,7 @@ function boardPointAt(lx, ly) {
 const PX = BW, PW = W - BW;
 let ui = []; // buttons this frame: { x, y, w, h, label, fn, role: 'primary'|'secondary'|'', enabled, color }
 let propScroll = 0;
+let inspect = -1, hoverTile = -1, drawingInspect = false; // the tile whose card is open from a click, and the tile under the mouse
 function btn(x, y, w, h, label, fn, role = '', enabled = true, color) { ui.push({ x, y, w, h, label, fn, role, enabled, color }); }
 function humanTurn() { return state && state.players && !isAI(curP()) && state.phase !== 'over'; }
 function buildUI() {
@@ -1338,6 +1342,11 @@ function buildUI() {
   if (scene === 'results') { btn(BW / 2 - 200, 560, 190, 52, 'Chơi lại (Enter)', () => { reset(); clearVis(); scene = 'play'; }, 'primary'); btn(BW / 2 + 10, 560, 190, 52, 'Ván mới (N)', () => { scene = 'title'; }, 'secondary'); return; }
   if (scene !== 'play') return;
   btn(W - 52, 12, 40, 34, '', () => setMuted(!muted), 'mute');
+  if (inspect >= 0) { btn(BW / 2 - 90, 548, 180, 50, 'Đóng', () => { inspect = -1; }, 'close'); return; }
+  { // click a row of the property list to see that land's card
+    const mine = owned(state.cur), rows = Math.floor((H - 16 - 400) / 30);
+    mine.slice(propScroll, propScroll + rows).forEach((i, r) => btn(PX + 14, 400 + r * 30, 250, 30, '', () => { inspect = i; }, 'hidden'));
+  }
   const p = curP(), human = humanTurn();
   const ax = BW / 2, ay = 372; // the action area sits in the board's open centre
   if (human) {
@@ -1391,7 +1400,7 @@ function buildTitleUI() {
   btn(x0 + 280, y0 + 4 * 62 + 10, 300, 50, setup.mode === 'rounds' ? `${tune.max_rounds} vòng, giàu nhất thắng` : 'Tới khi phá sản', () => { setup.mode = setup.mode === 'rounds' ? 'bankrupt' : 'rounds'; }, 'seat');
   btn(BW / 2 - 140, 600, 280, 60, 'Bắt đầu (Enter)', () => { reset(); clearVis(); scene = 'play'; }, 'primary', true, '#c8201f');
 }
-function clearVis() { tokVis.length = 0; tokAnim.length = 0; for (let i = 0; i < 40; i++) tileShown[i] = -1; riseAnims.length = 0; }
+function clearVis() { inspect = -1; tokVis.length = 0; tokAnim.length = 0; for (let i = 0; i < 40; i++) tileShown[i] = -1; riseAnims.length = 0; }
 function buildPropUI(pi) {
   const mine = owned(pi);
   const rowH = 30, y0 = 400, rows = Math.floor((H - 16 - y0) / rowH);
@@ -1414,9 +1423,14 @@ function handleInput() {
     if (scene === 'play' && state.phase === 'pick' && humanTurn() && c.x < BW) {
       const pt = boardPointAt(c.x, c.y);
       if (pt) { const i = tileAt(pt.x, pt.z); if (i >= 0) { if (i === state.pick) flyTo(i); else state.pick = i; } }
+    } else if (scene === 'play' && c.x < BW) { // anywhere else on the board: open that tile's card, or close it
+      const pt = boardPointAt(c.x, c.y), i = pt ? tileAt(pt.x, pt.z) : -1;
+      inspect = i >= 0 && i !== inspect ? i : -1;
+      if (i >= 0) sfx.card();
     }
   }
   clicks.length = 0;
+  if (inspect >= 0 && (pressed('Space') || pressed('Enter') || pressed('Escape') || pressed('KeyN'))) { inspect = -1; return; }
   if (wheel && scene === 'play') { propScroll = Math.max(0, propScroll + wheel); wheel = 0; }
   if (pressed('Space') || pressed('Enter')) { const b = ui.find(b => b.role === 'primary' && b.enabled); if (b) { sfx.click(); b.fn(); return; } }
   if (pressed('KeyN') || pressed('Escape')) { const b = ui.find(b => b.role === 'secondary' && b.enabled); if (b) { sfx.click(); b.fn(); return; } }
@@ -1435,6 +1449,7 @@ function lacquer(x, y, w, h) { // sơn mài: deep red-black lacquer with a gold 
 }
 function drawButton(b) {
   if (b.role === 'mute') { drawSpeaker(b); return; }
+  if (b.role === 'hidden' || (b.role === 'close' && !drawingInspect)) return;
   const hover = pointer.x >= b.x && pointer.x <= b.x + b.w && pointer.y >= b.y && pointer.y <= b.y + b.h;
   ctx.save();
   if (b.role === 'arrowUp' || b.role === 'arrowDown') {
@@ -1632,6 +1647,40 @@ function drawPopup() {
     if (!human) messageBox([`${p.name} đọc thẻ...`], cx, 548, 360);
   }
 }
+const SPECIAL_INFO = {
+  go: () => [`Đi qua hoặc dừng ở đây: nhận lương ${money(tune.salary)}.`],
+  jail: () => ['Đứng trên mép ô: chỉ ghé thăm, không sao.', `Ở trong tù: mỗi lượt đổ tìm đôi để ra, hoặc nộp ${money(tune.jail_fine)} (hay dùng Thẻ Ra Tù). Sau 3 lần không ra được thì phải nộp phạt.`],
+  free: () => ['Dừng ở đây: lấy hết tiền trong hũ giữa bàn.', `Hũ đang có: ${money(state.pot)}.`],
+  gojail: () => ['Dừng ở đây: vào thẳng Nhà Tù, không đi qua Xuất Phát, không nhận lương.'],
+  co: () => ['Rút một thẻ Cơ Hội: thường là đi tới đâu đó (về Xuất Phát, bay đi du lịch, lùi lại...), đôi khi được tiền hoặc bị phạt.'],
+  kv: () => ['Rút một thẻ Khí Vận (bao lì xì): thường là được tiền hoặc mất tiền: lì xì, sinh nhật, khám răng, trúng số...'],
+  tax: t => t.kind === 'income' ? [`Trả cố định ${money(tune.income_tax)}. Tiền vào hũ giữa bàn.`] : [`Chọn trả ${Math.round(tune.prop_tax_pct * 100)}% tổng tài sản hoặc ${money(tune.prop_tax_flat)}. Tiền vào hũ giữa bàn.`],
+};
+function drawInspect() {
+  if (inspect < 0 || scene !== 'play') return;
+  const i = inspect, t = TILES[i];
+  ctx.save(); ctx.fillStyle = 'rgba(10,5,3,0.45)'; ctx.fillRect(0, 0, BW, H); ctx.restore();
+  if (OWNABLE(t)) {
+    tileCard(i, BW / 2, 330);
+    if (state.owner[i] >= 0 && !state.mort[i]) text(`Hiện thu: ${t.t === 'util' ? 'tổng xúc xắc × ' + money(rentOf(i, 1)) : money(rentOf(i, 7))}${t.t === 'prop' && ownsGroup(state.owner[i], t.g) ? ' (đủ nhóm)' : ''}`, BW / 2, 528, 17, '#fff8e6', 'center', 'bold');
+  } else {
+    const w = 420, h = 300, x = BW / 2 - w / 2, y = 330 - h / 2;
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.4)'; rrect(ctx, x + 6, y + 8, w, h, 14); ctx.fill();
+    ctx.fillStyle = '#fbf3df'; rrect(ctx, x, y, w, h, 14); ctx.fill(); ctx.strokeStyle = '#5a3d2b'; ctx.lineWidth = 3; ctx.stroke();
+    ctx.fillStyle = '#5a3d2b'; rrect(ctx, x + 10, y + 10, w - 20, 60, 8); ctx.fill();
+    text(t.n, BW / 2, y + 40, 26, '#fff8e6', 'center', 'bold');
+    const draw = { co: 'lantern', kv: 'envelope', tax: 'coins', go: 'arrow', jail: 'bars', free: 'palm', gojail: 'cap' }[t.t];
+    if (draw === 'arrow') icon.arrow(ctx, BW / 2, y + 115, 70, Math.PI); else icon[draw](ctx, BW / 2, y + 115, 70);
+    ctx.font = `17px ${FONT}`;
+    let yy = y + 175;
+    for (const para of SPECIAL_INFO[t.t](t)) for (const ln of wrapLines(ctx, para, w - 50)) { text(ln, BW / 2, yy, 17, '#2b1d12'); yy += 24; }
+    ctx.restore();
+  }
+  const here = state.players.filter(p => !p.bankrupt && p.pos === i).map(p => p.name);
+  if (here.length) text(`Đang đứng ở đây: ${here.join(', ')}`, BW / 2, 140, 16, '#fff8e6', 'center', 'bold');
+  drawingInspect = true; ui.forEach(b => { if (b.role === 'close') drawButton(b); }); drawingInspect = false;
+}
 function drawFloaters() {
   for (const f of state.floaters) {
     const u = f.t / 1.4, a = 1 - u;
@@ -1678,16 +1727,22 @@ const scenes = {
       ui.forEach(drawButton);
       lacquer(PX, 0, PW, H);
       text('Cách chơi', PX + PW / 2, 44, 24, '#f2c44a', 'center', 'bold');
-      const rules = ['Đổ 2 xúc xắc, đi quân, mua đất trống.', 'Vòng đầu tiên chưa được mua đất.', 'Dẫm lại đất của mình: xây thêm 1 cấp.', 'Cấp xây: Nhà 1 tới Nhà 4, Khách sạn, Landmark.', 'Gom đủ một nhóm màu: tiền thuê × 2.', 'Thuế, tiền phạt dồn vào hũ giữa bàn.', 'Dừng ở Bến Đỗ Tự Do: lấy cả hũ.', 'Thiếu tiền: bán nhà, cầm cố đất.', 'Hết tiền: phá sản, bị loại.'];
+      const rules = ['Đổ 2 xúc xắc, đi quân, mua đất trống.', 'Vòng đầu tiên chưa được mua đất.', 'Bấm vào một ô bất kỳ để xem thông tin.', 'Dẫm lại đất của mình: xây thêm 1 cấp.', 'Cấp xây: Nhà 1 tới Nhà 4, Khách sạn, Landmark.', 'Gom đủ một nhóm màu: tiền thuê × 2.', 'Thuế, tiền phạt dồn vào hũ giữa bàn.', 'Dừng ở Bến Đỗ Tự Do: lấy cả hũ.', 'Thiếu tiền: bán nhà, cầm cố đất.', 'Hết tiền: phá sản, bị loại.'];
       rules.forEach((r, j) => text(r, PX + 24, 90 + j * 32, 16, '#e8d9b5', 'left'));
-      text('Phím', PX + PW / 2, 400, 22, '#f2c44a', 'center', 'bold');
-      CONTROLS.forEach((c, i) => text(c, PX + 24, 440 + i * 32, 16, '#e8d9b5', 'left'));
+      text('Phím', PX + PW / 2, 420, 22, '#f2c44a', 'center', 'bold');
+      CONTROLS.forEach((c, i) => text(c, PX + 24, 460 + i * 32, 16, '#e8d9b5', 'left'));
     },
   },
   play: {
     update(dt) {
       state.t += dt; buildUI(); handleInput();
       if (scene !== 'play') return;
+      { // the tile under the mouse lights up and the cursor says it can be clicked
+        const onBtn = ui.some(b => b.role !== 'hidden' && pointer.x >= b.x && pointer.x <= b.x + b.w && pointer.y >= b.y && pointer.y <= b.y + b.h);
+        const pt = pointer.x >= 0 && pointer.x < BW && !onBtn ? boardPointAt(pointer.x, pointer.y) : null;
+        hoverTile = pt ? tileAt(pt.x, pt.z) : -1;
+        canvas.style.cursor = hoverTile >= 0 || onBtn ? 'pointer' : 'default';
+      }
       updateTurn(dt);
       updateTokens(dt); syncBuildings(dt);
       state.flash.t += dt;
@@ -1703,6 +1758,7 @@ const scenes = {
       drawPanel();
       ui.forEach(drawButton);
       drawFloaters();
+      drawInspect();
     },
   },
   results: {

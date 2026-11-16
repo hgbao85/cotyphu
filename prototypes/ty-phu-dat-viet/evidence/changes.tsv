@@ -4,3 +4,4 @@ iteration 3	added no buying in round 1 (no_buy_rounds 1): landing on empty land 
 iteration 4	tile 31 Cà Mau -> Long An (same group and price, landmark Tháp cổ Bình Tả)	errors: none	evidence/iteration-4-play.png
 iteration 5	Công ty Điện and Công ty Nước price 1.500.000 -> 2.000.000 đ	errors: none	evidence/iteration-5-play.png
 iteration 6	Thuế Thu Nhập 1.500.000 -> 1.000.000 flat; Thuế Tài Sản now the player picks 10% of net worth or 2.000.000 (AI picks the cheaper)	errors: none	evidence/iteration-6-play.png
+iteration 7	added click a tile (or a property row) to open its info card; hover lights the tile	errors: none	evidence/iteration-7-play.png (cards checked by clicking in the browser pane)

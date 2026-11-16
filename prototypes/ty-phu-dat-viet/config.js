@@ -15,6 +15,8 @@ window.CONFIG = {
   prop_tax_base: { value: 1000, min: 0, max: 5000, step: 100 },     // ô Thuế Tài Sản: phần cố định
   prop_tax_per_level: { value: 100, min: 0, max: 500, step: 10 },   // ô Thuế Tài Sản: mỗi cấp xây đang có
   jail_fine: { value: 500, min: 0, max: 3000, step: 50 },           // tiền nộp phạt ra tù
+  pot_start: { value: 0, min: 0, max: 5000, step: 100 },           // hũ tiền giữa bàn lúc bắt đầu ván
+  pot_share: { value: 1, min: 0, max: 1, step: 0.05 },              // phần thuế/tiền phạt rơi vào hũ (1 = tất cả)
 
   // ---- Rent: fraction of the land price at each level (nhẹ nhàng) ----
   rent_scale: { value: 1, min: 0.3, max: 3, step: 0.05 },           // nhân toàn bộ tiền thuê

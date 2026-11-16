@@ -295,7 +295,7 @@ function reset() {
     owner: Array(40).fill(-1), level: Array(40).fill(0), mort: Array(40).fill(false),
     phase: 'roll', timer: 0, dice: [3, 4], diceT: 9, rolledDouble: false, moveLeft: 0, moveDir: 1, hopT: 0,
     popup: null, debt: null, pick: 0, log: [], floaters: [], decks: { co: shuffled(16), kv: shuffled(16) },
-    flash: { tile: -1, t: 0 }, ranking: null, turns: 0,
+    flash: { tile: -1, t: 0 }, ranking: null, turns: 0, pot: tune.pot_start,
   };
   log(`Ván mới: ${players.length} người chơi, ${setup.mode === 'rounds' ? `${tune.max_rounds} vòng` : 'chơi tới khi phá sản'}.`);
   startTurn();
@@ -372,8 +372,18 @@ function settle(pi, payments) {
   for (const x of payments) {
     lose(pi, x.amt);
     if (x.to >= 0) gain(x.to, x.amt);
+    else feedPot(x.amt);
   }
   sfx.pay();
+}
+// Hũ tiền giữa bàn: taxes, fines, repairs and jail bail go into the jar; landing on Bến Đỗ Tự Do takes it all.
+function feedPot(amt) { const add = Math.round(amt * tune.pot_share); if (add > 0) { state.pot += add; state.potBump = 0; } }
+function takePot(pi) {
+  const p = state.players[pi], amt = state.pot;
+  if (amt <= 0) { log(`${p.name} nghỉ chân ở Bến Đỗ Tự Do, nhưng hũ tiền đang trống.`); return; }
+  state.pot = 0;
+  gain(pi, amt, `${p.name} dừng ở Bến Đỗ Tự Do: ôm trọn hũ tiền ${money(amt)}!`);
+  sfx.win(); events.push({ type: 'pot', who: pi, amt });
 }
 function sellLevel(pi, i) {
   if (state.owner[i] !== pi || state.level[i] <= 0) return false;
@@ -555,7 +565,7 @@ function resolveLanding() {
     charge([{ to: -1, amt }], `${p.name} đóng ${t.n}: ${money(amt)}.`, afterAction); return;
   }
   if (t.t === 'gojail') { log(`${p.name} bị dẫn vào tù!`); sendToJail(pi); toEnd(); return; }
-  if (t.t === 'free') log(`${p.name} nghỉ chân ở Bến Đỗ Tự Do.`);
+  if (t.t === 'free') takePot(pi);
   if (t.t === 'jail') log(`${p.name} ghé thăm Nhà Tù.`);
   afterAction();
 }
@@ -623,7 +633,7 @@ function flyTo(target) {
 function payJail() {
   const p = curP();
   if (p.freeCards.length) { const d = p.freeCards.pop(); state.decks[d].push(CARDS[d].findIndex(c => c.act === 'free')); log(`${p.name} dùng Thẻ Ra Tù Miễn Phí.`); }
-  else { if (p.cash < tune.jail_fine) return; lose(state.cur, tune.jail_fine); log(`${p.name} nộp phạt ${money(tune.jail_fine)} ra tù.`); sfx.pay(); }
+  else { if (p.cash < tune.jail_fine) return; lose(state.cur, tune.jail_fine); feedPot(tune.jail_fine); log(`${p.name} nộp phạt ${money(tune.jail_fine)} ra tù (vào hũ tiền).`); sfx.pay(); }
   p.inJail = false; p.jailTries = 0; state.phase = 'roll'; state.timer = 0;
   if (isAI(p)) aiTurnStart(p);
 }
@@ -686,6 +696,7 @@ function aiPickTile(pi) {
     let v = -1;
     if (OWNABLE(t) && state.owner[i] < 0 && t.p <= p.cash - (p.lv ? aiReserve(p) : 0)) v = t.p;
     else if (state.owner[i] === pi && t.t === 'prop' && state.level[i] < MAX_LEVEL && !state.mort[i]) v = t.p * 0.8;
+    else if (t.t === 'free') v = state.pot;
     if (p.lv === 0) v = OWNABLE(t) && state.owner[i] < 0 ? rng() * 1000 : v;
     if (v > bestV) { bestV = v; best = i; }
   }
@@ -938,7 +949,7 @@ function boardTexture() {
         const cz = tz + th / 2;
         if (t.t === 'go') { lines.forEach((ln, j) => c.fillText(ln.toUpperCase(), cx, tz + 70 + j * 44)); icon.arrow(c, cx, cz + 50, 170, Math.PI); c.font = `bold 30px ${FONT}`; c.fillText('Nhận lương', cx, tz + th - 50); }
         if (t.t === 'jail') { icon.bars(c, cx + 30, cz - 30, 150); c.fillText('NHÀ TÙ', cx + 30, cz + 75); c.font = `28px ${FONT}`; c.fillText('Chỉ ghé thăm', cx - 40, tz + th - 36); }
-        if (t.t === 'free') { icon.palm(c, cx, cz + 15, 170); lines.forEach((ln, j) => c.fillText(ln, cx, tz + 50 + j * 44)); }
+        if (t.t === 'free') { icon.palm(c, cx, cz + 5, 150); lines.forEach((ln, j) => c.fillText(ln, cx, tz + 50 + j * 44)); c.fillStyle = '#b3201e'; c.font = `bold 30px ${FONT}`; c.fillText('Nhận hũ tiền', cx, tz + th - 40); }
         if (t.t === 'gojail') { icon.cap(c, cx, cz + 10, 190); c.fillText('ĐI TÙ', cx, tz + 60); c.font = `28px ${FONT}`; c.fillText('Vào thẳng Nhà Tù', cx, tz + th - 45); }
         continue;
       }
@@ -1144,8 +1155,30 @@ function build3D() {
   // the current player's ring, the landing flash and the fly-to cursor
   ring3 = mesh(new THREE.TorusGeometry(0.3, 0.035, 8, 32), new THREE.MeshBasicMaterial({ color: 0xffffff }), 0, BOARD_TOP + 0.02, 0); ring3.rotation.x = Math.PI / 2; ring3.castShadow = false; scene3.add(ring3);
   flash3 = mesh(new THREE.BoxGeometry(1, 0.02, 1), new THREE.MeshBasicMaterial({ color: 0xfff2a0, transparent: true, opacity: 0.5 }), 0, BOARD_TOP + 0.012, 0); flash3.castShadow = false; flash3.visible = false; scene3.add(flash3);
+  buildPot();
   pick3 = mesh(new THREE.BoxGeometry(1, 0.03, 1), new THREE.MeshBasicMaterial({ color: 0x3fcf5a, transparent: true, opacity: 0.55 }), 0, BOARD_TOP + 0.02, 0); pick3.castShadow = false; pick3.visible = false; scene3.add(pick3);
   buildFigures();
+}
+// The jar of money between the two decks: a glazed clay jar, with coins piling up beside it.
+const POT_X = 0, POT_Z = -2.75;
+let potCoins = [], potShown = -1;
+function buildPot() {
+  const pts = [[0, 0], [0.32, 0], [0.42, 0.12], [0.46, 0.32], [0.4, 0.52], [0.26, 0.62], [0.24, 0.7], [0.3, 0.74], [0.3, 0.78], [0, 0.78]].map(([x, y]) => new THREE.Vector2(x, y));
+  const jar = mesh(new THREE.LatheGeometry(pts, 28), new THREE.MeshPhongMaterial({ color: 0x5b3a8a, shininess: 70, specular: 0x777777 }), POT_X, BOARD_TOP, POT_Z);
+  scene3.add(jar);
+  const band = mesh(new THREE.TorusGeometry(0.455, 0.02, 8, 32), mat(0xe8b33a, { metalness: 0.3 }), POT_X, BOARD_TOP + 0.32, POT_Z); band.rotation.x = Math.PI / 2; scene3.add(band);
+  const mouth = mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.02, 24), mat(0x2a1a10), POT_X, BOARD_TOP + 0.77, POT_Z); scene3.add(mouth);
+  const coinGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.04, 20), coinM = new THREE.MeshPhongMaterial({ color: 0xf2c44a, shininess: 100, specular: 0xffffff });
+  for (let k = 0; k < 30; k++) {
+    const stack = k % 3, h = Math.floor(k / 3);
+    const c = mesh(coinGeo, coinM, POT_X + 0.62 + stack * 0.2 - (stack === 2 ? 0.1 : 0), BOARD_TOP + 0.02 + h * 0.042, POT_Z + (stack === 2 ? 0.2 : -0.05));
+    c.visible = false; scene3.add(c); potCoins.push(c);
+  }
+}
+function syncPot() {
+  const n = Math.min(potCoins.length, Math.ceil(state.pot / 200));
+  if (n === potShown) return;
+  potCoins.forEach((c, k) => { c.visible = k < n; }); potShown = n;
 }
 function addLights(s) {
   s.add(new THREE.HemisphereLight(0xfff0d8, 0x5a6f9a, 1.35));
@@ -1259,7 +1292,7 @@ function render3D() {
     const cp = curP(), cv = tokVis[cp.id];
     ring3.visible = !!cv && state.phase !== 'over';
     if (cv) { ring3.position.set(cv.x, BOARD_TOP + 0.02 + cv.y, cv.z); ring3.material.color.set(cp.color); const s = 1 + 0.12 * Math.sin(state.t * 6); ring3.scale.set(s, s, s); }
-    placeDice();
+    placeDice(); syncPot();
     flash3.visible = state.flash.tile >= 0 && state.flash.t < 1.2;
     if (flash3.visible) { const ti = tileInfo(state.flash.tile); flash3.position.x = ti.x; flash3.position.z = ti.z; const hz = ti.side === 0 || ti.side === 2; flash3.scale.set(ti.side < 0 ? 1.6 : hz ? 1 : 1.6, 1, ti.side < 0 ? 1.6 : hz ? 1.6 : 1); flash3.material.opacity = 0.55 * (1 - state.flash.t / 1.2); }
     pick3.visible = state.phase === 'pick';
@@ -1470,6 +1503,16 @@ function drawPanel() {
     if (tag) text(tag, PX + 230, y + 15, 14, state.mort[i] ? '#ff9a8a' : '#7ee08a', 'center', 'bold');
   });
 }
+function drawPotLabel() {
+  const s = project(POT_X, BOARD_TOP + 1.05, POT_Z);
+  const label = `Hũ tiền: ${money(state.pot)}`;
+  ctx.save(); ctx.font = `bold 16px ${FONT}`;
+  const w = ctx.measureText(label).width + 22;
+  ctx.fillStyle = 'rgba(40,16,10,0.85)'; rrect(ctx, s.x - w / 2, s.y - 14, w, 28, 8); ctx.fill();
+  ctx.strokeStyle = '#f2c44a'; ctx.lineWidth = 1.5; ctx.stroke();
+  text(label, s.x, s.y + 1, 16, '#f2c44a', 'center', 'bold');
+  ctx.restore();
+}
 function drawLog() {
   const lines = state.log.slice(-3);
   ctx.save();
@@ -1599,10 +1642,10 @@ const scenes = {
       ui.forEach(drawButton);
       lacquer(PX, 0, PW, H);
       text('Cách chơi', PX + PW / 2, 44, 24, '#f2c44a', 'center', 'bold');
-      const rules = ['Đổ 2 xúc xắc, đi quân, mua đất trống.', 'Dẫm lại đất của mình: xây thêm 1 cấp.', 'Cấp xây: Nhà 1 tới Nhà 4, Khách sạn, Landmark.', 'Gom đủ một nhóm màu: tiền thuê × 2.', 'Thiếu tiền: bán nhà, cầm cố đất.', 'Hết tiền: phá sản, bị loại.'];
+      const rules = ['Đổ 2 xúc xắc, đi quân, mua đất trống.', 'Dẫm lại đất của mình: xây thêm 1 cấp.', 'Cấp xây: Nhà 1 tới Nhà 4, Khách sạn, Landmark.', 'Gom đủ một nhóm màu: tiền thuê × 2.', 'Thuế, tiền phạt dồn vào hũ giữa bàn.', 'Dừng ở Bến Đỗ Tự Do: lấy cả hũ.', 'Thiếu tiền: bán nhà, cầm cố đất.', 'Hết tiền: phá sản, bị loại.'];
       rules.forEach((r, j) => text(r, PX + 24, 90 + j * 32, 16, '#e8d9b5', 'left'));
-      text('Phím', PX + PW / 2, 310, 22, '#f2c44a', 'center', 'bold');
-      CONTROLS.forEach((c, i) => text(c, PX + 24, 350 + i * 32, 16, '#e8d9b5', 'left'));
+      text('Phím', PX + PW / 2, 380, 22, '#f2c44a', 'center', 'bold');
+      CONTROLS.forEach((c, i) => text(c, PX + 24, 420 + i * 32, 16, '#e8d9b5', 'left'));
     },
   },
   play: {
@@ -1619,6 +1662,7 @@ const scenes = {
       clear('#1d120c');
       drawBoardView();
       drawLog();
+      drawPotLabel();
       drawPopup();
       drawPanel();
       ui.forEach(drawButton);

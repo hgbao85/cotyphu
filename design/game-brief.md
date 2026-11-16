@@ -15,6 +15,8 @@ Game cờ tỷ phú
 10. Cấp xây: Thêm cấp Landmark (sau khách sạn)
 11. Mua lại đất: Không mua lại
 
+After play: Thêm luật: Tiền phạt dồn giữa bàn
+
 **Pitch:** Cờ tỷ phú trên bản đồ Việt Nam cho 2–4 người, mỗi chỗ là người hoặc máy: đổ xúc xắc, mua đất từ Hà Giang tới Cà Mau, dẫm lại đất mình để xây nhà, khách sạn rồi Landmark, rút thẻ Cơ Hội và Khí Vận vui nhộn; ai trụ lại (hoặc giàu nhất sau 30 vòng) là tỷ phú.
 
 **Genre:** board game, property trading with dice (cờ tỷ phú)
@@ -40,6 +42,7 @@ Màn tạo ván: chọn 2–4 chỗ ngồi, mỗi chỗ Người hoặc Máy (D�
 - Đổ 2 xúc xắc, đi quân, xử lý ô đứng: mua đất trống, trả thuê, rút thẻ, đóng thuế hoặc vào tù.
 - Dẫm lại vào đất của mình thì được xây thêm 1 cấp: Nhà 1 → Nhà 2 → Nhà 3 → Nhà 4 → Khách sạn → Landmark; mỗi cấp tiền thuê tăng.
 - Gom đủ một nhóm màu thì tiền thuê mọi ô trong nhóm ×2.
+- Thuế, tiền phạt, tiền sửa nhà và tiền nộp ra tù dồn vào hũ tiền giữa bàn; dừng ở Bến Đỗ Tự Do thì lấy cả hũ.
 - Qua ô Xuất Phát nhận lương; thiếu tiền thì cầm cố, không trả nổi thì phá sản; ván kết thúc theo kiểu đã chọn, rồi Chơi lại.
 - Leads: luật cờ quyết định lượt đi và hành động của máy.
 
@@ -56,6 +59,7 @@ Màn tạo ván: chọn 2–4 chỗ ngồi, mỗi chỗ Người hoặc Máy (D�
 - [x] Cầm cố và chuộc đất với ngân hàng; phá sản thì bị loại
 - [x] Máy chơi 3 mức: Dễ, Vừa, Khó
 - [x] Màn kết thúc: bảng xếp hạng tài sản và nút Chơi lại
+- [x] Hũ tiền giữa bàn: thuế và tiền phạt dồn vào hũ, dừng ở Bến Đỗ Tự Do lấy cả hũ
 
 ## Your systems
 - người hoặc máy cho từng chỗ ngồi · in the slice
@@ -64,6 +68,7 @@ Màn tạo ván: chọn 2–4 chỗ ngồi, mỗi chỗ Người hoặc Máy (D�
 - xây khi dẫm lại ô, tới Landmark · in the slice
 - thẻ Cơ Hội và Khí Vận · in the slice *(guessed)*
 - cầm cố đất · in the slice *(guessed)*
+- tiền phạt dồn giữa bàn · in the slice
 
 ## Keep
 -
@@ -76,7 +81,7 @@ Màn tạo ván: chọn 2–4 chỗ ngồi, mỗi chỗ Người hoặc Máy (D�
 ## Out of scope
 - Đổi và bán đất giữa người chơi: add it as a feature
 - Chơi online qua mạng: needs a server
-- Luật nhà và biến thể (đấu giá đất, tiền phạt dồn giữa bàn): change it after play
+- Luật nhà và biến thể khác (đấu giá đất): change it after play
 - Gợi ý nước đi hay: change it after play
 - Lưu ván dở để chơi tiếp: add it as a feature
 

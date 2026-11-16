@@ -26,6 +26,13 @@ test('boots to the title screen with no errors @boot', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
+test('runs on its own when opened without manual stepping @boot', async ({ page }) => {
+  // Regression: the grow once dropped the line that starts the loop; every manual=1 check still passed.
+  const errors = await open(page, 'seed=7');
+  await expect.poll(() => page.evaluate(() => (window.game!.state as { t: number }).t), { timeout: 5000 }).toBeGreaterThan(0.2);
+  expect(errors).toEqual([]);
+});
+
 test('a scripted turn shakes, throws and moves the token, and the same seed repeats it exactly', async ({ page }) => {
   // ?manual=1 stops the loop, so only step() moves the game: the same keys the reference replay
   // opened with (Enter to start, Space held to shake and let go to throw).

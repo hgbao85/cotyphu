@@ -1702,3 +1702,4 @@ scene = params.get('scene') || 'title';
 if (scene === 'play') clearVis();
 last = clock.now();
 if (params.get('manual') === '1') drawFrame();
+else { requestAnimationFrame(frame); setInterval(timer, 50); }

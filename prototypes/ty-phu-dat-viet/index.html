@@ -525,7 +525,10 @@ function afterDice() {
   state.diceShow = { t: 0, a, b, dbl };
   if (dbl) sfx.double(); else sfx.land();
   if (p.inJail) {
-    if (dbl) { p.inJail = false; p.jailTries = 0; log(`${p.name} đổ đôi ${a}-${b}: ra tù!`); beginMove(a + b); state.rolledDouble = false; return; }
+    if (dbl) { // a double frees them and, like any double, earns another roll (it counts toward three in a row)
+      p.inJail = false; p.jailTries = 0; p.doubles = 1; state.rolledDouble = true;
+      log(`${p.name} đổ đôi ${a}-${b}: ra tù và được đổ tiếp!`); beginMove(a + b); return;
+    }
     p.jailTries++;
     if (p.jailTries >= 3) {
       // the third miss uses up the third turn: the stay is over, and next turn they roll as usual

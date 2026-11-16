@@ -58,3 +58,4 @@ holds no comments. The values themselves are in `data/config.json`.
 - order_show_time: how long a throw for the order stays on screen before the next player throws (seconds)
 - emote_time: seconds a quick emote's bubble stays over the piece online
 - emote_gap: seconds a player waits between two emotes, so nobody floods the table
+- piece_scale: how big the zodiac animal pieces stand on the board (read when a piece is built)

@@ -63,7 +63,16 @@ export const LEVEL_SHORT = ['', 'N1', 'N2', 'N3', 'N4', 'KS', 'LM'];
 export const MAX_LEVEL = 6;
 export const PLAYER_COLORS = ['#d62828', '#2b6cd6', '#f2c200', '#7b3fc4'];
 export const PLAYER_COLOR_NAMES = ['Đỏ', 'Xanh', 'Vàng', 'Tím'];
-export const TOKEN_NAMES = ['Trâu', 'Cá chép', 'Chim Lạc', 'Nón lá'];
+/** The twelve animals of the Vietnamese zodiac, each a piece with its own colour. A player's colour is
+ * their animal's. */
+export const ANIMALS: { name: string; color: string }[] = [
+  { name: 'Chuột', color: '#8d96a8' }, { name: 'Trâu', color: '#d62828' }, { name: 'Hổ', color: '#f28c1e' },
+  { name: 'Mèo', color: '#2b6cd6' }, { name: 'Rồng', color: '#1f9e5a' }, { name: 'Rắn', color: '#8cc63f' },
+  { name: 'Ngựa', color: '#8b5a2b' }, { name: 'Dê', color: '#2bb3b1' }, { name: 'Khỉ', color: '#f2c200' },
+  { name: 'Gà', color: '#b0306a' }, { name: 'Chó', color: '#7b3fc4' }, { name: 'Heo', color: '#f49ab0' },
+];
+/** The animals the four seats start with: Trâu, Mèo, Khỉ, Chó (red, blue, yellow, purple). */
+export const DEFAULT_ANIMALS = [1, 3, 8, 10];
 export const AI_LEVELS = ['Dễ', 'Vừa', 'Khó'];
 
 // Cards: Cơ Hội moves you around; Khí Vận (a red lì xì envelope) is mostly money.

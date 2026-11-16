@@ -9,7 +9,8 @@ import { startAudio, setMuted, isMuted, sfx } from './audio';
 import * as net from './net/net';
 import { W, H, BW, FONT, canvas, ctx, screenScale, afterFit, beforeFit, setLogical, fit, clear, text, rrect, wrapLines } from './screen';
 import { rng, setSeed, freshSeed, shuffled } from './game/rng';
-import { GROUPS, TILES, OWNABLE, LEVEL_NAMES, LEVEL_SHORT, MAX_LEVEL, PLAYER_COLORS, PLAYER_COLOR_NAMES, TOKEN_NAMES, AI_LEVELS, CARDS } from './game/data';
+import { GROUPS, TILES, OWNABLE, LEVEL_NAMES, LEVEL_SHORT, MAX_LEVEL, PLAYER_COLORS, ANIMALS, DEFAULT_ANIMALS, AI_LEVELS, CARDS } from './game/data';
+import { makeAnimal, drawAnimalIcon } from './animals';
 import { HALF, CORNER, BAND, BOARD_TOP, L as BOARD_SIZE, tileInfo, tileAt, tokenSpot } from './game/board';
 import * as R from './game/rules';
 import { money } from './game/rules';
@@ -145,7 +146,7 @@ function seatPeer(id: number, name: string) {
     if (!p) { net.toOne(id, { k: 'full', msg: 'Ván đang chơi: bạn đang xem, chờ ván sau nhé.' }); return; }
     p.kind = 'remote'; p.peer = id; p.offline = false; p.wasRemote = false; p.name = name;
     setup.seats[p.id] = { kind: 'remote', peer: id, name };
-    log(`${name} đã vào lại ghế ${PLAYER_COLOR_NAMES[p.id]}.`);
+    log(`${name} đã vào lại ghế ${ANIMALS[p.token].name}.`);
     return;
   }
   const order = [1, 2, 3];
@@ -164,12 +165,13 @@ function sendYou(id: number) {
 /** Host: the seats before a game, for the friends' waiting screen. */
 function sendLobby() {
   if (!isHost()) return;
-  net.toAll({ k: 'lobby', code: roomCode, mode: setup.mode, hostName: myName, seats: setup.seats.map(s => ({ ...s })) });
+  net.toAll({ k: 'lobby', code: roomCode, mode: setup.mode, hostName: myName, seats: setup.seats.map(s => ({ ...s })), animals: [...setup.animals] });
   for (const id of peers.keys()) sendYou(id);
 }
 
 /** Host: a friend pressed a button. Only their own turn's buttons count, checked as for a press here. */
 function onGuestAct(from: number, a: Loose) {
+  if (scene === 'title' && a.act === 'animal') { const i = setup.seats.findIndex(st => st.kind === 'remote' && st.peer === from); if (i > 0) nextAnimal(i); return; }
   if ((scene === 'play' || scene === 'results') && state.players && state.players.some(q => q.peer === from)) {
     if (a.act === 'voteStart') { hostStartVote('p' + from); return; }
     if (a.act === 'vote:yes' || a.act === 'vote:no') { hostCastVote('p' + from, a.act === 'vote:yes'); return; }
@@ -344,7 +346,7 @@ function restoreHostGame(code: string) {
   try { g = JSON.parse(store()?.getItem('tpdv-host-game') || 'null'); } catch { g = null; }
   if (!g || Date.now() - g.at > ROOM_MEMORY_MS || !g.state || !g.state.players) return;
   const sameRoom = g.code === code;
-  setup = g.setup; state = g.state; scene = g.scene === 'results' ? 'results' : 'play';
+  setup = g.setup; if (!Array.isArray(setup.animals) || setup.animals.length !== 4) setup.animals = [...DEFAULT_ANIMALS]; state = g.state; scene = g.scene === 'results' ? 'results' : 'play';
   state.vote = undefined; state.shaking = undefined;
   for (const p of state.players) if (p.kind === 'remote') {
     p.offline = true;
@@ -446,7 +448,15 @@ function drawVote() {
 
 
 // ---- Rules --------------------------------------------------------------------------
-let setup: { seats: Seat[]; mode: 'bankrupt' | 'rounds' } = { seats: [{ kind: 'human' }, { kind: 'ai', lv: 1 }, { kind: 'ai', lv: 0 }, { kind: 'off' }], mode: 'bankrupt' };
+let setup: { seats: Seat[]; mode: 'bankrupt' | 'rounds'; animals: number[] } = { seats: [{ kind: 'human' }, { kind: 'ai', lv: 1 }, { kind: 'ai', lv: 0 }, { kind: 'off' }], mode: 'bankrupt', animals: [...DEFAULT_ANIMALS] };
+/** Gives seat i the next zodiac animal that no other seat has. */
+function nextAnimal(i: number) {
+  const taken = setup.animals.filter((_, k) => k !== i);
+  let a = setup.animals[i];
+  do a = (a + 1) % ANIMALS.length; while (taken.includes(a));
+  setup.animals[i] = a;
+  sendLobby();
+}
 let scene: string;
 let state: GameState;
 function reshuffle(kind: DeckKind) { // the deck ran out: the used cards go back in, in a new order
@@ -465,10 +475,11 @@ function reset() {
     if (s.kind === 'off') return;
     // a friend's seat with nobody in it when the game starts is played by the computer
     const kind = s.kind === 'remote' && !peerOnline(s.peer) ? 'ai' : s.kind;
-    const name = kind === 'remote' ? (s.name || `Bạn ${PLAYER_COLOR_NAMES[i]}`)
-      : kind === 'human' ? (isHost() && i === 0 && myName ? myName : `Người ${PLAYER_COLOR_NAMES[i]}`) : `Máy ${PLAYER_COLOR_NAMES[i]}`;
+    const a = setup.animals[i], an = ANIMALS[a].name;
+    const name = kind === 'remote' ? (s.name || `Bạn ${an}`)
+      : kind === 'human' ? (isHost() && i === 0 && myName ? myName : `Người ${an}`) : `Máy ${an}`;
     players.push({
-      id: i, kind, lv: kind === 'remote' ? 1 : kind === 'ai' && s.kind === 'remote' ? 1 : s.lv || 0, color: PLAYER_COLORS[i], token: i, name,
+      id: i, kind, lv: kind === 'remote' ? 1 : kind === 'ai' && s.kind === 'remote' ? 1 : s.lv || 0, color: ANIMALS[a].color, token: a, name,
       cash: tune.start_cash, pos: 0, laps: 0, inJail: false, jailTries: 0, freeCards: [], bankrupt: false, doubles: 0,
       ...(kind === 'remote' ? { peer: s.peer } : {}),
     });
@@ -1255,41 +1266,16 @@ function pipTexture(n: number) {
 
 // ---- 3D figures: tokens, buildings, landmarks ----------------------------------------
 function mesh(geo: THREE.BufferGeometry, m: THREE.Material | THREE.Material[], x = 0, y = 0, z = 0) { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = !CHEAP; o.receiveShadow = !CHEAP; return o; }
-function makeToken(kind: number, color: string) {
-  const g = new THREE.Group();
-  const col = new THREE.Color(color), dark = col.clone().multiplyScalar(0.6);
-  const m = plastic(col), md = plastic(dark), white = plastic(0xf6f0e0), black = plastic(0x222222);
-  g.add(mesh(new THREE.CylinderGeometry(0.2, 0.24, 0.07, 24), md, 0, 0.035, 0));
-  if (kind === 0) { // trâu: a water buffalo with sweeping horns
-    const body = mesh(new THREE.SphereGeometry(0.16, 20, 14), m, 0, 0.27, 0); body.scale.set(1.35, 0.9, 0.85); g.add(body);
-    for (const [x, z] of [[-0.12, -0.07], [0.12, -0.07], [-0.12, 0.07], [0.12, 0.07]]) g.add(mesh(new THREE.CylinderGeometry(0.03, 0.035, 0.16, 8), md, x, 0.15, z));
-    const head = mesh(new THREE.SphereGeometry(0.09, 16, 12), m, 0.24, 0.33, 0); head.scale.set(1.2, 0.95, 0.9); g.add(head);
-    const hornG = new THREE.Group(); // one crescent across the head, opening upward
-    const horn = mesh(new THREE.TorusGeometry(0.12, 0.024, 8, 24, Math.PI), white); horn.rotation.z = Math.PI; hornG.add(horn);
-    hornG.position.set(0.25, 0.5, 0); hornG.rotation.y = Math.PI / 2; g.add(hornG);
-    const tail = mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.16, 6), md, -0.24, 0.24, 0); tail.rotation.z = 0.5; g.add(tail);
-  } else if (kind === 1) { // cá chép: a carp leaping up from the base
-    const body = mesh(new THREE.SphereGeometry(0.13, 20, 14), m, 0, 0.3, 0); body.scale.set(0.75, 1.6, 0.55); body.rotation.z = -0.35; g.add(body);
-    const tailA = mesh(new THREE.ConeGeometry(0.1, 0.16, 4), md, 0.07, 0.1, 0); tailA.rotation.z = 2.6; tailA.scale.z = 0.3; g.add(tailA);
-    const tailB = mesh(new THREE.ConeGeometry(0.1, 0.16, 4), md, -0.06, 0.11, 0); tailB.rotation.z = -2.4; tailB.scale.z = 0.3; g.add(tailB);
-    const fin = mesh(new THREE.ConeGeometry(0.07, 0.16, 4), md, -0.1, 0.36, 0); fin.rotation.z = 1.1; fin.scale.z = 0.25; g.add(fin);
-    for (const s of [-1, 1]) g.add(mesh(new THREE.SphereGeometry(0.022, 8, 6), black, 0.09, 0.47, s * 0.05));
-    const lip = mesh(new THREE.TorusGeometry(0.03, 0.012, 6, 12), md, 0.11, 0.53, 0); lip.rotation.y = Math.PI / 2; g.add(lip);
-  } else if (kind === 2) { // chim Lạc: the long-beaked crested bird of the bronze drums
-    const body = mesh(new THREE.SphereGeometry(0.11, 18, 12), m, -0.03, 0.27, 0); body.scale.set(1.5, 0.85, 0.8); g.add(body);
-    const neck = mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.22, 8), m, 0.1, 0.4, 0); neck.rotation.z = -0.5; g.add(neck);
-    g.add(mesh(new THREE.SphereGeometry(0.055, 12, 10), m, 0.17, 0.5, 0));
-    const beak = mesh(new THREE.ConeGeometry(0.022, 0.26, 8), md, 0.3, 0.47, 0); beak.rotation.z = -1.75; g.add(beak);
-    for (let k = 0; k < 3; k++) { const cr = mesh(new THREE.ConeGeometry(0.015, 0.12, 6), md, 0.14 - k * 0.03, 0.58, 0); cr.rotation.z = 0.6 + k * 0.25; g.add(cr); }
-    const tail = mesh(new THREE.ConeGeometry(0.06, 0.2, 4), md, -0.22, 0.33, 0); tail.rotation.z = 1.9; tail.scale.z = 0.3; g.add(tail);
-    for (const z of [-0.04, 0.04]) g.add(mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.16, 6), md, 0, 0.12, z));
-  } else { // nón lá: a conical leaf hat on a small stand, with its chin strap
-    g.add(mesh(new THREE.CylinderGeometry(0.035, 0.05, 0.18, 10), md, 0, 0.16, 0));
-    const hat = mesh(new THREE.ConeGeometry(0.25, 0.22, 32, 1, true), m, 0, 0.36, 0); hat.material = plastic(col); hat.material.side = THREE.DoubleSide; g.add(hat);
-    for (let k = 1; k <= 3; k++) { const r = mesh(new THREE.TorusGeometry(0.25 * (1 - k * 0.22), 0.008, 6, 32), md, 0, 0.25 + k * 0.05, 0); r.rotation.x = Math.PI / 2; g.add(r); }
-    const strap = mesh(new THREE.TorusGeometry(0.12, 0.01, 6, 24, Math.PI), white, 0, 0.25, 0); strap.rotation.x = Math.PI; g.add(strap);
+/** A player's piece: their zodiac animal (src/animals.ts). */
+function makeToken(animal: number, color: string) { return makeAnimal(animal, color, !CHEAP); }
+const tokKind: number[] = []; // which animal each seat's 3D piece shows
+/** Rebuilds a seat's 3D piece when its player has a different animal (a new game, or a friend's). */
+function syncPieces() {
+  for (const p of state.players) {
+    if (tokKind[p.id] === p.token) continue;
+    const old = tok3[p.id], t = makeToken(p.token, p.color);
+    t.scale.setScalar(tune.piece_scale); t.visible = false; scene3.remove(old); scene3.add(t); tok3[p.id] = t; tokKind[p.id] = p.token;
   }
-  return g;
 }
 function makeHouse() {
   const g = new THREE.Group();
@@ -1422,7 +1408,7 @@ function build3D() {
     m.visible = false; scene3.add(m); ownerMarks[i] = m;
   }
   // tokens
-  for (let k = 0; k < 4; k++) { const t = makeToken(k, PLAYER_COLORS[k]); t.scale.setScalar(1.3); t.visible = false; scene3.add(t); tok3[k] = t; }
+  for (let k = 0; k < 4; k++) { const a = DEFAULT_ANIMALS[k]; const t = makeToken(a, ANIMALS[a].color); t.scale.setScalar(tune.piece_scale); t.visible = false; scene3.add(t); tok3[k] = t; tokKind[k] = a; }
   // dice
   const pips = [3, 4, 1, 6, 2, 5].map(n => new THREE.MeshStandardMaterial({ map: pipTexture(n), roughness: 0.35 }));
   for (let k = 0; k < 2; k++) { const d = mesh(new THREE.BoxGeometry(0.55, 0.55, 0.55), pips, 0, 0, 0); scene3.add(d); dice3.push(d); }
@@ -1472,8 +1458,8 @@ function buildFigures() { // the figures scene: every token, building and landma
   figCamera = new THREE.PerspectiveCamera(30, BW / H, 0.1, 100); figCamera.position.set(0, 7.4, 8.2); figCamera.lookAt(0, 0, 0.2);
   figItems = [];
   const put = (obj: THREE.Object3D, x: number, z: number, name: string, s = 1) => { obj.position.set(x, 0, z); obj.scale.setScalar(s); figScene.add(obj); figItems.push({ x, z, name }); };
-  TOKEN_NAMES.forEach((n, k) => put(makeToken(k, PLAYER_COLORS[k]), -2.1 + k * 0.85, -1.3, n, 1.6));
-  put(makeHouse(), 1.4, -1.3, 'Nhà', 1.8); put(makeHotel(), 2.3, -1.3, 'Khách sạn', 1.2);
+  ANIMALS.forEach((an, k) => put(makeToken(k, an.color), -2.6 + (k % 6) * 0.78, k < 6 ? -2.3 : -1.2, an.name, 1.3));
+  put(makeHouse(), 2.3, -2.3, 'Nhà', 1.8); put(makeHotel(), 2.3, -1.2, 'Khách sạn', 1.2);
   const kinds = ['cotco', 'thac', 'nui', 'dao', 'thap', 'chua', 'cong', 'cau', 'haidang', 'thapdh'];
   const names = ['Cột cờ', 'Thác', 'Núi', 'Đảo đá', 'Tháp', 'Chùa', 'Cổng thành', 'Cầu rồng', 'Hải đăng', 'Tháp đồng hồ'];
   kinds.forEach((k, j) => put(makeLandmark(k), -2.4 + (j % 5) * 1.2, j < 5 ? 0.1 : 1.45, names[j], 1.05));
@@ -1579,6 +1565,7 @@ function render3D() {
   const showGame = state && state.players;
   for (let k = 0; k < 4; k++) tok3[k].visible = false;
   if (showGame && scene !== 'title') {
+    syncPieces();
     state.players.forEach((p) => {
       const t = tok3[p.id], v = tokVis[p.id];
       if (!v || p.bankrupt) return;
@@ -1734,8 +1721,41 @@ function seatLabel(s: Seat, i = -1): string {
   return 'Không chơi';
 }
 function startGame() { reset(); clearVis(); scene = 'play'; }
+/** A seat's animal on the title screen: the host's choice, or what the host sent a friend. */
+function seatAnimal(i: number): number {
+  return isGuest() ? (lobby?.animals?.[i] ?? DEFAULT_ANIMALS[i]) : setup.animals[i];
+}
+/** Where a seat's animal sits on the title screen. */
+function animalSpot(i: number): { x: number; y: number; r: number } {
+  const T = titleSpots();
+  return L.phone ? { x: 34, y: T.y0 + i * T.step + T.seatH / 2, r: 24 } : { x: BW / 2 - 260, y: 250 + i * 62 + 25, r: 26 };
+}
+/** Who may change this seat's animal here: the host or the one screen for every seat but a friend's;
+ * a friend only their own. */
+function canPickAnimal(i: number, s: Seat): boolean {
+  if (isGuest()) return i === mySeat;
+  return !(s.kind === 'remote' && peerOnline(s.peer));
+}
+/** A seat's animal in its round frame, with a small mark when a tap changes it. */
+function drawSeatAnimal(i: number, x: number, y: number, r: number, s: Seat) {
+  const a = seatAnimal(i), off = s.kind === 'off';
+  ctx.save(); ctx.globalAlpha = off ? 0.45 : 1;
+  ctx.fillStyle = '#f4ead2'; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+  ctx.strokeStyle = ANIMALS[a].color; ctx.lineWidth = 3; ctx.stroke();
+  drawTokenIcon(a, x, y + 1, r * 1.55, ANIMALS[a].color);
+  if (canPickAnimal(i, s) && !off) { // a little gold arrow: tap to change
+    ctx.fillStyle = '#f2c44a'; ctx.beginPath(); ctx.arc(x + r * 0.8, y + r * 0.8, r * 0.36, 0, 7); ctx.fill();
+    ctx.strokeStyle = '#5a2a1c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x + r * 0.8, y + r * 0.8, r * 0.18, -2.4, 1.6); ctx.stroke();
+  }
+  ctx.restore();
+}
 function buildTitleUI() {
   const T = titleSpots();
+  (isGuest() ? (lobby ? lobby.seats as Seat[] : []) : setup.seats).forEach((s, i) => { // tap an animal to change it
+    if (!canPickAnimal(i, s) || s.kind === 'off') return;
+    const c = animalSpot(i);
+    btn(c.x - c.r - 4, c.y - c.r - 4, c.r * 2 + 8, c.r * 2 + 8, '', () => { if (isGuest()) sendAct('animal'); else nextAnimal(i); }, 'hidden');
+  });
   { const r = rulesSpot(); btn(r.x, r.y, r.w, r.h, 'Luật chơi', () => showRules(true), 'room'); }
   const b4 = (r: number[], label: string, fn: () => void, role: string, color: string) => btn(r[0], r[1], r[2], r[3], label, fn, role, true, color);
   if (isGuest()) { b4(T.leave, 'Rời phòng', leaveRoom, 'secondary', '#6a4a2a'); return; }
@@ -1866,32 +1886,8 @@ function drawSpeaker(b: Loose) {
   else { ctx.beginPath(); ctx.arc(14, 0, 7, -0.9, 0.9); ctx.stroke(); ctx.beginPath(); ctx.arc(14, 0, 12, -0.9, 0.9); ctx.stroke(); }
   ctx.restore();
 }
-function drawTokenIcon(kind: number, x: number, y: number, s: number, color: string) { // 2D silhouettes of the four tokens for the HUD
-  ctx.save(); ctx.translate(x, y); ctx.fillStyle = color; ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  if (kind === 0) { // buffalo head and horns
-    ctx.ellipse(0, s * 0.12, s * 0.28, s * 0.32, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(-s * 0.2, -s * 0.12); ctx.quadraticCurveTo(-s * 0.6, -s * 0.2, -s * 0.5, -s * 0.5); ctx.quadraticCurveTo(-s * 0.45, -s * 0.25, -s * 0.12, -s * 0.2); ctx.closePath();
-    ctx.moveTo(s * 0.2, -s * 0.12); ctx.quadraticCurveTo(s * 0.6, -s * 0.2, s * 0.5, -s * 0.5); ctx.quadraticCurveTo(s * 0.45, -s * 0.25, s * 0.12, -s * 0.2); ctx.closePath();
-    ctx.fillStyle = '#f6f0e0'; ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(-s * 0.1, s * 0.05, s * 0.04, 0, 7); ctx.arc(s * 0.1, s * 0.05, s * 0.04, 0, 7); ctx.fill();
-  } else if (kind === 1) { // carp
-    ctx.ellipse(-s * 0.05, 0, s * 0.36, s * 0.2, -0.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(s * 0.25, -s * 0.05); ctx.lineTo(s * 0.5, -s * 0.3); ctx.lineTo(s * 0.45, s * 0.02); ctx.lineTo(s * 0.52, s * 0.25); ctx.closePath(); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(-s * 0.25, -s * 0.02, s * 0.04, 0, 7); ctx.fill();
-  } else if (kind === 2) { // Lạc bird
-    ctx.ellipse(-s * 0.08, s * 0.1, s * 0.3, s * 0.16, -0.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.arc(s * 0.18, -s * 0.18, s * 0.1, 0, 7); ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(s * 0.26, -s * 0.2); ctx.lineTo(s * 0.62, -s * 0.08); ctx.lineTo(s * 0.26, -s * 0.13); ctx.closePath(); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(s * 0.14, -s * 0.26); ctx.lineTo(s * 0.0, -s * 0.5); ctx.lineTo(s * 0.2, -s * 0.28); ctx.closePath(); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(-s * 0.36, s * 0.08); ctx.lineTo(-s * 0.6, -s * 0.1); ctx.lineTo(-s * 0.4, s * 0.18); ctx.closePath(); ctx.fill();
-  } else { // conical hat
-    ctx.moveTo(0, -s * 0.38); ctx.lineTo(s * 0.5, s * 0.16); ctx.quadraticCurveTo(0, s * 0.3, -s * 0.5, s * 0.16); ctx.closePath(); ctx.fill(); ctx.stroke();
-    ctx.strokeStyle = 'rgba(0,0,0,0.35)'; for (let k = 1; k <= 3; k++) { ctx.beginPath(); ctx.moveTo(-s * 0.12 * k, -s * 0.38 + s * 0.13 * k); ctx.lineTo(s * 0.12 * k, -s * 0.38 + s * 0.13 * k); ctx.stroke(); }
-    ctx.strokeStyle = '#f6f0e0'; ctx.beginPath(); ctx.arc(0, s * 0.2, s * 0.18, 0.2, Math.PI - 0.2); ctx.stroke();
-  }
-  ctx.restore();
-}
+/** A piece's face for the HUD: its zodiac animal (src/animals.ts). */
+function drawTokenIcon(animal: number, x: number, y: number, s: number, color: string) { drawAnimalIcon(ctx, animal, x, y, s, color); }
 function drawPanel() {
   lacquer(PX, 0, PW, H);
   text('TỶ PHÚ ĐẤT VIỆT', PX + PW / 2 + 14, 30, 24, '#f2c44a', 'center', 'bold');
@@ -2214,15 +2210,14 @@ function drawTitlePhone() {
   text(TITLE.toUpperCase(), W / 2, 58, 34, '#f2c44a', 'center', 'bold');
   text('Cờ tỷ phú trên bản đồ Việt Nam · 2 đến 4 người', W / 2, 96, 15, '#e8d9b5');
   const hint = isGuest() ? (lobby ? `Phòng ${roomCode} · chờ ${lobby.hostName || 'chủ phòng'} bắt đầu ván` : `Đang vào phòng ${roomCode}...`)
-    : isHost() ? `Gửi mã ${roomCode} cho bạn bè: họ sẽ vào chỗ "Chờ bạn online"` : 'Bấm từng chỗ ngồi để đổi người chơi';
+    : isHost() ? `Gửi mã ${roomCode} cho bạn bè: họ sẽ vào chỗ "Chờ bạn online"` : 'Bấm chỗ ngồi để đổi người chơi, bấm con vật để đổi quân';
   ctx.font = `15px ${FONT}`;
   wrapLines(ctx, hint, W - 40).slice(0, 2).forEach((l, j) => text(l, W / 2, 130 + j * 20, 15, isGuest() || isHost() ? '#f2c44a' : '#cbb994'));
   const seatsShown: Seat[] = isGuest() ? (lobby ? lobby.seats : []) : setup.seats;
   seatsShown.forEach((s, i) => {
     const y = T.y0 + i * T.step, cy = y + T.seatH / 2;
-    ctx.fillStyle = '#f4ead2'; ctx.beginPath(); ctx.arc(34, cy, 22, 0, 7); ctx.fill();
-    drawTokenIcon(i, 34, cy + 2, 36, PLAYER_COLORS[i]);
-    text(`${PLAYER_COLOR_NAMES[i]} · ${TOKEN_NAMES[i]}`, 64, cy, 16, s.kind === 'off' ? '#7a6a5a' : '#fff8e6', 'left', 'bold');
+    drawSeatAnimal(i, 34, cy, 24, s);
+    text(ANIMALS[seatAnimal(i)].name, 66, cy, 17, s.kind === 'off' ? '#7a6a5a' : '#fff8e6', 'left', 'bold');
     if (isGuest()) {
       ctx.save(); ctx.fillStyle = i === mySeat ? '#5a2a1c' : '#2c140f'; rrect(ctx, T.seatX, y, T.seatW, T.seatH, 12); ctx.fill();
       ctx.strokeStyle = i === mySeat ? '#f2c44a' : '#6a4a2a'; ctx.lineWidth = i === mySeat ? 3 : 1; ctx.stroke(); ctx.restore();
@@ -2401,6 +2396,7 @@ function rulesHtml(): string {
   return [
     sec('Chuẩn bị', [
       '2 đến 4 người chơi. Mỗi chỗ ngồi là Người, Máy (Dễ, Vừa, Khó) hoặc Bạn online.',
+      'Quân cờ là 12 con giáp, mỗi con một màu. Bấm vào con vật ở màn tạo ván để đổi; mỗi con chỉ một người dùng.',
       `Kiểu ván: chơi tới khi phá sản, hoặc ${tune.max_rounds} vòng (hết vòng thì ai giàu nhất thắng).`,
       `Mỗi người bắt đầu với ${money(tune.start_cash)} ở ô Xuất Phát.`,
       ...(tune.order_roll ? ['Đầu ván mỗi người tung xúc xắc một lần: <b>ai thấp nhất đi trước</b>, rồi tăng dần. Hòa điểm thì những người hòa tung lại.'] : []),
@@ -2456,7 +2452,7 @@ function rulesHtml(): string {
       `${tune.max_rounds} vòng: hết vòng ${tune.max_rounds} thì ai có tổng tài sản lớn nhất thắng (tiền mặt + giá đất, đất cầm cố tính nửa giá, + tiền đã xây).`,
     ]),
     sec('Chơi online', [
-      'Tạo phòng để nhận mã, bạn bè vào phòng bằng mã. Chủ phòng luôn ngồi ghế Đỏ.',
+      'Tạo phòng để nhận mã, bạn bè vào phòng bằng mã. Chủ phòng luôn ngồi ghế đầu tiên. Bạn bè tự bấm con vật của mình để chọn quân.',
       'Trong ván, bấm mã phòng ở góc trên để rời phòng (bạn bè), giải tán phòng (chủ phòng) hoặc bỏ phiếu chơi lại.',
       `Bỏ phiếu chơi lại: cần tất cả người chơi thật đồng ý trong ${tune.vote_time} giây.`,
       'Rớt mạng: máy đi thay lúc vắng. Mở lại trang, bấm "Vào lại phòng" (trong 30 phút) để về đúng ghế. Người đã rời vào lại cùng tên thì lấy lại ghế.',
@@ -2514,7 +2510,7 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
       for (const it of figItems) { const s = project(it.x, 0, it.z + 0.42, figCamera); text(it.name, s.x, s.y, 16, '#fff8e6', 'center', 'bold'); }
       lacquer(PX, 0, PW, H);
       text('Quân cờ, nhà và Landmark', PX + PW / 2, 40, 20, '#f2c44a', 'center', 'bold');
-      TOKEN_NAMES.forEach((n, k) => { drawTokenIcon(k, PX + 60, 110 + k * 70, 44, PLAYER_COLORS[k]); text(n, PX + 100, 110 + k * 70, 18, '#fff8e6', 'left'); });
+      ANIMALS.forEach((an, k) => { drawTokenIcon(k, PX + 50 + (k % 2) * 150, 100 + Math.floor(k / 2) * 56, 40, an.color); text(an.name, PX + 80 + (k % 2) * 150, 100 + Math.floor(k / 2) * 56, 18, '#fff8e6', 'left'); });
     },
   },
   title: {
@@ -2528,7 +2524,7 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
       text(TITLE.toUpperCase(), BW / 2, 100, 50, '#f2c44a', 'center', 'bold');
       text('Cờ tỷ phú trên bản đồ Việt Nam · 2 đến 4 người', BW / 2, 150, 19, '#e8d9b5');
       const hint = isGuest() ? (lobby ? `Phòng ${roomCode} · chờ ${lobby.hostName || 'chủ phòng'} bắt đầu ván` : `Đang vào phòng ${roomCode}...`)
-        : isHost() ? `Gửi mã phòng ${roomCode} cho bạn bè: họ sẽ vào chỗ "Chờ bạn online"` : 'Bấm từng chỗ ngồi để đổi: Người chơi, Máy (Dễ, Vừa, Khó), Không chơi';
+        : isHost() ? `Gửi mã phòng ${roomCode} cho bạn bè: họ sẽ vào chỗ "Chờ bạn online"` : 'Bấm chỗ ngồi để đổi người chơi, bấm con vật để đổi quân';
       text(hint, BW / 2, 200, 16, isGuest() || isHost() ? '#f2c44a' : '#cbb994');
       const seatsShown: Seat[] = isGuest() ? (lobby ? lobby.seats : []) : setup.seats;
       if (isGuest()) seatsShown.forEach((s, i) => { // a guest sees the seats, not their buttons
@@ -2540,9 +2536,8 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
       if (isGuest() && lobby) text(lobby.mode === 'rounds' ? `${tune.max_rounds} vòng, giàu nhất thắng` : 'Tới khi phá sản', BW / 2 + 130, 250 + 4 * 62 + 35, 18, '#fff8e6', 'center', 'bold');
       seatsShown.forEach((s, i) => {
         const y = 250 + i * 62 + 25;
-        ctx.fillStyle = '#f4ead2'; ctx.beginPath(); ctx.arc(BW / 2 - 300 + 40, y, 24, 0, 7); ctx.fill();
-        drawTokenIcon(i, BW / 2 - 300 + 40, y + 2, 40, PLAYER_COLORS[i]);
-        text(`${PLAYER_COLOR_NAMES[i]} · ${TOKEN_NAMES[i]}`, BW / 2 - 300 + 76, y, 20, s.kind === 'off' ? '#7a6a5a' : '#fff8e6', 'left', 'bold');
+        drawSeatAnimal(i, BW / 2 - 300 + 40, y, 26, s);
+        text(ANIMALS[seatAnimal(i)].name, BW / 2 - 300 + 78, y, 20, s.kind === 'off' ? '#7a6a5a' : '#fff8e6', 'left', 'bold');
       });
       text('Kiểu ván', BW / 2 - 300 + 76, 250 + 4 * 62 + 35, 20, '#fff8e6', 'left', 'bold');
       ui.forEach(drawButton);

@@ -3,6 +3,7 @@
   "order_roll": { "value": 1, "min": 0, "max": 1, "step": 1 },
   "order_show_time": { "value": 1.1, "min": 0.3, "max": 3, "step": 0.1 },
   "vote_time": { "value": 30, "min": 10, "max": 120, "step": 5 },
+  "piece_scale": { "value": 1.6, "min": 0.8, "max": 2.4, "step": 0.05 },
   "emote_time": { "value": 2.6, "min": 1, "max": 6, "step": 0.1 },
   "emote_gap": { "value": 1.5, "min": 0, "max": 5, "step": 0.1 },
   "volume": { "value": 0.5, "min": 0, "max": 1, "step": 0.05 },

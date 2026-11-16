@@ -30,6 +30,9 @@ function bash(): string {
 
 export default defineConfig({
   testDir: 'tests/integration',
+  // One test at a time: the online test runs two screens drawing 3D in software, and beside it a
+  // timing check (the loop starts on its own) would starve.
+  workers: 1,
   forbidOnly: !!process.env.CI,
   use: {
     viewport: { width: 1280, height: 720 },

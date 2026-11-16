@@ -2756,6 +2756,9 @@ install({
   press(code: string) { hit.add(code); },
   hold(code: string, on: boolean) { if (on) down.add(code); else down.delete(code); },
   get events() { return events; },
+  get online() {
+    return { role: net.getRole(), code: roomCode, mySeat, seats: isGuest() ? lobby?.seats ?? null : setup.seats, animals: isGuest() ? lobby?.animals ?? null : setup.animals };
+  },
   step(n = 1, draw = true, alpha = 1) {
     for (let i = 0; i < n; i++) step();
     if (draw) { ALPHA = alpha; drawFrame(); }

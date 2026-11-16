@@ -12,7 +12,7 @@
     "build:single": "tsc --noEmit && vite build --mode single",
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "vitest run",
-    "test:e2e": "npm run build:single && playwright test",
+    "test:e2e": "npm run build:single && npm run build && playwright test",
     "smoke": "npm run build:single && playwright test --grep @boot",
     "server": "node server/server.mjs",
     "start": "node server/server.mjs"

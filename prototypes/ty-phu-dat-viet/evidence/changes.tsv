@@ -12,3 +12,4 @@ iteration 11	port rent 200k -> 250k base (250k / 500k / 1tr / 2tr)	errors: none	
 iteration 12	first lap is now per player (until they pass Xuất Phát, first_lap_count 1): no buying and no tax on it; HUD shows "vòng đầu"	errors: none	evidence/iteration-12-play.png (first-lap tax waiver and buy block checked in the browser pane)
 iteration 13	swapped the tax tiles: Thuế Tài Sản now at tile 9 (bottom row), Thuế Thu Nhập at tile 38 (right side)	errors: none	evidence/iteration-13-play.png
 iteration 14	added: a jail card docks the next Xuất Phát salary; leaving jail with a Thẻ Ra Tù clears it; HUD "mất lương" tag, card and jail texts updated, info cards grow with their text	errors: none	evidence/iteration-14-play.png (rule checked in a separate browser tab)
+iteration 15	only the two tax tiles feed the jar; card fines, repairs and jail bail now go to the bank	errors: none	evidence/iteration-15-play.png (checked in a separate browser tab)

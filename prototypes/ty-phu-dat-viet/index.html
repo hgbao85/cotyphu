@@ -379,11 +379,11 @@ function settle(pi, payments) {
   for (const x of payments) {
     lose(pi, x.amt);
     if (x.to >= 0) gain(x.to, x.amt);
-    else feedPot(x.amt);
+    else if (x.pot) feedPot(x.amt); // only the two tax tiles feed the jar; other bank payments just leave the game
   }
   sfx.pay();
 }
-// Hũ tiền giữa bàn: taxes, fines, repairs and jail bail go into the jar; landing on Bến Đỗ Tự Do takes it all.
+// Hũ tiền giữa bàn: the two tax tiles pay into the jar; landing on Bến Đỗ Tự Do takes it all.
 function feedPot(amt) { const add = Math.round(amt * tune.pot_share); if (add > 0) { state.pot += add; state.potBump = 0; } }
 function takePot(pi) {
   const p = state.players[pi], amt = state.pot;
@@ -593,7 +593,7 @@ function resolveLanding() {
   }
   if (t.t === 'tax') {
     const amt = tune.income_tax;
-    charge([{ to: -1, amt }], `${p.name} đóng ${t.n}: ${money(amt)}.`, afterAction); return;
+    charge([{ to: -1, amt, pot: true }], `${p.name} đóng ${t.n}: ${money(amt)} (vào hũ).`, afterAction); return;
   }
   if (t.t === 'gojail') { log(`${p.name} bị dẫn vào tù!`); sendToJail(pi); toEnd(); return; }
   if (t.t === 'free') takePot(pi);
@@ -667,12 +667,12 @@ function flyTo(target) {
 function payTax(amt) {
   const p = curP(), t = TILES[state.popup.tile];
   state.popup = null;
-  charge([{ to: -1, amt }], `${p.name} đóng ${t.n}: ${money(amt)}.`, afterAction);
+  charge([{ to: -1, amt, pot: true }], `${p.name} đóng ${t.n}: ${money(amt)} (vào hũ).`, afterAction);
 }
 function payJail() {
   const p = curP();
   if (p.freeCards.length) { const d = p.freeCards.pop(); state.decks[d].push(CARDS[d].findIndex(c => c.act === 'free')); log(`${p.name} dùng Thẻ Ra Tù Miễn Phí${p.noSalary ? ': được nhận lương lại' : ''}.`); p.noSalary = false; }
-  else { if (p.cash < tune.jail_fine) return; lose(state.cur, tune.jail_fine); feedPot(tune.jail_fine); log(`${p.name} nộp phạt ${money(tune.jail_fine)} ra tù (vào hũ tiền).`); sfx.pay(); }
+  else { if (p.cash < tune.jail_fine) return; lose(state.cur, tune.jail_fine); log(`${p.name} nộp phạt ${money(tune.jail_fine)} ra tù.`); sfx.pay(); }
   p.inJail = false; p.jailTries = 0; state.phase = 'roll'; state.timer = 0;
   if (isAI(p)) aiTurnStart(p);
 }
@@ -1726,7 +1726,7 @@ function drawPopup() {
 const SPECIAL_INFO = {
   go: () => [`Đi qua hoặc dừng ở đây: nhận lương ${money(tune.salary)}.`],
   jail: () => ['Đứng trên mép ô: chỉ ghé thăm, không sao.', `Ở trong tù: mỗi lượt đổ tìm đôi để ra, hoặc nộp ${money(tune.jail_fine)} (hay dùng Thẻ Ra Tù). Vào tù vì rút thẻ thì lần qua Xuất Phát tới mất lương, trừ khi ra tù bằng Thẻ Ra Tù. Sau 3 lần không ra được thì phải nộp phạt.`],
-  free: () => ['Dừng ở đây: lấy hết tiền trong hũ giữa bàn.', `Hũ đang có: ${money(state.pot)}.`],
+  free: () => ['Dừng ở đây: lấy hết tiền trong hũ giữa bàn (tiền 2 ô thuế dồn vào hũ).', `Hũ đang có: ${money(state.pot)}.`],
   gojail: () => ['Dừng ở đây: vào thẳng Nhà Tù, không đi qua Xuất Phát, không nhận lương.'],
   co: () => ['Rút một thẻ Cơ Hội: thường là đi tới đâu đó (về Xuất Phát, bay đi du lịch, lùi lại...), đôi khi được tiền hoặc bị phạt.'],
   kv: () => ['Rút một thẻ Khí Vận (bao lì xì): thường là được tiền hoặc mất tiền: lì xì, sinh nhật, khám răng, trúng số...'],
@@ -1804,7 +1804,7 @@ const scenes = {
       ui.forEach(drawButton);
       lacquer(PX, 0, PW, H);
       text('Cách chơi', PX + PW / 2, 44, 24, '#f2c44a', 'center', 'bold');
-      const rules = ['Đổ 2 xúc xắc, đi quân, mua đất trống.', 'Vòng đầu (tới khi qua Xuất Phát): chưa mua đất, miễn thuế.', 'Bấm vào một ô bất kỳ để xem thông tin.', 'Dẫm lại đất của mình: xây thêm 1 cấp.', 'Cấp xây: Nhà 1 tới Nhà 4, Khách sạn, Landmark.', 'Gom đủ một nhóm màu: tiền thuê × 2.', 'Thuế, tiền phạt dồn vào hũ giữa bàn.', 'Dừng ở Bến Đỗ Tự Do: lấy cả hũ.', 'Thiếu tiền: bán nhà, cầm cố đất.', 'Hết tiền: phá sản, bị loại.'];
+      const rules = ['Đổ 2 xúc xắc, đi quân, mua đất trống.', 'Vòng đầu (tới khi qua Xuất Phát): chưa mua đất, miễn thuế.', 'Bấm vào một ô bất kỳ để xem thông tin.', 'Dẫm lại đất của mình: xây thêm 1 cấp.', 'Cấp xây: Nhà 1 tới Nhà 4, Khách sạn, Landmark.', 'Gom đủ một nhóm màu: tiền thuê × 2.', 'Tiền 2 ô thuế dồn vào hũ giữa bàn.', 'Dừng ở Bến Đỗ Tự Do: lấy cả hũ.', 'Thiếu tiền: bán nhà, cầm cố đất.', 'Hết tiền: phá sản, bị loại.'];
       rules.forEach((r, j) => text(r, PX + 24, 90 + j * 32, 16, '#e8d9b5', 'left'));
       text('Phím', PX + PW / 2, 420, 22, '#f2c44a', 'center', 'bold');
       CONTROLS.forEach((c, i) => text(c, PX + 24, 460 + i * 32, 16, '#e8d9b5', 'left'));

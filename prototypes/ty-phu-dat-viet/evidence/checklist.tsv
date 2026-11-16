@@ -1,0 +1,28 @@
+L1	pass	evidence/play.png	Toy board on a wooden table, cream board, region colour bands, glossy tokens (buffalo, carp, Lac bird, conical hat), terracotta houses, hotel with flag and province landmark models in figures.png; dice with shadows on the board (shadows off only in the cheap check render)
+L2	pass	evidence/play.png	No reference games named; the look is built from the brief words alone
+L3	pass	index.html:1145	Fixed camera tilted about 55 degrees with the whole board in frame (play.png); a pulsing ring in the current player's colour marks their token and the landing tile flashes
+F1	pass	index.html:1326	Setup screen: 4 seats each cycling Người chơi / Máy Dễ / Vừa / Khó (seats 3-4 also Không chơi), game type toggle Tới khi phá sản / 30 vòng
+F2	pass	index.html:152	40 tiles: 22 provinces in 8 groups (Bắc 3, Trung 3, Nam 2), 4 ports/station/airport, Điện and Nước, Cơ Hội x3, Khí Vận x3, two taxes, Xuất Phát, Nhà Tù, Đi Tù, Bến Đỗ Tự Do
+F3	pass	index.html:1234	3D dice tumble and land on their rolled faces; token hops tile by tile; a double rolls again, a third double goes to jail (index.html:498)
+F4	pass	index.html:571	Buy empty land; landing again on your own land offers +1 level up to Nhà 4, Khách sạn, Landmark of that province; full group multiplies rent (index.html:314); money shown in đồng
+F5	pass	index.html:205	16 Cơ Hội and 16 Khí Vận cards: lottery, fines, move to places, fly to any tile, repairs, free build, birthday, jail cards
+F6	pass	index.html:385	Mortgage and unmortgage from the property list, sell levels, auto-raise in debt; bankrupt players are removed and their land returns to the bank (index.html:415)
+F7	pass	index.html:651	AI buy, build, jail and fly choices differ by Dễ / Vừa / Khó
+F8	pass	index.html:1628	Results screen ranks players by net worth, Chơi lại (Enter) and Ván mới (N)
+S1	pass	index.html:1326	Each seat is a person or the computer
+S2	pass	index.html:468	Bankruptcy mode ends with one player left; 30-round mode ends after round 30 with the richest winning
+S3	pass	index.html:651	Three AI levels chosen per seat
+S4	pass	index.html:1194	Building one level per landing on your own land, rising animation (index.html:1199), up to the province landmark model
+S5	pass	index.html:205	Both decks drawn on landing, shown as a card popup, effects applied
+S6	pass	index.html:385	Mortgage with the bank from the property list
+M1	pass	index.html:1326	Setup screen with seats, levels, game type and Bắt đầu
+M2	pass	index.html:1304	Đổ xúc xắc button pulses; dice roll, token hops, land card shows price, rent table and Mua / Bỏ qua
+M3	pass	evidence/play.png	After buying, an owner strip in the player's colour appears on the tile's outer edge (index.html:1137) and the land joins the property list
+M4	pass	index.html:352	Rent shows -money over the payer's token and +money on the owner's row with a ting tone (index.html:354)
+M5	not_assessed	-	Only a guessed mark, no sentence to check
+C1	pass	config.js:21	Start cash 15.000.000 đ and light rents (7% of land price unbuilt)
+C2	not_assessed	config.js:21	When hotels start to appear depends on play; the person's play checks the pace
+C3	not_assessed	config.js:21	Whether landmarks feel scary late in the game needs a played game
+C4	pass	index.html:399	Short on cash: sell levels and mortgage, bankrupt if still short
+C5	pass	index.html:651	Khó keeps a reserve and buys to finish or block groups; Dễ buys at random
+C6	not_assessed	-	Only a provisional mark, no sentence to check

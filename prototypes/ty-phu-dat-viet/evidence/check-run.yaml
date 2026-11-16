@@ -1,0 +1,157 @@
+# The one-shot's small check (check-run/1).
+# Written by one-shot-check.sh --record: the results are /prototype's reading of
+# evidence/self-check.tsv; never edited by hand.
+kind: check-run/1
+engine: web
+browser: "HeadlessChrome/157.0.0.0"
+time: "2026-11-16 08:56:51"
+checks:
+  - id: boots
+    result: pass
+    evidence:
+      - "evidence/self-check.tsv"
+  - id: shot
+    result: pass
+    evidence:
+      - "evidence/play.png"
+  - id: outlines
+    result: pass
+    evidence:
+      - "evidence/figures.png"
+  - id: brief-words
+    result: pass
+    evidence:
+      - "evidence/brief-words.tsv"
+  - id: emoji
+    result: pass
+    evidence:
+      - "evidence/self-check.tsv"
+  - id: nearest-game
+    result: pass
+    evidence:
+      - "evidence/nearest-game.txt"
+brief_checklist:
+  - id: L1
+    result: pass
+    evidence: "evidence/play.png"
+    item: "Look: bàn cờ đồ chơi 3D tươi sáng đặt trên mặt bàn gỗ ấm, như buổi tối cả nhà quây quần chơi cờ. Bàn cờ màu kem; ba nhóm miền: Bắc đỏ son và hồng đào, Trung vàng nghệ và cam, Nam xanh lá và xanh ngọc; quân cờ 4 màu đậm (đỏ, xanh dương, vàng, tím) nổi hẳn trên bàn; bóng đổ ngả lạnh, ánh sáng ngả ấm. Quân cờ bóng như nhựa, mỗi quân một dáng riêng: trâu, cá chép, chim lạc, nón lá. Nhà là khối vuông mái dốc, khách sạn là khối cao có cờ, Landmark là mô hình công trình riêng của tỉnh (Chùa Một Cột, Ngọ Môn, Cầu Rồng, Chùa Cầu, Chợ Bến Thành...) *(guessed)*. Signature: xúc xắc lăn thật trên mặt bàn có bóng đổ, quân cờ nhảy từng ô kêu \"tách\", nhà mọc lên khỏi ô khi xây. Every figure drawn, no emoji, no plain circles."
+  - id: L2
+    result: pass
+    evidence: "evidence/play.png"
+    item: "References: none named."
+  - id: L3
+    result: pass
+    evidence: "index.html:1145"
+    item: "View: 3D · Camera: cố định, nhìn nghiêng khoảng 55°, cả bàn cờ vừa khung hình; ô của người đang đi sáng lên *(provisional)*"
+  - id: F1
+    result: pass
+    evidence: "index.html:1326"
+    item: "Màn tạo ván: 2–4 chỗ ngồi, mỗi chỗ Người hoặc Máy (Dễ/Vừa/Khó), kiểu ván Phá sản hoặc 30 vòng"
+  - id: F2
+    result: pass
+    evidence: "index.html:152"
+    item: "Bàn 40 ô: 22 tỉnh thành chia 8 nhóm theo miền, 4 bến cảng/sân bay, 2 công ty (Điện, Nước), Cơ Hội ×3, Khí Vận ×3, Thuế ×2, Xuất Phát, Nhà Tù, Đi Tù, Bến Đỗ Tự Do"
+  - id: F3
+    result: pass
+    evidence: "index.html:1234"
+    item: "Xúc xắc 3D lăn trên bàn, quân cờ nhảy từng ô; đổ đôi được đi tiếp, đôi 3 lần vào tù"
+  - id: F4
+    result: pass
+    evidence: "index.html:571"
+    item: "Mua đất trống; dẫm lại đất mình thì xây thêm 1 cấp (4 nhà, khách sạn, Landmark riêng của tỉnh); gom đủ nhóm thì thuê ×2; tiền tính bằng đồng (nhẹ nhàng)"
+  - id: F5
+    result: pass
+    evidence: "index.html:205"
+    item: "16 thẻ Cơ Hội và 16 thẻ Khí Vận vui nhộn: trúng số, bị phạt, đi tới ô bất kỳ, sửa nhà..."
+  - id: F6
+    result: pass
+    evidence: "index.html:385"
+    item: "Cầm cố và chuộc đất với ngân hàng; phá sản thì bị loại"
+  - id: F7
+    result: pass
+    evidence: "index.html:651"
+    item: "Máy chơi 3 mức: Dễ, Vừa, Khó"
+  - id: F8
+    result: pass
+    evidence: "index.html:1628"
+    item: "Màn kết thúc: bảng xếp hạng tài sản và nút Chơi lại"
+  - id: S1
+    result: pass
+    evidence: "index.html:1326"
+    item: "người hoặc máy cho từng chỗ ngồi · in the slice"
+  - id: S2
+    result: pass
+    evidence: "index.html:468"
+    item: "2 kiểu kết thúc ván (phá sản / 30 vòng) · in the slice"
+  - id: S3
+    result: pass
+    evidence: "index.html:651"
+    item: "máy chơi chọn được mức · in the slice"
+  - id: S4
+    result: pass
+    evidence: "index.html:1194"
+    item: "xây khi dẫm lại ô, tới Landmark · in the slice"
+  - id: S5
+    result: pass
+    evidence: "index.html:205"
+    item: "thẻ Cơ Hội và Khí Vận · in the slice *(guessed)*"
+  - id: S6
+    result: pass
+    evidence: "index.html:385"
+    item: "cầm cố đất · in the slice *(guessed)*"
+  - id: M1
+    result: pass
+    evidence: "index.html:1326"
+    item: "Màn tạo ván: chọn 2–4 chỗ ngồi, mỗi chỗ Người hoặc Máy (Dễ, Vừa, Khó), chọn kiểu ván (Tới khi phá sản / 30 vòng), bấm Bắt đầu."
+  - id: M2
+    result: pass
+    evidence: "index.html:1304"
+    item: "Đến lượt bạn, nút Đổ xúc xắc nhấp nháy; xúc xắc lăn, quân cờ nhảy từng ô tới một tỉnh và thẻ đất hiện ra với giá, tiền thuê, nút Mua / Bỏ qua."
+  - id: M3
+    result: pass
+    evidence: "evidence/play.png"
+    item: "Bấm Mua, ô đất viền màu của bạn."
+  - id: M4
+    result: pass
+    evidence: "index.html:352"
+    item: "Máy đi tiếp và dẫm vào đất bạn: tiền bay từ quân máy sang bạn kèm tiếng \"ting\"."
+  - id: M5
+    result: not_run
+    mark: not assessed
+    why: "Only a guessed mark, no sentence to check"
+    item: "*(guessed)*"
+  - id: C1
+    result: pass
+    evidence: "config.js:21"
+    item: "Đầu ván ai cũng dư tiền, tiền thuê nhẹ."
+  - id: C2
+    result: not_run
+    mark: not assessed
+    why: "When hotels start to appear depends on play; the person's play checks the pace"
+    evidence: "config.js:21"
+    item: "Vì chỉ xây khi dẫm lại đất mình, nhà mọc dần; khoảng vòng 8–10 bắt đầu có khách sạn và đi qua đất người khác phải tính."
+  - id: C3
+    result: not_run
+    mark: not assessed
+    why: "Whether landmarks feel scary late in the game needs a played game"
+    evidence: "config.js:21"
+    item: "Landmark là \"ô đáng sợ\" cuối ván."
+  - id: C4
+    result: pass
+    evidence: "index.html:399"
+    item: "Thiếu tiền thì cầm cố đất cho ngân hàng; cầm cố hết vẫn thiếu thì phá sản."
+  - id: C5
+    result: pass
+    evidence: "index.html:651"
+    item: "Máy mức Khó mua có tính toán và giữ tiền dự phòng, mức Dễ mua lung tung."
+  - id: C6
+    result: not_run
+    mark: not assessed
+    why: "Only a provisional mark, no sentence to check"
+    item: "*(provisional)*"
+measures:
+  - id: step-time
+    value: 2.500
+    unit: ms
+    by: browser
+    detail: "mean 0.024 ms, slowest 2.500 ms, 560 steps"

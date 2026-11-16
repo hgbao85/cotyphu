@@ -1,0 +1,70 @@
+time	2026-11-16 08:56:51
+keep	lines	0	pinned	0
+briefword	3D	shown	evidence/play.png
+checklist	L1	unlisted	-	Look: bàn cờ đồ chơi 3D tươi sáng đặt trên mặt bàn gỗ ấm, như buổi tối cả nhà quây quần chơi cờ. Bàn cờ màu kem; ba nhóm miền: Bắc đỏ son và hồng đào, Trung vàng nghệ và cam, Nam xanh lá và xanh ngọc; quân cờ 4 màu đậm (đỏ, xanh dương, vàng, tím) nổi hẳn trên bàn; bóng đổ ngả lạnh, ánh sáng ngả ấm. Quân cờ bóng như nhựa, mỗi quân một dáng riêng: trâu, cá chép, chim lạc, nón lá. Nhà là khối vuông mái dốc, khách sạn là khối cao có cờ, Landmark là mô hình công trình riêng của tỉnh (Chùa Một Cột, Ngọ Môn, Cầu Rồng, Chùa Cầu, Chợ Bến Thành...) *(guessed)*. Signature: xúc xắc lăn thật trên mặt bàn có bóng đổ, quân cờ nhảy từng ô kêu "tách", nhà mọc lên khỏi ô khi xây. Every figure drawn, no emoji, no plain circles.	
+checklist	L2	unlisted	-	References: none named.	
+checklist	L3	unlisted	-	View: 3D · Camera: cố định, nhìn nghiêng khoảng 55°, cả bàn cờ vừa khung hình; ô của người đang đi sáng lên *(provisional)*	
+checklist	F1	unlisted	-	Màn tạo ván: 2–4 chỗ ngồi, mỗi chỗ Người hoặc Máy (Dễ/Vừa/Khó), kiểu ván Phá sản hoặc 30 vòng	
+checklist	F2	unlisted	-	Bàn 40 ô: 22 tỉnh thành chia 8 nhóm theo miền, 4 bến cảng/sân bay, 2 công ty (Điện, Nước), Cơ Hội ×3, Khí Vận ×3, Thuế ×2, Xuất Phát, Nhà Tù, Đi Tù, Bến Đỗ Tự Do	
+checklist	F3	unlisted	-	Xúc xắc 3D lăn trên bàn, quân cờ nhảy từng ô; đổ đôi được đi tiếp, đôi 3 lần vào tù	
+checklist	F4	unlisted	-	Mua đất trống; dẫm lại đất mình thì xây thêm 1 cấp (4 nhà, khách sạn, Landmark riêng của tỉnh); gom đủ nhóm thì thuê ×2; tiền tính bằng đồng (nhẹ nhàng)	
+checklist	F5	unlisted	-	16 thẻ Cơ Hội và 16 thẻ Khí Vận vui nhộn: trúng số, bị phạt, đi tới ô bất kỳ, sửa nhà...	
+checklist	F6	unlisted	-	Cầm cố và chuộc đất với ngân hàng; phá sản thì bị loại	
+checklist	F7	unlisted	-	Máy chơi 3 mức: Dễ, Vừa, Khó	
+checklist	F8	unlisted	-	Màn kết thúc: bảng xếp hạng tài sản và nút Chơi lại	
+checklist	S1	unlisted	-	người hoặc máy cho từng chỗ ngồi · in the slice	
+checklist	S2	unlisted	-	2 kiểu kết thúc ván (phá sản / 30 vòng) · in the slice	
+checklist	S3	unlisted	-	máy chơi chọn được mức · in the slice	
+checklist	S4	unlisted	-	xây khi dẫm lại ô, tới Landmark · in the slice	
+checklist	S5	unlisted	-	thẻ Cơ Hội và Khí Vận · in the slice *(guessed)*	
+checklist	S6	unlisted	-	cầm cố đất · in the slice *(guessed)*	
+checklist	M1	unlisted	-	Màn tạo ván: chọn 2–4 chỗ ngồi, mỗi chỗ Người hoặc Máy (Dễ, Vừa, Khó), chọn kiểu ván (Tới khi phá sản / 30 vòng), bấm Bắt đầu.	
+checklist	M2	unlisted	-	Đến lượt bạn, nút Đổ xúc xắc nhấp nháy; xúc xắc lăn, quân cờ nhảy từng ô tới một tỉnh và thẻ đất hiện ra với giá, tiền thuê, nút Mua / Bỏ qua.	
+checklist	M3	unlisted	-	Bấm Mua, ô đất viền màu của bạn.	
+checklist	M4	unlisted	-	Máy đi tiếp và dẫm vào đất bạn: tiền bay từ quân máy sang bạn kèm tiếng "ting".	
+checklist	M5	unlisted	-	*(guessed)*	
+checklist	C1	unlisted	-	Đầu ván ai cũng dư tiền, tiền thuê nhẹ.	
+checklist	C2	unlisted	-	Vì chỉ xây khi dẫm lại đất mình, nhà mọc dần; khoảng vòng 8–10 bắt đầu có khách sạn và đi qua đất người khác phải tính.	
+checklist	C3	unlisted	-	Landmark là "ô đáng sợ" cuối ván.	
+checklist	C4	unlisted	-	Thiếu tiền thì cầm cố đất cho ngân hàng; cầm cố hết vẫn thiếu thì phá sản.	
+checklist	C5	unlisted	-	Máy mức Khó mua có tính toán và giữ tiền dự phòng, mức Dễ mua lung tung.	
+checklist	C6	unlisted	-	*(provisional)*	
+webgl	ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)
+browser	HeadlessChrome/157.0.0.0
+console	play	2464	[.WebGL-0x1c8400427000]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+scene	play	0	title
+scene	play	1	play
+digits	log	30px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
+digits	log	19px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
+digits	log	16px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
+digits	log	15px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
+digits	log	bold 18px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
+digits	log	bold 15px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
+digits	log	bold 21px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
+measure	step-time	play	0.024	2.500	560
+lane	play	stop	9.3	1948
+console	play	0	[.WebGL-0x1c8400427000]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+console	play	0	[.WebGL-0x1c8400427000]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)
+uncaught	play	0
+text	play	canvas	23,19,177,35	21.0	7.80	inside	Người Đỏ đổ 5 + 2 = 7.
+text	play	canvas	23,40,454,57	21.0	7.80	inside	Người Đỏ rút thẻ Cơ Hội: Lên Đà Nẵng ngắm Cầu Rồng phun lửa.
+text	play	canvas	23,62,290,79	21.0	14.17	inside	Người Đỏ mua Đà Nẵng giá 2.400.000 đ.
+text	play	canvas	205,308,696,326	25.5	12.64	inside	Người Đỏ: hết lượt. Quản lý tài sản ở bên phải nếu cần.
+text	play	canvas	977,14,1176,41	34.5	9.74	inside	TỶ PHÚ ĐẤT VIỆT
+text	play	canvas	1006,50,1173,66	22.5	11.58	inside	Vòng 1 · tới khi phá sản
+text	play	canvas	985,85,1067,103	25.5	11.12	inside	Người Đỏ
+text	play	canvas	985,114,1090,128	21.0	7.16	inside	Người chơi · 1 ô
+text	play	canvas	1146,85,1255,99	25.5	7.16	inside	12.600.000 đ
+text	play	canvas	985,157,1069,175	25.5	16.33	inside	Máy Xanh
+text	play	canvas	985,186,1075,200	21.0	10.51	inside	Máy Vừa · 0 ô
+text	play	canvas	1146,157,1255,171	25.5	10.52	inside	15.000.000 đ
+text	play	canvas	985,230,1068,247	25.5	16.33	inside	Máy Vàng
+text	play	canvas	985,255,1067,272	21.0	10.51	inside	Máy Dễ · 0 ô
+text	play	canvas	1146,229,1255,243	25.5	10.52	inside	15.000.000 đ
+text	play	canvas	922,376,1043,392	24.0	10.70	inside	Tài sản của bạn
+text	play	canvas	941,405,1000,422	21.0	15.44	inside	Đà Nẵng
+text	play	canvas	386,390,516,412	30.0	5.38	inside	Kết thúc lượt
+text	play	canvas	1198,409,1248,420	19.5	7.55	inside	Cầm cố
+screen	play	drawn
+shot	play	prototypes/ty-phu-dat-viet/evidence/play.png
+responds	changed	4

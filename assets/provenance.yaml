@@ -16,3 +16,9 @@
   tool: "npm install --save-exact three@0.186.1"
   date: 2026-11-16
   ships: true
+- path: public/icons/icon-192.png   # also icon-512.png, icon-maskable-512.png, apple-touch-icon.png
+  origin: code
+  tool: "Python Pillow, drawn in code: an old Vietnamese coin in gold on lacquer red"
+  model: claude-opus-5-5
+  date: 2026-11-16
+  ships: true

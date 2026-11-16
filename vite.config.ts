@@ -9,9 +9,10 @@ export default defineConfig(({ mode }) => ({
   // Relative paths, so the build works from any folder, itch.io included.
   base: './',
   // Assets are imported in the code (new URL('../assets/x.png', import.meta.url)),
-  // so Vite hashes them and the single file inlines them. A public folder would
-  // not be inlined, so there is none.
-  publicDir: false,
+  // so Vite hashes them and the single file inlines them.
+  // public/ holds the app's install files (manifest, icons, service worker): the folder build copies
+  // them; the single file, opened from disk by the checks, has no use for them.
+  publicDir: mode === 'single' ? false : 'public',
   plugins: mode === 'single' ? [viteSingleFile()] : [],
   // The game's page only: other pages in the project (one-shots in prototypes/)
   // are not scanned for packages.

@@ -1638,6 +1638,7 @@ function buildUI() {
   if (scene !== 'play') return;
   btn(W - 52, 12, 40, 34, '', () => setMuted(!muted()), 'mute');
   { const r = rulesSpot(); btn(r.x, r.y, r.w, r.h, 'Luật', () => showRules(true), 'room'); }
+  if (!isGuest() && state.players.some(p => p.kind !== 'human')) { const r = speedSpot(); btn(r.x, r.y, r.w, r.h, `×${gameSpeed}`, cycleSpeed, 'room'); }
   if (roomCode) {
     const r = roomPill();
     btn(r.x, r.y, r.w, r.h, `Phòng ${roomCode}`, () => { roomMenu = true; inspect = -1; sheetOpen = false; }, 'room');
@@ -2264,6 +2265,58 @@ function drawResultsPhone() {
   drawVote();
 }
 
+// ---- Fast forward ---------------------------------------------------------------------------
+// A button runs the computer's turns at ×2 or ×4: its shake, its throw, its hops and its thinking.
+// A person's turn always runs at its own pace. Online, the host's button sets it for everyone.
+const SPEEDS = [1, 2, 4];
+let gameSpeed = 1;
+const checkedRun = params.has('seed') || CHEAP || params.get('manual') === '1' || !!window.GAME_CLOCK; // a check always runs at ×1
+try { gameSpeed = !checkedRun && SPEEDS.includes(Number(localStorage.getItem('tpdv-speed'))) ? Number(localStorage.getItem('tpdv-speed')) : 1; } catch { gameSpeed = 1; }
+/** How much faster this step runs: the computer's turns at the chosen speed, everything else at 1. */
+function turnSpeed(): number {
+  if (!state || !state.players || state.phase === 'over' || state.vote) return 1;
+  const p = curP();
+  const computer = isAI(p) || (p.kind === 'remote' && !peerOnline(p.peer));
+  return computer ? gameSpeed : 1;
+}
+function cycleSpeed() {
+  gameSpeed = SPEEDS[(SPEEDS.indexOf(gameSpeed) + 1) % SPEEDS.length];
+  try { localStorage.setItem('tpdv-speed', String(gameSpeed)); } catch { /* not kept: fine */ }
+}
+/** Where the speed button sits: under the sound button, or beside the phone's property button. */
+function speedSpot(): { x: number; y: number; w: number; h: number } {
+  return L.phone ? { x: W - 78, y: L.btnY + 64, w: 64, h: 44 } : { x: W - 60, y: 48, w: 48, h: 26 };
+}
+
+// ---- Installing as an app, and keeping the screen on -------------------------------------------
+// Served over http(s), the page offers its manifest and service worker, so a phone can add it to the
+// home screen and open it full screen. Opened from a file (the checks), none of this is asked for.
+if (location.protocol.startsWith('http') && !import.meta.env.DEV) {
+  const add = (rel: string, href: string) => { const l = document.createElement('link'); l.rel = rel; l.href = href; document.head.appendChild(l); };
+  add('manifest', './manifest.webmanifest');
+  add('apple-touch-icon', './icons/apple-touch-icon.png');
+  for (const [name, content] of [['apple-mobile-web-app-capable', 'yes'], ['mobile-web-app-capable', 'yes'], ['apple-mobile-web-app-title', 'Tỷ Phú'], ['apple-mobile-web-app-status-bar-style', 'black-translucent']]) {
+    const m = document.createElement('meta'); m.name = name; m.content = content; document.head.appendChild(m);
+  }
+  if ('serviceWorker' in navigator) {
+    const register = () => { navigator.serviceWorker.register('./sw.js').catch(() => { /* no app install: the game still plays */ }); };
+    if (document.readyState === 'complete') register(); else addEventListener('load', register); // the game may start after the page's load event
+  }
+}
+let wakeLock: { release(): Promise<void> } | null = null;
+/** Keeps a phone's screen on while a game is being played, and lets it sleep otherwise. */
+async function keepAwake() {
+  const want = scene === 'play' && document.visibilityState === 'visible';
+  const nav = navigator as Loose;
+  if (want && !wakeLock && nav.wakeLock) {
+    try { wakeLock = await nav.wakeLock.request('screen'); (wakeLock as Loose).addEventListener?.('release', () => { wakeLock = null; }); } catch { wakeLock = null; }
+  } else if (!want && wakeLock) {
+    const w = wakeLock; wakeLock = null; w.release().catch(() => { /* already released */ });
+  }
+}
+setInterval(keepAwake, 2000);
+document.addEventListener('visibilitychange', () => { keepAwake(); });
+
 // ---- The rules, for players to read ----------------------------------------------------------
 // Plain HTML over the canvas, so it scrolls on a phone. Every number comes from data/config.json and
 // the board, so the page stays true when a value is tuned.
@@ -2438,8 +2491,9 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
         canvas.style.cursor = hoverTile >= 0 || onBtn ? 'pointer' : 'default';
       }
       if (isGuest()) { updateTokens(dt); syncBuildings(dt); return; } // the host runs the turns
-      updateTurn(dt);
-      updateTokens(dt); syncBuildings(dt);
+      const k = turnSpeed(); // the computer's turns can run faster
+      updateTurn(dt * k);
+      updateTokens(dt * k); syncBuildings(dt);
       state.flash.t += dt;
       for (const f of state.floaters) f.t += dt;
       state.floaters = state.floaters.filter(f => f.t < 1.4);

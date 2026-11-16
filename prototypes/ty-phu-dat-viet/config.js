@@ -12,7 +12,7 @@ window.CONFIG = {
   start_cash: { value: 2000, min: 500, max: 40000, step: 500 },   // tiền khởi đầu mỗi người
   salary: { value: 2000, min: 0, max: 5000, step: 100 },            // lương khi qua Xuất Phát
   income_tax: { value: 1000, min: 0, max: 5000, step: 100 },        // ô Thuế Thu Nhập: trả cố định
-  prop_tax_pct: { value: 0.1, min: 0, max: 0.5, step: 0.01 },       // ô Thuế Tài Sản: phần trăm tổng tài sản...
+  prop_tax_pct: { value: 0.1, min: 0, max: 0.5, step: 0.01 },       // ô Thuế Tài Sản: phần trăm tiền mặt đang có...
   prop_tax_flat: { value: 2000, min: 0, max: 10000, step: 100 },    // ...hoặc số tiền cố định này (người chơi chọn)
   card_max: { value: 1500, min: 0, max: 5000, step: 100 },         // tiền trên một thẻ Cơ Hội / Khí Vận tối đa
   first_lap_count: { value: 1, min: 0, max: 5, step: 1 },          // mỗi người: phải qua Xuất Phát bấy nhiêu lần mới được mua đất và phải đóng thuế

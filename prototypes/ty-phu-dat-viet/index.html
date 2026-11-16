@@ -289,6 +289,12 @@ function tokenSpot(pi, pos, jailed) { // where player pi's token stands on tile 
 // ---- Rules --------------------------------------------------------------------------
 let setup = { seats: [{ kind: 'human' }, { kind: 'ai', lv: 1 }, { kind: 'ai', lv: 0 }, { kind: 'off' }], mode: 'bankrupt' };
 let scene, state;
+function reshuffle(kind) { // the deck ran out: the used cards go back in, in a new order
+  const used = state.used[kind];
+  for (let i = used.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [used[i], used[j]] = [used[j], used[i]]; }
+  state.decks[kind] = used.splice(0);
+  log(`Hết bộ thẻ ${kind === 'co' ? 'Cơ Hội' : 'Khí Vận'}: xáo lại!`);
+}
 function shuffled(n) { const a = [...Array(n).keys()]; for (let i = n - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 function reset() {
   // Every new game gets a fresh seed, so no two games roll alike. A fixed seed is used only when one is
@@ -308,7 +314,7 @@ function reset() {
     t: 0, score: 0, gained: '', players, cur: 0, round: 1, mode: setup.mode,
     owner: Array(40).fill(-1), level: Array(40).fill(0), mort: Array(40).fill(false),
     phase: 'roll', timer: 0, dice: [3, 4], diceT: 9, rolledDouble: false, moveLeft: 0, moveDir: 1, hopT: 0,
-    popup: null, debt: null, pick: 0, log: [], floaters: [], decks: { co: shuffled(16), kv: shuffled(16) },
+    popup: null, debt: null, pick: 0, log: [], floaters: [], decks: { co: shuffled(16), kv: shuffled(16) }, used: { co: [], kv: [] },
     flash: { tile: -1, t: 0 }, ranking: null, turns: 0, pot: tune.pot_start,
   };
   log(`Ván mới: ${players.length} người chơi, ${setup.mode === 'rounds' ? `${tune.max_rounds} vòng` : 'chơi tới khi phá sản'}.`);
@@ -581,10 +587,10 @@ function resolveLanding() {
     return;
   }
   if (t.t === 'co' || t.t === 'kv') {
-    const deck = state.decks[t.t];
-    const ci = deck.shift();
+    if (!state.decks[t.t].length) reshuffle(t.t);
+    const ci = state.decks[t.t].shift();
     const card = CARDS[t.t][ci];
-    if (card.act !== 'free') deck.push(ci);
+    if (card.act !== 'free') state.used[t.t].push(ci); // a kept Thẻ Ra Tù stays out until it is used
     state.popup = { kind: 'card', deck: t.t, ci, card };
     state.phase = 'card'; state.timer = 0; sfx.card();
     log(`${p.name} rút thẻ ${t.n}: ${card.txt}`);
@@ -595,7 +601,7 @@ function resolveLanding() {
     log(`${p.name} đang đi vòng đầu: miễn ${t.n}.`); return;
   }
   if (t.t === 'tax' && t.kind === 'prop') { // Thuế Tài Sản: pay 10% of everything you own, or the flat sum: your pick
-    const pct = Math.round(netWorth(p) * tune.prop_tax_pct / 10) * 10;
+    const pct = Math.round(Math.max(0, p.cash) * tune.prop_tax_pct / 10) * 10; // 10% of the cash in hand, not of land
     state.popup = { kind: 'tax', tile: i, pct, flat: tune.prop_tax_flat };
     state.phase = 'taxChoice'; state.timer = 0; return;
   }
@@ -679,7 +685,7 @@ function payTax(amt) {
 }
 function payJail() {
   const p = curP();
-  if (p.freeCards.length) { const d = p.freeCards.pop(); state.decks[d].push(CARDS[d].findIndex(c => c.act === 'free')); log(`${p.name} dùng Thẻ Ra Tù Miễn Phí${p.noSalary ? ': được nhận lương lại' : ''}.`); p.noSalary = false; }
+  if (p.freeCards.length) { const d = p.freeCards.pop(); state.used[d].push(CARDS[d].findIndex(c => c.act === 'free')); log(`${p.name} dùng Thẻ Ra Tù Miễn Phí${p.noSalary ? ': được nhận lương lại' : ''}.`); p.noSalary = false; }
   else return; // no paying out of jail: only a double, a Thẻ Ra Tù or three tries
   p.inJail = false; p.jailTries = 0; state.phase = 'roll'; state.timer = 0;
   if (isAI(p)) aiTurnStart(p);
@@ -1707,8 +1713,8 @@ function drawPopup() {
     ctx.fillStyle = '#fbf3df'; rrect(ctx, x, y, w, h, 16); ctx.fill(); ctx.strokeStyle = '#5a3d2b'; ctx.lineWidth = 3; ctx.stroke();
     icon.coins(ctx, x + 70, y + 72, 90);
     text('THUẾ TÀI SẢN', cx + 40, y + 52, 28, '#8a3a24', 'center', 'bold');
-    text(`Tổng tài sản của ${p.name}: ${money(netWorth(p))}`, cx + 40, y + 90, 16, '#3a2416');
-    text(`Chọn một: ${Math.round(tune.prop_tax_pct * 100)}% tài sản = ${money(pop.pct)}`, cx, y + 150, 19, '#2b1d12', 'center', 'bold');
+    text(`Tiền mặt của ${p.name}: ${money(p.cash)}`, cx + 40, y + 90, 16, '#3a2416');
+    text(`Chọn một: ${Math.round(tune.prop_tax_pct * 100)}% tiền đang có = ${money(pop.pct)}`, cx, y + 150, 19, '#2b1d12', 'center', 'bold');
     text(`hoặc trả gọn ${money(pop.flat)}`, cx, y + 182, 19, '#2b1d12', 'center', 'bold');
     text('Tiền thuế vào hũ giữa bàn.', cx, y + 220, 15, '#6a5a4a');
     ctx.restore();
@@ -1736,7 +1742,7 @@ const SPECIAL_INFO = {
   gojail: () => ['Dừng ở đây: vào thẳng Nhà Tù, không đi qua Xuất Phát, không nhận lương.'],
   co: () => ['Rút một thẻ Cơ Hội: thường là đi tới đâu đó (về Xuất Phát, bay đi du lịch, lùi lại...), đôi khi được tiền hoặc bị phạt.'],
   kv: () => ['Rút một thẻ Khí Vận (bao lì xì): thường là được tiền hoặc mất tiền: lì xì, sinh nhật, khám răng, trúng số...'],
-  tax: t => [t.kind === 'income' ? `Trả cố định ${money(tune.income_tax)}. Tiền vào hũ giữa bàn.` : `Chọn trả ${Math.round(tune.prop_tax_pct * 100)}% tổng tài sản hoặc ${money(tune.prop_tax_flat)}. Tiền vào hũ giữa bàn.`, 'Vòng đầu (chưa qua Xuất Phát lần nào): được miễn.'],
+  tax: t => [t.kind === 'income' ? `Trả cố định ${money(tune.income_tax)}. Tiền vào hũ giữa bàn.` : `Chọn trả ${Math.round(tune.prop_tax_pct * 100)}% tiền mặt đang có hoặc ${money(tune.prop_tax_flat)}. Tiền vào hũ giữa bàn.`, 'Vòng đầu (chưa qua Xuất Phát lần nào): được miễn.'],
 };
 function drawInspect() {
   if (inspect < 0 || scene !== 'play') return;

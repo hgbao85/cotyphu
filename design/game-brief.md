@@ -34,6 +34,8 @@ After play: Giá xây: Tất cả đều 50% giá đất thôi
 After play: Bỏ cách nộp 500k, nếu thảy hết 3 lượt thì sẽ được ra tù và không nộp phạt
 After play: Thử đủ 3 lần: Phải hết 3 lượt chứ
 After play: Tôi cảm thấy thảy xúc xắc vẫn chưa ngẫu nhiên đúng không?
+After play: Random cơ hội và khí vận mỗi ván để tăng kịch tính (Xáo lại khi hết bộ)
+After play: Thuế tài sản sẽ trả 10% hiện có chứ không phải là tổng tài sản
 
 **Pitch:** Cờ tỷ phú trên bản đồ Việt Nam cho 2–4 người, mỗi chỗ là người hoặc máy: đổ xúc xắc, mua đất từ Hà Giang tới Cà Mau, dẫm lại đất mình để xây nhà, khách sạn rồi Landmark, rút thẻ Cơ Hội và Khí Vận vui nhộn; ai trụ lại (hoặc giàu nhất sau 30 vòng) là tỷ phú.
 

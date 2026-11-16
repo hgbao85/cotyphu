@@ -109,7 +109,12 @@ function sendAct(act: string, i?: number) {
 }
 
 const handlers: net.NetHandlers = {
-  onRoom(code, id) { roomCode = code; myPeerId = id; netError = ''; if (isHost()) sendLobby(); },
+  onRoom(code, id) {
+    roomCode = code; myPeerId = id; netError = '';
+    rememberRoom(code, isHost() ? 'host' : 'guest');
+    if (isHost() && pendingRestore) { pendingRestore = false; restoreHostGame(code); }
+    if (isHost()) sendLobby();
+  },
   onPeer(id, name, online, left) {
     if (left) { peerLeft(id, name); return; }
     const known = peers.has(id);
@@ -126,12 +131,23 @@ const handlers: net.NetHandlers = {
   onHost(online) { hostOnline = online; },
   onClosed() { goOffline('Chủ phòng đã giải tán phòng chơi.'); },
   onLink(up) { linkUp = up; },
-  onError(msg) { netError = msg; roomCode = ''; showOnlinePanel(true); },
+  onError(msg) { netError = msg; roomCode = ''; forgetRoom(); showOnlinePanel(true); },
 };
 
 /** Host: a new friend takes the first empty or computer seat (seat 0 is the host's). */
 function seatPeer(id: number, name: string) {
-  if (scene !== 'title') { net.toOne(id, { k: 'full', msg: 'Ván đang chơi: chờ ván sau nhé.' }); return; }
+  // a friend whose seat is already theirs (a host who came back with the room as it was) keeps it
+  if (setup.seats.some(st => st.kind === 'remote' && st.peer === id) || (scene !== 'title' && state.players.some(q => q.peer === id))) return;
+  if (scene !== 'title') {
+    const free = (q: Player): boolean => !q.bankrupt && ((q.kind === 'remote' && !peerOnline(q.peer)) || (q.kind === 'ai' && !!q.wasRemote));
+    const p = state.players.find(q => free(q) && q.name === name)
+      || state.players.find(q => free(q) && (q.peer === undefined || q.wasRemote));
+    if (!p) { net.toOne(id, { k: 'full', msg: 'Ván đang chơi: bạn đang xem, chờ ván sau nhé.' }); return; }
+    p.kind = 'remote'; p.peer = id; p.offline = false; p.wasRemote = false; p.name = name;
+    setup.seats[p.id] = { kind: 'remote', peer: id, name };
+    log(`${name} đã vào lại ghế ${PLAYER_COLOR_NAMES[p.id]}.`);
+    return;
+  }
   const order = [1, 2, 3];
   let i = order.find(k => setup.seats[k].kind === 'remote' && setup.seats[k].peer === undefined);
   if (i === undefined) i = order.find(k => setup.seats[k].kind === 'off');
@@ -197,6 +213,7 @@ function onHostMsg(d: Loose) {
 function netStep() {
   if (isHost() && (scene === 'play' || scene === 'results')) {
     voteStep(STEP);
+    keepHostGame();
     for (const p of state.players) if (p.kind === 'remote') p.offline = !peerOnline(p.peer);
     if (++sendEvery >= 3 || pendingSfx.length) { // about 20 times a second, at once when a sound plays
       sendEvery = 0;
@@ -236,6 +253,7 @@ function showOnlinePanel(on: boolean) {
     (d.querySelector('#op-create') as HTMLButtonElement).onclick = () => {
       const n = nameOk(); if (!n) return;
       myName = n; peers.clear(); setup.seats[0] = { kind: 'human' };
+      pendingRestore = false; store()?.removeItem('tpdv-host-game');
       net.createRoom(n, handlers); showOnlinePanel(false);
     };
     (d.querySelector('#op-join') as HTMLButtonElement).onclick = () => {
@@ -259,6 +277,7 @@ function leaveRoom() {
 }
 /** Back to playing on this screen, with a note on the title screen when there is one. */
 function goOffline(note: string) {
+  forgetRoom();
   roomCode = ''; mySeat = -1; lobby = null; peers.clear(); netError = note; roomMenu = false;
   setup.seats.forEach((s, i) => { if (s.kind === 'remote') setup.seats[i] = { kind: 'ai', lv: 1 }; });
   scene = 'title'; reset(); clearVis();
@@ -271,10 +290,63 @@ function peerLeft(id: number, name: string) {
   if (i >= 0) setup.seats[i] = { kind: 'remote' };
   if (scene !== 'title' && state && state.players) for (const p of state.players) {
     if (p.peer !== id) continue;
-    p.kind = 'ai'; p.lv = 1; delete p.peer; p.offline = false;
+    p.kind = 'ai'; p.lv = 1; delete p.peer; p.offline = false; p.wasRemote = true;
     log(`${name || p.name} đã rời phòng, máy chơi thay.`);
   }
   sendLobby();
+}
+
+// ---- Coming back to a room ----------------------------------------------------------------
+// The browser remembers the last room for ROOM_MEMORY_MS, so the title screen offers to go back in
+// with one press. The host's browser also keeps the game every second, so a host who reloads
+// picks the game up where it was. A friend who comes back under the same name gets their seat back.
+const ROOM_MEMORY_MS = 30 * 60 * 1000; // the server closes an empty room after the same time
+function store(): Storage | null { try { return localStorage; } catch { return null; } }
+function rememberRoom(code: string, role: 'host' | 'guest') {
+  store()?.setItem('tpdv-room', JSON.stringify({ code, role, at: Date.now() }));
+}
+function forgetRoom() {
+  store()?.removeItem('tpdv-room'); store()?.removeItem('tpdv-host-game');
+}
+/** The last room, while it can still be open. */
+function lastRoom(): { code: string; role: 'host' | 'guest' } | null {
+  try {
+    const r = JSON.parse(store()?.getItem('tpdv-room') || 'null');
+    return r && Date.now() - r.at < ROOM_MEMORY_MS ? r : null;
+  } catch { return null; }
+}
+let pendingRestore = false; // host: put the kept game back once the room is open again
+/** Goes back into the last room: a host reopens it (the server knows the host's key), a guest joins it. */
+function rejoinRoom() {
+  const r = lastRoom();
+  if (!r) return;
+  myName = net.savedName() || myName || 'Bạn';
+  if (r.role === 'host') { peers.clear(); setup.seats[0] = { kind: 'human' }; pendingRestore = true; net.createRoom(myName, handlers); }
+  else { mySeat = -1; lobby = null; net.joinRoom(r.code, myName, handlers); }
+}
+let keepEvery = 0;
+/** Host, every second of a game: keeps it in the browser, to pick up after a reload. */
+function keepHostGame() {
+  if (++keepEvery < 60) return;
+  keepEvery = 0;
+  try { store()?.setItem('tpdv-host-game', JSON.stringify({ code: roomCode, at: Date.now(), scene, setup, state })); } catch { /* full or blocked: the game just is not kept */ }
+}
+/** Host: the kept game, back on the table. Friends in a room that was lost with the server come
+ * back by name (seatPeer). */
+function restoreHostGame(code: string) {
+  let g: Loose = null;
+  try { g = JSON.parse(store()?.getItem('tpdv-host-game') || 'null'); } catch { g = null; }
+  if (!g || Date.now() - g.at > ROOM_MEMORY_MS || !g.state || !g.state.players) return;
+  const sameRoom = g.code === code;
+  setup = g.setup; state = g.state; scene = g.scene === 'results' ? 'results' : 'play';
+  state.vote = undefined; state.shaking = undefined;
+  for (const p of state.players) if (p.kind === 'remote') {
+    p.offline = true;
+    if (!sameRoom) { delete p.peer; p.wasRemote = true; } // a new room: nobody has an id in it yet
+  }
+  setup.seats.forEach(st => { if (st.kind === 'remote' && !sameRoom) delete st.peer; });
+  clearVis();
+  log(sameRoom ? 'Chủ phòng đã quay lại: ván chơi tiếp.' : `Phòng mới ${code}: ván chơi tiếp, bạn bè vào lại bằng mã mới.`);
 }
 let roomMenu = false; // the room menu: leave (a friend) or close the room (the host), asked twice
 
@@ -1612,6 +1684,8 @@ function buildTitleUI() {
   b4(T.start, L.phone ? 'Bắt đầu' : 'Bắt đầu (Enter)', startGame, 'primary', '#c8201f');
   if (isHost()) b4(T.online, `Giải tán phòng ${roomCode}`, leaveRoom, '', '#6a4a2a');
   else b4(T.online, 'Chơi online', () => showOnlinePanel(true), '', '#2b6cd6');
+  const last = !isHost() && !isGuest() ? lastRoom() : null;
+  if (last) b4(T.rejoin, `Vào lại phòng ${last.code}`, rejoinRoom, '', '#2f8a3a');
 }
 /** A line about the connection, over the board, when something is wrong with it. */
 function drawNetBanner() {
@@ -2055,8 +2129,8 @@ function drawSheet() {
 /** Where the title screen's buttons sit, wide or phone. */
 function titleSpots() {
   return L.phone
-    ? { seatX: 246, seatW: 226, seatH: 52, y0: 178, step: 64, modeDy: 8, start: [16, 560, 448, 60], online: [16, 632, 448, 56], leave: [16, 600, 448, 60] }
-    : { seatX: BW / 2 - 20, seatW: 300, seatH: 50, y0: 250, step: 62, modeDy: 10, start: [BW / 2 - 290, 600, 280, 60], online: [BW / 2 + 10, 600, 280, 60], leave: [BW / 2 - 140, 600, 280, 60] };
+    ? { seatX: 246, seatW: 226, seatH: 52, y0: 178, step: 64, modeDy: 8, start: [16, 560, 448, 60], online: [16, 632, 448, 56], leave: [16, 600, 448, 60], rejoin: [16, 700, 448, 56] }
+    : { seatX: BW / 2 - 20, seatW: 300, seatH: 50, y0: 250, step: 62, modeDy: 10, start: [BW / 2 - 290, 600, 280, 60], online: [BW / 2 + 10, 600, 280, 60], leave: [BW / 2 - 140, 600, 280, 60], rejoin: [PX + 24, 610, PW - 48, 56] };
 }
 /** Phone: the title screen, one column. */
 function drawTitlePhone() {

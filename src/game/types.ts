@@ -81,6 +81,8 @@ export interface Player {
   /** A friend playing online: their id in the room, and whether they are disconnected now. */
   peer?: number;
   offline?: boolean;
+  /** A friend's seat the computer took over when they left: they can come back to it. */
+  wasRemote?: boolean;
 }
 
 /** The state of one game: everything the rules read and change. */

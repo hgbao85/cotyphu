@@ -59,3 +59,5 @@ holds no comments. The values themselves are in `data/config.json`.
 - emote_time: seconds a quick emote's bubble stays over the piece online
 - emote_gap: seconds a player waits between two emotes, so nobody floods the table
 - piece_scale: how big the zodiac animal pieces stand on the board (read when a piece is built)
+- mood_gain: money coming in at once (in thousands of đồng) that makes a piece hop for joy
+- mood_loss: money paid at once (in thousands of đồng) that makes a piece shiver

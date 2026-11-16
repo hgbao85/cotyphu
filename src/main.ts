@@ -205,7 +205,7 @@ function onHostMsg(d: Loose) {
   if (d.k === 'you') mySeat = d.seat;
   else if (d.k === 'full') { netError = d.msg; }
   else if (d.k === 'history') showHistory(d.list || []);
-  else if (d.k === 'lobby') { lobby = d; if (scene !== 'title') { scene = 'title'; clearVis(); } }
+  else if (d.k === 'lobby') { if (lobby && mySeat > 0 && lobby.animals && d.animals && lobby.animals[mySeat] !== d.animals[mySeat]) rawSfx.animal(d.animals[mySeat]); lobby = d; if (scene !== 'title') { scene = 'title'; clearVis(); } }
   else if (d.k === 'state') {
     const fresh = scene !== d.scene && d.scene === 'play' && scene === 'title';
     state = d.state; scene = d.scene;
@@ -1267,7 +1267,11 @@ function pipTexture(n: number) {
 // ---- 3D figures: tokens, buildings, landmarks ----------------------------------------
 function mesh(geo: THREE.BufferGeometry, m: THREE.Material | THREE.Material[], x = 0, y = 0, z = 0) { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = !CHEAP; o.receiveShadow = !CHEAP; return o; }
 /** A player's piece: their zodiac animal (src/animals.ts). */
-function makeToken(animal: number, color: string) { return makeAnimal(animal, color, !CHEAP); }
+function makeToken(animal: number, color: string) {
+  const outer = new THREE.Group(), inner = makeAnimal(animal, color, !CHEAP);
+  outer.add(inner); outer.userData.inner = inner; // the board moves the outer group, the piece's mood the inner one
+  return outer;
+}
 const tokKind: number[] = []; // which animal each seat's 3D piece shows
 /** Rebuilds a seat's 3D piece when its player has a different animal (a new game, or a friend's). */
 function syncPieces() {
@@ -1571,6 +1575,7 @@ function render3D() {
       if (!v || p.bankrupt) return;
       t.visible = true; t.position.set(v.x, BOARD_TOP + v.y, v.z);
       const ti = tileInfo(p.pos); t.rotation.y = Math.atan2(ti.ox, ti.oz) + Math.PI;
+      applyMood(t.userData.inner, p);
     });
     const cp = curP(), cv = tokVis[cp.id];
     ring3.visible = !!cv && state.phase !== 'over';
@@ -1754,7 +1759,7 @@ function buildTitleUI() {
   (isGuest() ? (lobby ? lobby.seats as Seat[] : []) : setup.seats).forEach((s, i) => { // tap an animal to change it
     if (!canPickAnimal(i, s) || s.kind === 'off') return;
     const c = animalSpot(i);
-    btn(c.x - c.r - 4, c.y - c.r - 4, c.r * 2 + 8, c.r * 2 + 8, '', () => { if (isGuest()) sendAct('animal'); else nextAnimal(i); }, 'hidden');
+    btn(c.x - c.r - 4, c.y - c.r - 4, c.r * 2 + 8, c.r * 2 + 8, '', () => { if (isGuest()) sendAct('animal'); else { nextAnimal(i); rawSfx.animal(setup.animals[i]); } }, 'hidden');
   });
   { const r = rulesSpot(); btn(r.x, r.y, r.w, r.h, 'Luật chơi', () => showRules(true), 'room'); }
   const b4 = (r: number[], label: string, fn: () => void, role: string, color: string) => btn(r[0], r[1], r[2], r[3], label, fn, role, true, color);
@@ -1787,7 +1792,7 @@ function drawNetBanner() {
   else if (netError && !(onlinePanel && onlinePanel.style.display === 'flex')) msg = netError;
   if (msg) messageBox([msg], L.cx, L.bannerY, 620);
 }
-function clearVis() { inspect = -1; lastPos.length = 0; tokVis.length = 0; tokAnim.length = 0; for (let i = 0; i < 40; i++) tileShown[i] = -1; riseAnims.length = 0; }
+function clearVis() { moods.length = 0; moodPrev.length = 0; inspect = -1; lastPos.length = 0; tokVis.length = 0; tokAnim.length = 0; for (let i = 0; i < 40; i++) tileShown[i] = -1; riseAnims.length = 0; }
 function buildPropUI(pi: number) {
   const mine = owned(pi);
   const rowH = 30, y0 = 400, rows = Math.floor((H - 16 - y0) / rowH);
@@ -2291,6 +2296,60 @@ function speedSpot(): { x: number; y: number; w: number; h: number } {
   return L.phone ? { x: W - 78, y: L.btnY + 64, w: 64, h: 44 } : { x: W - 60, y: 48, w: 48, h: 26 };
 }
 
+// ---- The pieces' moods ---------------------------------------------------------------------------
+// Every screen works them out from the state it sees, so a friend online sees the same: a piece
+// breathes, bounces while its player is to throw, jumps and spins when it buys or builds, hops when
+// money comes in, shivers when it pays, hangs its head in jail, and the winner dances at the end.
+type MoodKind = 'happy' | 'hop' | 'shiver';
+const MOOD_TIME: Record<MoodKind, number> = { happy: 1.0, hop: 0.5, shiver: 0.6 };
+const MOOD_RANK: Record<MoodKind, number> = { hop: 0, shiver: 1, happy: 2 };
+const moods: ({ kind: MoodKind; t: number } | null)[] = [];                       // by seat
+const moodPrev: ({ props: number; levels: number; cash: number } | undefined)[] = []; // by seat
+let animT = 0; // the pieces' own clock, stepped with the game so the checks repeat
+function setMood(k: number, kind: MoodKind) {
+  const m = moods[k];
+  if (m && MOOD_RANK[m.kind] > MOOD_RANK[kind]) return;
+  moods[k] = { kind, t: 0 };
+}
+/** Notices what just happened to each player and sets their piece's mood. */
+function moodStep(dt: number) {
+  animT += dt;
+  if (!state.players) return;
+  state.players.forEach((p, pi) => {
+    const k = p.id, props = state.owner.filter(o => o === pi).length, levels = levelsOf(pi), was = moodPrev[k];
+    if (was && !state.ordering && !p.bankrupt) {
+      if (props > was.props || levels > was.levels) { setMood(k, 'happy'); rawSfx.animal(p.token); }
+      else if (was.cash - p.cash >= tune.mood_loss) setMood(k, 'shiver');
+      else if (p.cash - was.cash >= tune.mood_gain) setMood(k, 'hop');
+    }
+    moodPrev[k] = { props, levels, cash: p.cash };
+    const m = moods[k];
+    if (m) { m.t += dt; if (m.t >= MOOD_TIME[m.kind]) moods[k] = null; }
+  });
+}
+/** Moves a piece's inner figure for its mood: lift, spin, tilt and squash. */
+function applyMood(inner: THREE.Object3D | undefined, p: Player) {
+  if (!inner) return;
+  const k = p.id, ph = k * 1.7, moving = !!tokAnim[k], cur = p === curP() && state.phase !== 'over';
+  let y = 0, spin = 0, tilt = 0, roll = 0, sy = 1 + 0.035 * Math.sin(animT * 3 + ph), sx = 1 - 0.018 * Math.sin(animT * 3 + ph);
+  if (p.inJail) { tilt = -0.3; roll = 0.07 * Math.sin(animT * 1.3 + ph); sy *= 0.93; }
+  else if (cur && !moving && (state.phase === 'roll' || state.phase === 'order')) y = Math.abs(Math.sin(animT * 4.5)) * 0.06;
+  if (cur && state.shaking) roll = 0.14 * Math.sin(animT * 32);
+  const m = moods[k];
+  if (m && !moving) {
+    const u = Math.min(1, m.t / MOOD_TIME[m.kind]);
+    if (m.kind === 'happy') {
+      y = Math.sin(Math.PI * u) * 0.3; spin = (u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2) * Math.PI * 2;
+      const land = u < 0.12 ? 1 - u / 0.12 : u > 0.88 ? (u - 0.88) / 0.12 : 0; sy *= 1 - 0.18 * land; sx *= 1 + 0.1 * land;
+    } else if (m.kind === 'hop') y = Math.sin(Math.PI * u) * 0.12;
+    else { roll = Math.sin(u * 42) * 0.2 * (1 - u); sy *= 0.94; }
+  }
+  if (scene === 'results' && state.ranking && state.players[state.ranking[0].i] === p) { // the winner dances
+    y = Math.abs(Math.sin(animT * 3.6)) * 0.22; spin = Math.sin(animT * 1.8) * 0.9; tilt = 0;
+  }
+  inner.position.y = y; inner.rotation.set(roll, spin, tilt); inner.scale.set(sx, sy, sx);
+}
+
 // ---- The toolbar: the game's history, quick emotes online ----------------------------------
 /** The row of small pills: over the board's top-left corner on a phone, its bottom-left on a wide screen. */
 function buildToolbar() {
@@ -2567,10 +2626,10 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
         hoverTile = pt ? tileAt(pt.x, pt.z) : -1;
         canvas.style.cursor = hoverTile >= 0 || onBtn ? 'pointer' : 'default';
       }
-      if (isGuest()) { updateTokens(dt); syncBuildings(dt); return; } // the host runs the turns
+      if (isGuest()) { updateTokens(dt); syncBuildings(dt); moodStep(dt); return; } // the host runs the turns
       const k = turnSpeed(); // the computer's turns can run faster
       updateTurn(dt * k);
-      updateTokens(dt * k); syncBuildings(dt);
+      updateTokens(dt * k); syncBuildings(dt); moodStep(dt);
       state.flash.t += dt;
       for (const f of state.floaters) f.t += dt;
       state.floaters = state.floaters.filter(f => f.t < 1.4);
@@ -2598,7 +2657,7 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
     update(dt: number) {
       if (!isGuest()) state.t += dt;
       buildUI(); handleInput();
-      updateTokens(dt); syncBuildings(dt);
+      updateTokens(dt); syncBuildings(dt); moodStep(dt);
       if (isGuest()) return;
       for (const f of state.floaters) f.t += dt; state.floaters = state.floaters.filter(f => f.t < 1.4);
     },

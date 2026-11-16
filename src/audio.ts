@@ -53,6 +53,25 @@ export const sfx = {
   rattle(t: number) { tone(240 + (Math.floor(t * 37) % 5) * 45, 0.035, 'square', 0.07); tone(520 + (Math.floor(t * 53) % 4) * 60, 0.025, 'triangle', 0.05, 0.03); },
   land() { tone(150, 0.08, 'triangle', 0.3); tone(110, 0.1, 'triangle', 0.25, 0.08); },
   double() { tone(150, 0.08, 'triangle', 0.3); [784, 988, 1175].forEach((f, i) => tone(f, 0.12, 'triangle', 0.2, 0.08 + i * 0.07)); },
+  /** A short call for each zodiac animal, 0 Chuột ... 11 Heo: a squeak, a moo, a meow. */
+  animal(a: number) {
+    const calls: [number, number, OscillatorType, number][][] = [ // [freq, duration, wave, start]
+      [[1900, 0.05, 'sine', 0], [2200, 0.05, 'sine', 0.08]],                                  // Chuột
+      [[150, 0.3, 'sawtooth', 0], [120, 0.35, 'sawtooth', 0.22]],                             // Trâu
+      [[95, 0.32, 'sawtooth', 0], [75, 0.3, 'square', 0.12]],                                 // Hổ
+      [[660, 0.1, 'sine', 0], [880, 0.14, 'sine', 0.08], [620, 0.18, 'sine', 0.2]],           // Mèo
+      [[220, 0.25, 'sawtooth', 0], [165, 0.3, 'square', 0.15], [260, 0.2, 'sawtooth', 0.35]], // Rồng
+      [[2600, 0.25, 'square', 0], [2900, 0.2, 'square', 0.05]],                               // Rắn
+      [[950, 0.08, 'triangle', 0], [1150, 0.08, 'triangle', 0.08], [850, 0.1, 'triangle', 0.16], [650, 0.15, 'triangle', 0.26]], // Ngựa
+      [[520, 0.07, 'square', 0], [500, 0.07, 'square', 0.08], [520, 0.07, 'square', 0.16], [480, 0.12, 'square', 0.24]],          // Dê
+      [[620, 0.07, 'sine', 0], [920, 0.07, 'sine', 0.1], [620, 0.07, 'sine', 0.2], [920, 0.09, 'sine', 0.3]],                     // Khỉ
+      [[620, 0.08, 'square', 0], [820, 0.08, 'square', 0.1], [920, 0.18, 'square', 0.2], [720, 0.12, 'square', 0.4]],            // Gà
+      [[260, 0.08, 'square', 0], [190, 0.1, 'square', 0.05], [260, 0.08, 'square', 0.22], [190, 0.1, 'square', 0.27]],           // Chó
+      [[300, 0.09, 'sawtooth', 0], [230, 0.12, 'sawtooth', 0.07], [300, 0.09, 'sawtooth', 0.24], [230, 0.12, 'sawtooth', 0.31]], // Heo
+    ];
+    const vol = (w: OscillatorType) => (w === 'sine' ? 0.22 : w === 'triangle' ? 0.2 : 0.07);
+    for (const [f, d, w, at] of calls[a] || []) tone(f, d, w, vol(w), at);
+  },
   emote() { tone(880, 0.06, 'sine', 0.18); tone(1320, 0.08, 'sine', 0.14, 0.06); },
 };
 

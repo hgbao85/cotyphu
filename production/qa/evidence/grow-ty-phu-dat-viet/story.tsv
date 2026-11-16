@@ -1,5 +1,5 @@
 browser	/c/Program Files/Google/Chrome/Application/chrome.exe
-time	2026-11-16 20:31:27
+time	2026-11-16 20:42:21
 render	cheap
 webgl	ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)
 ua	HeadlessChrome/157.0.0.0
@@ -8,126 +8,126 @@ state	0	title	{"t":0,"score":0,"gained":"","players":[{"id":0,"kind":"human","lv
 scene	1	play
 state	1	play	{"t":0,"score":0,"gained":"","players":[{"id":0,"kind":"human","lv":0,"color":"#d62828","token":1,"name":"Người Trâu","cash":2000,"pos":0,"laps":0,"inJail":false,"jailTries":0,"freeCards":[],"bankrupt
 playinput	4	Space
-frame	3481	4c1be33b
-frame	3482	ff6ab993
-frame	3483	7d76009c
-frame	3484	808b30f0
-frame	3485	9b5a84aa
-frame	3486	1de409b7
-frame	3487	87b4d1ca
-frame	3488	87b4d1ca
-frame	3489	87b4d1ca
-frame	3490	87b4d1ca
-frame	3491	9b5a84aa
-frame	3492	735137f
-frame	3493	7d76009c
-frame	3494	20f32043
-frame	3495	2aaecb5a
-frame	3496	e5bfc8d4
-frame	3497	9d3915e5
-frame	3498	5c373e97
-frame	3499	9d43f0db
-frame	3500	bf0a13e4
-frame	3501	2fae8600
-frame	3502	b2a3d5ee
-frame	3503	45b8e099
-frame	3504	8bb9d74f
-frame	3505	523b9d3
-frame	3506	3f47c1de
-frame	3507	37ec9b5a
-frame	3508	c13acb3c
-frame	3509	3f549de1
-frame	3510	2bd21855
-frame	3511	53b0cc60
-frame	3512	ec8f786e
-frame	3513	fe3a3fa9
-frame	3514	dbdb1af1
-frame	3515	16274b6b
-frame	3516	9739251e
-frame	3517	dbe9ecd2
-frame	3518	9fd71790
-frame	3519	681fa591
-frame	3520	2c5a5559
-frame	3521	62e25a29
-frame	3522	d40aa76a
-frame	3523	12fdfc90
-frame	3524	84745c2b
-frame	3525	84745c2b
-frame	3526	84745c2b
-frame	3527	84745c2b
-frame	3528	136c1502
-frame	3529	c1554d4f
-frame	3530	906aa81c
-frame	3531	4940a0f0
-frame	3532	fe6d6e81
-frame	3533	151563d7
-frame	3534	a035851c
-frame	3535	49ecbf62
-frame	3536	d5c5180b
-frame	3537	27397d3c
-frame	3538	4a6b6853
-frame	3539	d1839b10
-frame	3540	622631df
-frame	3541	666946e2
-frame	3542	d8d959da
-frame	3543	d605f2d4
-frame	3544	eee2bbbc
-frame	3545	89502561
-frame	3546	73594595
-frame	3547	5a0b757
-frame	3548	a77d55b3
-frame	3549	3e4aefe2
-frame	3550	b927c063
-frame	3551	3518be98
-frame	3552	9027912a
-frame	3553	9ed9c800
-frame	3554	68e7185
-frame	3555	4c0fb04e
-frame	3556	5b352a7b
-frame	3557	a30db5e3
-frame	3558	20f32043
-frame	3559	de0f6f95
-frame	3560	735137f
-frame	3561	1de409b7
-frame	3562	87b4d1ca
-frame	3563	87b4d1ca
-frame	3564	87b4d1ca
-frame	3565	87b4d1ca
-frame	3566	1de409b7
-frame	3567	735137f
-frame	3568	de0f6f95
-frame	3569	b0b6248d
-frame	3570	bfd304e5
-frame	3571	5b352a7b
-frame	3572	4c0fb04e
-frame	3573	94b0f757
-frame	3574	9ed9c800
-frame	3575	9027912a
-frame	3576	f69a6fc3
-frame	3577	b927c063
-frame	3578	104c3e6c
-frame	3579	a77d55b3
-frame	3580	bf3e85f6
-frame	3581	57f8278c
-frame	3582	2d92a21b
-frame	3583	c2ed7547
-frame	3584	21e54a72
-frame	3585	ccc7b574
-frame	3586	b43f181e
-frame	3587	44040201
-frame	3588	79a7a10d
-frame	3589	bda215c1
-frame	3590	6b99a098
-frame	3591	58c768e
-frame	3592	ae1f317b
-frame	3593	1f93ed75
-frame	3594	96303a9
-frame	3595	cf40fa
-frame	3596	8bc30f6
-frame	3597	89bd9441
-frame	3598	be1dbad4
-frame	3599	bf19166a
-frame	3600	d70bde2d
+frame	3481	7a50a04a
+frame	3482	cd0f8037
+frame	3483	3e1a6e1e
+frame	3484	601dd680
+frame	3485	57bea2dc
+frame	3486	f129894
+frame	3487	bf6e12ab
+frame	3488	c9f63155
+frame	3489	c20324d8
+frame	3490	912e1259
+frame	3491	3dfe1dbd
+frame	3492	50c82efa
+frame	3493	6c49b1ca
+frame	3494	ca0c3fd0
+frame	3495	f0ff96e8
+frame	3496	d5ea6634
+frame	3497	68a96f30
+frame	3498	7b8e8cbd
+frame	3499	96f4c0d2
+frame	3500	ed268e5d
+frame	3501	6ce8664f
+frame	3502	5fb4ffaa
+frame	3503	5774363b
+frame	3504	b00e848f
+frame	3505	dc301de2
+frame	3506	f0f0efac
+frame	3507	31f46516
+frame	3508	bf8fb66b
+frame	3509	476d75d6
+frame	3510	be6b1056
+frame	3511	e2c55f02
+frame	3512	7ee5e4bc
+frame	3513	9741fae2
+frame	3514	9cfba135
+frame	3515	b5a962e9
+frame	3516	73eb0b7d
+frame	3517	df126bdb
+frame	3518	477c5e80
+frame	3519	a72b8f5d
+frame	3520	dfb1c6da
+frame	3521	7dfb47a5
+frame	3522	66b9b90e
+frame	3523	f9e2417f
+frame	3524	cb903ba5
+frame	3525	ecc57b9c
+frame	3526	81f0743f
+frame	3527	556fdb79
+frame	3528	8bf095aa
+frame	3529	a2e97b6b
+frame	3530	4c84c430
+frame	3531	460286d3
+frame	3532	65cbc080
+frame	3533	5da18b59
+frame	3534	5c0a366c
+frame	3535	f68d7576
+frame	3536	63794a10
+frame	3537	88c574b6
+frame	3538	6855f8a5
+frame	3539	657f0744
+frame	3540	5d036a4d
+frame	3541	3edac428
+frame	3542	8fc60568
+frame	3543	9955803
+frame	3544	e311e83d
+frame	3545	b0692638
+frame	3546	ab679c16
+frame	3547	21d7302c
+frame	3548	b9426acb
+frame	3549	123b5a5d
+frame	3550	c8e87be8
+frame	3551	7ec6b564
+frame	3552	21351e19
+frame	3553	38f57d06
+frame	3554	4864714f
+frame	3555	5070be1b
+frame	3556	649f41b3
+frame	3557	76bf4eb1
+frame	3558	7093a6ab
+frame	3559	6038efd3
+frame	3560	1c6b7abd
+frame	3561	d8b6523
+frame	3562	975aa006
+frame	3563	a05651fa
+frame	3564	47f6abf0
+frame	3565	5136473e
+frame	3566	3b507adc
+frame	3567	bec45e26
+frame	3568	b4774d91
+frame	3569	7dbcc21d
+frame	3570	57a48cb1
+frame	3571	e0c06ae6
+frame	3572	ea111ae9
+frame	3573	31a753e6
+frame	3574	cb092637
+frame	3575	17e12050
+frame	3576	5f0cf37d
+frame	3577	39da1488
+frame	3578	19f29f58
+frame	3579	3013bebd
+frame	3580	9555ff05
+frame	3581	48bcc666
+frame	3582	61a33087
+frame	3583	9a01d4f5
+frame	3584	75a8bbd3
+frame	3585	bde7846f
+frame	3586	d2139405
+frame	3587	5e8ac10b
+frame	3588	a04709e3
+frame	3589	15705cba
+frame	3590	2d4ca51d
+frame	3591	5132363f
+frame	3592	dd3d7e8e
+frame	3593	27ef5916
+frame	3594	9c6a5d30
+frame	3595	6555c38e
+frame	3596	732ca3dd
+frame	3597	7cefcfd4
+frame	3598	c0c809ce
+frame	3599	90686053
+frame	3600	1f35ea57
 state	3600	play	{"t":59.98,"score":0,"gained":"","players":[{"id":2,"kind":"ai","lv":0,"color":"#f2c200","token":8,"name":"Máy Khỉ","cash":2000,"pos":35,"laps":0,"inJail":false,"jailTries":0,"freeCards":[],"bankrupt"
 digits	log	bold 40px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
 digits	log	bold 32px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
@@ -142,13 +142,13 @@ digits	log	bold 15px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
 loop	log	none	no loop() step was marked
 first	log	none	no state.beat
 pressure	none	the game set no number state.margin in play
-steptime	3600	0.031	12.400
-frametime	60	37.8	176.2	60	60	2
-done	3600	play	stop	60.0	10064
-console	0	[.WebGL-0x52fc0044b600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
-console	0	[.WebGL-0x52fc0044b600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
-console	0	[.WebGL-0x52fc0044b600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
-console	0	[.WebGL-0x52fc0044b600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)
+steptime	3600	0.025	3.700
+frametime	60	30.7	135.2	60	60	2
+done	3600	play	stop	60.0	8467
+console	0	[.WebGL-0x42ac0043b600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+console	0	[.WebGL-0x42ac0043b600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+console	0	[.WebGL-0x42ac0043b600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+console	0	[.WebGL-0x42ac0043b600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)
 measured	1280x720
 text	play	canvas	23,20,523,35	21.0	7.80	inside	Máy Khỉ chưa qua Xuất Phát lần nào: chưa được mua Sân bay Tâ
 text	play	canvas	23,41,175,57	21.0	7.80	inside	Máy Mèo đổ 3 + 2 = 5.
@@ -172,6 +172,6 @@ text	play	canvas	931,23,961,37	21.0	7.16	inside	Luật
 text	play	canvas	1235,55,1252,66	21.0	7.16	inside	×1
 text	play	canvas	30,686,79,701	21.0	7.16	inside	Lịch sử
 text	play	canvas	361,389,539,408	30.0	5.38	inside	Giữ để lắc xúc xắc
-screen	3600	play	4a23c4be	drawn
+screen	3600	play	fcb328b0	drawn
 uncaught	0
-shot	/d/cotyphu/production/qa/evidence/grow-ty-phu-dat-viet/story.png	368971
+shot	/d/cotyphu/production/qa/evidence/grow-ty-phu-dat-viet/story.png	368672

@@ -30,6 +30,8 @@ After play: Vòng đầu tiên có nghĩa là đi qua ô xuất phát á, vào �
 After play: Đổi vị trí của 2 ô thuế
 After play: Khi bóc trúng thẻ vào tù thì đi qua ô xuất phát kế tiếp sẽ không được nhận thưởng. Nếu có thẻ ra tù thì sẽ bỏ được luật không nhận thưởng (Dùng thẻ để ra tù; Chỉ thẻ Vào tù)
 After play: Hũ giữa bàn chỉ gom tiền ở 2 ô thuế thôi
+After play: Giá xây: Tất cả đều 50% giá đất thôi
+After play: Bỏ cách nộp 500k, nếu thảy hết 3 lượt thì sẽ được ra tù và không nộp phạt
 
 **Pitch:** Cờ tỷ phú trên bản đồ Việt Nam cho 2–4 người, mỗi chỗ là người hoặc máy: đổ xúc xắc, mua đất từ Hà Giang tới Cà Mau, dẫm lại đất mình để xây nhà, khách sạn rồi Landmark, rút thẻ Cơ Hội và Khí Vận vui nhộn; ai trụ lại (hoặc giàu nhất sau 30 vòng) là tỷ phú.
 

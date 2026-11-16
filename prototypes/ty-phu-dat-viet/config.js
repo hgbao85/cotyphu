@@ -14,7 +14,6 @@ window.CONFIG = {
   income_tax: { value: 1000, min: 0, max: 5000, step: 100 },        // ô Thuế Thu Nhập: trả cố định
   prop_tax_pct: { value: 0.1, min: 0, max: 0.5, step: 0.01 },       // ô Thuế Tài Sản: phần trăm tổng tài sản...
   prop_tax_flat: { value: 2000, min: 0, max: 10000, step: 100 },    // ...hoặc số tiền cố định này (người chơi chọn)
-  jail_fine: { value: 500, min: 0, max: 3000, step: 50 },           // tiền nộp phạt ra tù
   card_max: { value: 1500, min: 0, max: 5000, step: 100 },         // tiền trên một thẻ Cơ Hội / Khí Vận tối đa
   first_lap_count: { value: 1, min: 0, max: 5, step: 1 },          // mỗi người: phải qua Xuất Phát bấy nhiêu lần mới được mua đất và phải đóng thuế
   pot_start: { value: 0, min: 0, max: 5000, step: 100 },           // hũ tiền giữa bàn lúc bắt đầu ván
@@ -36,8 +35,8 @@ window.CONFIG = {
 
   // ---- Building: cost of each level as a fraction of the land price ----
   house_cost_pct: { value: 0.5, min: 0.1, max: 2, step: 0.05 },     // Nhà 1..4
-  hotel_cost_pct: { value: 0.6, min: 0.1, max: 2, step: 0.05 },     // Khách sạn
-  landmark_cost_pct: { value: 0.8, min: 0.1, max: 3, step: 0.05 },  // Landmark
+  hotel_cost_pct: { value: 0.5, min: 0.1, max: 2, step: 0.05 },     // Khách sạn
+  landmark_cost_pct: { value: 0.5, min: 0.1, max: 3, step: 0.05 },  // Landmark
   sell_pct: { value: 0.5, min: 0.1, max: 1, step: 0.05 },           // bán 1 cấp: hoàn lại phần này giá xây
   mortgage_pct: { value: 0.5, min: 0.1, max: 1, step: 0.05 },       // cầm cố: nhận phần này giá đất
   unmortgage_pct: { value: 0.55, min: 0.1, max: 1.5, step: 0.05 },  // chuộc: trả phần này giá đất

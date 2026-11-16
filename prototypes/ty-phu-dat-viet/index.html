@@ -514,9 +514,8 @@ function afterDice() {
     if (dbl) { p.inJail = false; p.jailTries = 0; log(`${p.name} đổ đôi ${a}-${b}: ra tù!`); beginMove(a + b); state.rolledDouble = false; return; }
     p.jailTries++;
     if (p.jailTries >= 3) {
-      log(`${p.name} hết 3 lần thử: nộp phạt ${money(tune.jail_fine)}.`);
-      charge([{ to: -1, amt: tune.jail_fine }], '', () => { p.inJail = false; p.jailTries = 0; beginMove(a + b); });
-      return;
+      p.inJail = false; p.jailTries = 0; log(`${p.name} đã thử đủ 3 lần: được ra tù, không mất tiền.`);
+      beginMove(a + b); return;
     }
     log(`${p.name} đổ ${a}-${b}, không phải đôi: ở lại tù.`);
     toEnd(); return;
@@ -672,7 +671,7 @@ function payTax(amt) {
 function payJail() {
   const p = curP();
   if (p.freeCards.length) { const d = p.freeCards.pop(); state.decks[d].push(CARDS[d].findIndex(c => c.act === 'free')); log(`${p.name} dùng Thẻ Ra Tù Miễn Phí${p.noSalary ? ': được nhận lương lại' : ''}.`); p.noSalary = false; }
-  else { if (p.cash < tune.jail_fine) return; lose(state.cur, tune.jail_fine); log(`${p.name} nộp phạt ${money(tune.jail_fine)} ra tù.`); sfx.pay(); }
+  else return; // no paying out of jail: only a double, a Thẻ Ra Tù or three tries
   p.inJail = false; p.jailTries = 0; state.phase = 'roll'; state.timer = 0;
   if (isAI(p)) aiTurnStart(p);
 }
@@ -746,9 +745,7 @@ function aiAct() { // one decision for the computer player, after its think dela
   switch (state.phase) {
     case 'roll': startShake(true); return;
     case 'jail': {
-      const early = TILES.some((t, i) => OWNABLE(t) && state.owner[i] < 0 && i > 10);
-      const pay = p.freeCards.length || (p.lv === 1 && early && p.cash > 3000) || (p.lv === 2 && early && p.cash > 2500);
-      if (pay && (p.freeCards.length || p.cash >= tune.jail_fine)) payJail(); else startShake(true);
+      if (p.freeCards.length) payJail(); else startShake(true);
       return;
     }
     case 'buy': if (aiWantsBuy(pi, state.popup.tile)) doBuy(); else { log(`${p.name} bỏ qua ${TILES[state.popup.tile].n}.`); skip(); } return;
@@ -1407,7 +1404,7 @@ function buildUI() {
       case 'jail': {
         btn(ax - 230, ay, 220, 54, state.shaking ? 'Thả ra để ném!' : 'Giữ lắc tìm đôi', () => startShake(), 'primary', true, '#c8201f');
         const card = p.freeCards.length > 0;
-        btn(ax + 10, ay, 220, 54, card ? 'Dùng thẻ ra tù' : `Nộp ${money(tune.jail_fine)}`, payJail, 'secondary', card || p.cash >= tune.jail_fine);
+        if (card) btn(ax + 10, ay, 220, 54, 'Dùng thẻ ra tù', payJail, 'secondary', true);
         break;
       }
       case 'buy': { const t = TILES[state.popup.tile]; btn(ax - 230, 600, 220, 54, `Mua ${money(t.p)}`, doBuy, 'primary', p.cash >= t.p, '#2f8a3a'); btn(ax + 10, 600, 220, 54, 'Bỏ qua', () => { log(`${p.name} bỏ qua ${t.n}.`); skip(); }, 'secondary'); break; }
@@ -1681,7 +1678,7 @@ function drawPopup() {
   const p = curP(), pop = state.popup, human = humanTurn();
   const cx = BW / 2, cy = 330;
   if (state.phase === 'roll' && human && !state.shaking) messageBox([`Lượt của ${p.name}${state.rolledDouble ? ': đổ đôi, được đổ tiếp!' : ''}`], cx, 322, 460);
-  if (state.phase === 'jail' && human && !state.shaking) messageBox([`${p.name} đang ở tù. Đổ được đôi thì ra, hoặc nộp phạt (lần thử ${p.jailTries + 1}/3).${p.noSalary ? (p.freeCards.length ? ' Dùng Thẻ Ra Tù thì được nhận lương lại!' : ' Lần qua Xuất Phát tới sẽ mất lương.') : ''}`], cx, 312, 520);
+  if (state.phase === 'jail' && human && !state.shaking) messageBox([`${p.name} đang ở tù. Đổ được đôi thì ra (lần thử ${p.jailTries + 1}/3, thử đủ 3 lần thì được ra).${p.noSalary ? (p.freeCards.length ? ' Dùng Thẻ Ra Tù thì được nhận lương lại!' : ' Lần qua Xuất Phát tới sẽ mất lương.') : ''}`], cx, 312, 520);
   if (state.phase === 'end' && human) messageBox([`${p.name}: hết lượt. Quản lý tài sản ở bên phải nếu cần.`], cx, 318, 640);
   if (!pop && state.phase !== 'pick' && state.phase !== 'debt') return;
   if (state.phase === 'pick') { messageBox([human ? 'Vé máy bay: bấm một ô trên bàn cờ (hoặc dùng phím mũi tên) để bay tới.' : `${p.name} đang chọn nơi bay tới...`], cx, 545, 600); return; }
@@ -1725,7 +1722,7 @@ function drawPopup() {
 }
 const SPECIAL_INFO = {
   go: () => [`Đi qua hoặc dừng ở đây: nhận lương ${money(tune.salary)}.`],
-  jail: () => ['Đứng trên mép ô: chỉ ghé thăm, không sao.', `Ở trong tù: mỗi lượt đổ tìm đôi để ra, hoặc nộp ${money(tune.jail_fine)} (hay dùng Thẻ Ra Tù). Vào tù vì rút thẻ thì lần qua Xuất Phát tới mất lương, trừ khi ra tù bằng Thẻ Ra Tù. Sau 3 lần không ra được thì phải nộp phạt.`],
+  jail: () => ['Đứng trên mép ô: chỉ ghé thăm, không sao.', `Ở trong tù: mỗi lượt đổ tìm đôi để ra, hoặc dùng Thẻ Ra Tù. Thử đủ 3 lần thì được ra, không mất tiền. Vào tù vì rút thẻ thì lần qua Xuất Phát tới mất lương, trừ khi ra tù bằng Thẻ Ra Tù. Sau 3 lần không ra được thì phải nộp phạt.`],
   free: () => ['Dừng ở đây: lấy hết tiền trong hũ giữa bàn (tiền 2 ô thuế dồn vào hũ).', `Hũ đang có: ${money(state.pot)}.`],
   gojail: () => ['Dừng ở đây: vào thẳng Nhà Tù, không đi qua Xuất Phát, không nhận lương.'],
   co: () => ['Rút một thẻ Cơ Hội: thường là đi tới đâu đó (về Xuất Phát, bay đi du lịch, lùi lại...), đôi khi được tiền hoặc bị phạt.'],

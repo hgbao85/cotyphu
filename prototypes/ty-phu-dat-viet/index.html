@@ -159,7 +159,7 @@ const TILES = [
   P('Hạ Long', 1, 1000, 'Hòn Trống Mái', 'dao'),
   { t: 'co', n: 'Cơ Hội' },
   P('Ninh Bình', 1, 1200, 'Chùa Bái Đính', 'thap'),
-  { t: 'tax', n: 'Thuế Thu Nhập', kind: 'income' },
+  { t: 'tax', n: 'Thuế Thu Nhập', b: 'Thuế Thu Nhập', kind: 'income' },
   { t: 'jail', n: 'Nhà Tù' },
   P('Bắc Ninh', 2, 1400, 'Chùa Phật Tích', 'chua'),
   P('Nam Định', 2, 1400, 'Tháp Phổ Minh', 'thap'),
@@ -185,7 +185,7 @@ const TILES = [
   { t: 'kv', n: 'Khí Vận' },
   P('Cần Thơ', 6, 3000, 'Cầu Cần Thơ', 'cau'),
   P('Vũng Tàu', 6, 3200, 'Hải đăng Vũng Tàu', 'haidang'),
-  { t: 'port', n: 'Sân bay Tân Sơn Nhất', icon: 'plane', p: 2000 },
+  { t: 'port', n: 'Sân bay Tân Sơn Nhất', b: 'Tân Sơn Nhất', icon: 'plane', p: 2000 },
   { t: 'co', n: 'Cơ Hội' },
   P('Phú Quốc', 7, 3500, 'Đảo Hòn Thơm', 'dao'),
   { t: 'tax', n: 'Thuế Tài Sản', kind: 'prop' },
@@ -956,30 +956,43 @@ function boardTexture() {
       c.strokeStyle = '#5a3d2b'; c.lineWidth = 4; c.strokeRect(px, pz, pw, ph);
       const cx = tx + tw / 2;
       c.fillStyle = '#2b1d12'; c.textAlign = 'center'; c.textBaseline = 'middle';
-      const nameSize = ti.side === -1 ? 40 : 36;
-      c.font = `bold ${nameSize}px ${FONT}`;
-      const label = t.t === 'co' || t.t === 'kv' ? t.n.toUpperCase() : t.n;
-      const lines = wrapLines(c, label, tw * 0.9);
+      // Names as large as the tile allows: start big and shrink until they fit in at most 3 lines.
+      const label = t.t === 'co' || t.t === 'kv' ? t.n.toUpperCase() : (t.b || t.n);
+      const hasIcon = t.t !== 'prop';
+      const maxLines = 3, nameRoom = th * (hasIcon ? 0.56 : 0.64);
+      let nameSize = ti.side === -1 ? 50 : 54, lines;
+      for (;; nameSize -= 2) {
+        c.font = `bold ${nameSize}px ${FONT}`;
+        lines = wrapLines(c, label, tw * 0.92);
+        const fits = lines.length <= maxLines && lines.every(l => c.measureText(l).width <= tw * 0.94) && lines.length * (nameSize + 2) <= nameRoom;
+        if (fits || nameSize <= 30) break;
+      }
+      const fitFont = (txt, size, maxW, weight = 'bold') => { // one line, shrunk until it fits maxW
+        for (; size > 20; size -= 2) { c.font = `${weight} ${size}px ${FONT}`; if (c.measureText(txt).width <= maxW) break; }
+      };
       if (ti.side === -1) {
         const cz = tz + th / 2;
-        if (t.t === 'go') { lines.forEach((ln, j) => c.fillText(ln.toUpperCase(), cx, tz + 70 + j * 44)); icon.arrow(c, cx, cz + 50, 170, Math.PI); c.font = `bold 30px ${FONT}`; c.fillText('Nhận lương', cx, tz + th - 50); }
-        if (t.t === 'jail') { icon.bars(c, cx + 30, cz - 30, 150); c.fillText('NHÀ TÙ', cx + 30, cz + 75); c.font = `28px ${FONT}`; c.fillText('Chỉ ghé thăm', cx - 40, tz + th - 36); }
-        if (t.t === 'free') { icon.palm(c, cx, cz + 5, 150); lines.forEach((ln, j) => c.fillText(ln, cx, tz + 50 + j * 44)); c.fillStyle = '#b3201e'; c.font = `bold 30px ${FONT}`; c.fillText('Nhận hũ tiền', cx, tz + th - 40); }
-        if (t.t === 'gojail') { icon.cap(c, cx, cz + 10, 190); c.fillText('ĐI TÙ', cx, tz + 60); c.font = `28px ${FONT}`; c.fillText('Vào thẳng Nhà Tù', cx, tz + th - 45); }
+        c.font = `bold 50px ${FONT}`;
+        if (t.t === 'go') { c.fillText('XUẤT PHÁT', cx, tz + 62); icon.arrow(c, cx, cz + 30, 170, Math.PI); fitFont('Nhận lương', 40, tw * 0.9); c.fillText('Nhận lương', cx, tz + th - 46); }
+        if (t.t === 'jail') { icon.bars(c, cx + 30, cz - 40, 140); c.fillText('NHÀ TÙ', cx + 30, cz + 70); fitFont('Chỉ ghé thăm', 38, tw * 0.9, ''); c.textAlign = 'left'; c.fillText('Chỉ ghé thăm', tx + 16, tz + th - 30); c.textAlign = 'center'; }
+        if (t.t === 'free') { c.fillText('BẾN ĐỖ', cx, tz + 48); c.fillText('TỰ DO', cx, tz + 100); icon.palm(c, cx, cz + 30, 130); c.fillStyle = '#b3201e'; fitFont('Nhận hũ tiền', 40, tw * 0.9); c.fillText('Nhận hũ tiền', cx, tz + th - 44); }
+        if (t.t === 'gojail') { c.fillText('ĐI TÙ', cx, tz + 58); icon.cap(c, cx, cz + 10, 180); fitFont('Vào thẳng Nhà Tù', 36, tw * 0.9, ''); c.fillText('Vào thẳng Nhà Tù', cx, tz + th - 44); }
         continue;
       }
-      const top = tz + 36;
-      lines.forEach((ln, j) => c.fillText(ln, cx, top + j * (nameSize + 4)));
-      const iconY = tz + th * 0.6, iconS = Math.min(tw, th) * 0.5;
+      c.font = `bold ${nameSize}px ${FONT}`;
+      const top = tz + 14 + nameSize / 2;
+      lines.forEach((ln, j) => c.fillText(ln, cx, top + j * (nameSize + 2)));
+      const priceY = tz + th - 30, nameBottom = top + (lines.length - 1) * (nameSize + 2) + nameSize / 2;
+      const iconS = Math.min(tw * 0.55, priceY - 26 - nameBottom - 6), iconY = (nameBottom + priceY - 22) / 2 + 2;
       if (t.t === 'co') icon.lantern(c, cx, iconY, iconS);
       if (t.t === 'kv') icon.envelope(c, cx, iconY, iconS);
       if (t.t === 'tax') { icon.coins(c, cx, iconY, iconS); }
       if (TILE_ICON[t.icon]) icon[TILE_ICON[t.icon]](c, cx, iconY, iconS);
-      c.fillStyle = '#5a3d2b'; c.font = `30px ${FONT}`;
+      c.fillStyle = '#3a2416';
       let price = '';
       if (t.p) price = (t.p / 1000).toLocaleString('vi-VN', { maximumFractionDigits: 1 }) + ' tr';
-      if (t.t === 'tax') price = t.kind === 'income' ? `Trả ${(tune.income_tax / 1000).toLocaleString('vi-VN')} tr` : `${Math.round(tune.prop_tax_pct * 100)}% hoặc ${(tune.prop_tax_flat / 1000).toLocaleString('vi-VN')} tr`;
-      if (price) c.fillText(price, cx, tz + th - 30);
+      if (t.t === 'tax') price = t.kind === 'income' ? `Trả ${(tune.income_tax / 1000).toLocaleString('vi-VN')} tr` : `${Math.round(tune.prop_tax_pct * 100)}% / ${(tune.prop_tax_flat / 1000).toLocaleString('vi-VN')} tr`;
+      if (price) { fitFont(price, 40, tw * 0.92); c.fillText(price, cx, priceY); }
     }
     c.strokeStyle = '#3a2416'; c.lineWidth = 10; c.strokeRect(5, 5, S - 10, S - 10);
   });

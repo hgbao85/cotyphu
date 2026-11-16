@@ -1432,7 +1432,9 @@ function buildTurnUI() {
   if (['roll', 'end', 'debt', 'jail'].includes(state.phase)) { if (L.phone) buildSheetButton(state.cur); else buildPropUI(state.cur); }
 }
 /** What a seat is, in the seat's button. */
-function seatLabel(s: Seat): string {
+function seatLabel(s: Seat, i = -1): string {
+  // online, seat 0 is the host's own seat
+  if (s.kind === 'human' && i === 0 && (isHost() || isGuest())) return `Chủ phòng · ${(isHost() ? myName : lobby?.hostName) || 'chủ phòng'}`;
   if (s.kind === 'human') return 'Người chơi';
   if (s.kind === 'remote') return s.peer === undefined ? 'Chờ bạn online...' : `Online · ${s.name || 'Bạn'}${peerOnline(s.peer) || isGuest() ? '' : ' (đã rời)'}`;
   if (s.kind === 'ai') return `Máy · ${AI_LEVELS[s.lv!]}`;
@@ -1446,7 +1448,7 @@ function buildTitleUI() {
   setup.seats.forEach((s, i) => {
     // online, the host plays seat 0, and a friend who is in the room keeps their seat
     const locked = isHost() && (i === 0 || (s.kind === 'remote' && peerOnline(s.peer)));
-    btn(T.seatX, T.y0 + i * T.step, T.seatW, T.seatH, seatLabel(s), () => {
+    btn(T.seatX, T.y0 + i * T.step, T.seatW, T.seatH, seatLabel(s, i), () => {
       const base = isHost() ? ['human', 'remote', 'ai0', 'ai1', 'ai2'] : ['human', 'ai0', 'ai1', 'ai2'];
       const order = i < 2 ? base : [...base, 'off'];
       const curKey = s.kind === 'ai' ? 'ai' + s.lv : s.kind;
@@ -1918,7 +1920,7 @@ function drawTitlePhone() {
     if (isGuest()) {
       ctx.save(); ctx.fillStyle = i === mySeat ? '#5a2a1c' : '#2c140f'; rrect(ctx, T.seatX, y, T.seatW, T.seatH, 12); ctx.fill();
       ctx.strokeStyle = i === mySeat ? '#f2c44a' : '#6a4a2a'; ctx.lineWidth = i === mySeat ? 3 : 1; ctx.stroke(); ctx.restore();
-      text(seatLabel(s) + (i === mySeat ? ' (bạn)' : ''), T.seatX + T.seatW / 2, cy, 15, '#fff8e6', 'center', 'bold');
+      text(seatLabel(s, i) + (i === mySeat ? ' (bạn)' : ''), T.seatX + T.seatW / 2, cy, 15, '#fff8e6', 'center', 'bold');
     }
   });
   const modeY = T.y0 + 4 * T.step + T.modeDy + T.seatH / 2;
@@ -1995,7 +1997,7 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
         const y = 250 + i * 62;
         ctx.save(); ctx.fillStyle = i === mySeat ? '#5a2a1c' : '#2c140f'; rrect(ctx, BW / 2 - 20, y, 300, 50, 12); ctx.fill();
         ctx.strokeStyle = i === mySeat ? '#f2c44a' : '#6a4a2a'; ctx.lineWidth = i === mySeat ? 3 : 1; ctx.stroke(); ctx.restore();
-        text(seatLabel(s) + (i === mySeat ? ' (bạn)' : ''), BW / 2 + 130, y + 26, 18, '#fff8e6', 'center', 'bold');
+        text(seatLabel(s, i) + (i === mySeat ? ' (bạn)' : ''), BW / 2 + 130, y + 26, 18, '#fff8e6', 'center', 'bold');
       });
       if (isGuest() && lobby) text(lobby.mode === 'rounds' ? `${tune.max_rounds} vòng, giàu nhất thắng` : 'Tới khi phá sản', BW / 2 + 130, 250 + 4 * 62 + 35, 18, '#fff8e6', 'center', 'bold');
       seatsShown.forEach((s, i) => {

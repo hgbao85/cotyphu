@@ -165,7 +165,7 @@ const TILES = [
   P('Hạ Long', 1, 1000, 'Hòn Trống Mái', 'dao'),
   { t: 'co', n: 'Cơ Hội' },
   P('Ninh Bình', 1, 1200, 'Chùa Bái Đính', 'thap'),
-  { t: 'tax', n: 'Thuế Thu Nhập', b: 'Thuế Thu Nhập', kind: 'income' },
+  { t: 'tax', n: 'Thuế Tài Sản', kind: 'prop' },
   { t: 'jail', n: 'Nhà Tù' },
   P('Bắc Ninh', 2, 1400, 'Chùa Phật Tích', 'chua'),
   P('Nam Định', 2, 1400, 'Tháp Phổ Minh', 'thap'),
@@ -194,7 +194,7 @@ const TILES = [
   { t: 'port', n: 'Sân bay Tân Sơn Nhất', b: 'Tân Sơn Nhất', icon: 'plane', p: 2000 },
   { t: 'co', n: 'Cơ Hội' },
   P('Phú Quốc', 7, 3500, 'Đảo Hòn Thơm', 'dao'),
-  { t: 'tax', n: 'Thuế Tài Sản', kind: 'prop' },
+  { t: 'tax', n: 'Thuế Thu Nhập', b: 'Thuế Thu Nhập', kind: 'income' },
   P('TP. Hồ Chí Minh', 7, 4000, 'Chợ Bến Thành', 'thapdh'),
 ];
 const OWNABLE = t => t.t === 'prop' || t.t === 'port' || t.t === 'util';

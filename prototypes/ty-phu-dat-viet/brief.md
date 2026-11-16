@@ -27,6 +27,7 @@ After play: Thêm cảm giác thảy xúc sắc (Giữ để lắc, thả để 
 After play: Tiền cơ hội, khí vận tối đa 1.500.000
 After play: Tăng tiền thuê bến: 1 bến 250k, 2 bến 500k, 3 bến 1tr, 4 bến 2tr
 After play: Vòng đầu tiên có nghĩa là đi qua ô xuất phát á, vào ô thuế ở vòng đầu tiên sẽ không bị trừ tiền
+After play: Đổi vị trí của 2 ô thuế
 
 **Pitch:** Cờ tỷ phú trên bản đồ Việt Nam cho 2–4 người, mỗi chỗ là người hoặc máy: đổ xúc xắc, mua đất từ Hà Giang tới Cà Mau, dẫm lại đất mình để xây nhà, khách sạn rồi Landmark, rút thẻ Cơ Hội và Khí Vận vui nhộn; ai trụ lại (hoặc giàu nhất sau 30 vòng) là tỷ phú.
 

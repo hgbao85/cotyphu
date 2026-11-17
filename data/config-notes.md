@@ -17,7 +17,7 @@ holds no comments. The values themselves are in `data/config.json`.
 - `pot_share`: phần thuế/tiền phạt rơi vào hũ (1 = tất cả)
 
 ---- Rent: fraction of the land price at each level (nhẹ nhàng) ----
-- `rent_scale`: nhân toàn bộ tiền thuê. Là 5 từ 16/11/2026 (bộ R6): ở 1 thì lương lớn hơn tiền thuê rất nhiều và ván "Tới khi phá sản" gần như không kết thúc. Lý do và số đo: design/balance/self-play-2026-11-16.md
+- `rent_scale`: nhân toàn bộ tiền thuê. Là 3 (bộ R2) từ 17/11/2026, theo lựa chọn của người thiết kế; trước đó là 5 (R6, 16/11) và 1 (gốc). Ở 1 thì lương lớn hơn tiền thuê rất nhiều và ván "Tới khi phá sản" gần như không kết thúc. Số đo: design/balance/self-play-2026-11-16.md
 - `rent_l0`: đất trống
 - `rent_l1`: Nhà 1
 - `rent_l2`: Nhà 2

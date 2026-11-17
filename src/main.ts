@@ -150,10 +150,10 @@ function seatPeer(id: number, name: string) {
     log(`${name} đã vào lại ghế ${ANIMALS[p.token].name}.`);
     return;
   }
+  // a seat the host left waiting for a friend first, then the earliest seat that is a computer's or empty
   const order = [1, 2, 3];
   let i = order.find(k => setup.seats[k].kind === 'remote' && setup.seats[k].peer === undefined);
-  if (i === undefined) i = order.find(k => setup.seats[k].kind === 'off');
-  if (i === undefined) i = order.find(k => setup.seats[k].kind === 'ai');
+  if (i === undefined) i = order.find(k => setup.seats[k].kind === 'ai' || setup.seats[k].kind === 'off');
   if (i === undefined) { net.toOne(id, { k: 'full', msg: 'Phòng đã đủ người.' }); return; }
   setup.seats[i] = { kind: 'remote', peer: id, name };
 }
@@ -813,10 +813,9 @@ function resolveLanding() {
     state.popup = { kind: 'notax', tile: i }; state.phase = 'rentShow'; state.timer = 0;
     log(`${p.name} đang đi vòng đầu: miễn ${t.n}.`); return;
   }
-  if (t.t === 'tax' && t.kind === 'prop') { // Thuế Tài Sản: pay 10% of everything you own, or the flat sum: your pick
-    const pct = Math.round(Math.max(0, p.cash) * tune.prop_tax_pct / 10) * 10; // 10% of the cash in hand, not of land
-    state.popup = { kind: 'tax', tile: i, pct, flat: tune.prop_tax_flat };
-    state.phase = 'taxChoice'; state.timer = 0; return;
+  if (t.t === 'tax' && t.kind === 'prop') { // Thuế Tài Sản: 10% of the cash in hand, capped at the flat sum; no choice
+    const amt = R.propertyTax(p.cash);
+    charge([{ to: -1, amt, pot: true }], `${p.name} đóng ${t.n}: ${money(amt)} (${Math.round(tune.prop_tax_pct * 100)}% tiền mặt, tối đa ${money(tune.prop_tax_flat)}; vào hũ).`, afterAction); return;
   }
   if (t.t === 'tax') {
     const amt = tune.income_tax;
@@ -890,11 +889,6 @@ function flyTo(target: number) {
   const p = curP();
   beginMove((target - p.pos + 40) % 40 || 40, 1, true);
   log(`${p.name} bay tới ${TILES[target].n}.`);
-}
-function payTax(amt: number) {
-  const p = curP(), t = TILES[state.popup.tile];
-  state.popup = null;
-  charge([{ to: -1, amt, pot: true }], `${p.name} đóng ${t.n}: ${money(amt)} (vào hũ).`, afterAction);
 }
 function payJail() {
   const p = curP();
@@ -1040,7 +1034,6 @@ function aiAct() { // one decision for the computer player, after its think dela
     case 'build': if (aiWantsBuild(pi, state.popup.tile)) doBuild(state.popup.tile); state.popup = null; afterAction(); return;
     case 'card': applyCard(); return;
     case 'rentShow': state.popup = null; afterAction(); return;
-    case 'taxChoice': payTax(Math.min(state.popup.pct, state.popup.flat)); return;
     case 'pick': flyTo(state.pick); return;
     case 'debt':
       if (raiseCash(pi, state.debt.total)) payDebt(); else declareBankrupt();
@@ -1310,7 +1303,7 @@ function boardTexture() {
       c.fillStyle = '#3a2416';
       let price = '';
       if (t.p) price = (t.p / 1000).toLocaleString('vi-VN', { maximumFractionDigits: 1 }) + ' tr';
-      if (t.t === 'tax') price = t.kind === 'income' ? `Trả ${(tune.income_tax / 1000).toLocaleString('vi-VN')} tr` : `${Math.round(tune.prop_tax_pct * 100)}% / ${(tune.prop_tax_flat / 1000).toLocaleString('vi-VN')} tr`;
+      if (t.t === 'tax') price = t.kind === 'income' ? `Trả ${(tune.income_tax / 1000).toLocaleString('vi-VN')} tr` : `${Math.round(tune.prop_tax_pct * 100)}%, tối đa ${(tune.prop_tax_flat / 1000).toLocaleString('vi-VN')} tr`;
       if (price) { fitFont(price, 40, tw * 0.92); c.fillText(price, cx, priceY); }
     }
     c.strokeStyle = '#3a2416'; c.lineWidth = 10; c.strokeRect(5, 5, S - 10, S - 10);
@@ -1861,12 +1854,6 @@ function buildTurnUI() {
     }
     case 'card': btn(ax - 110, by, 220, 54, 'Đồng ý', applyCard, 'primary', true, '#c8201f', 'cardOk'); break;
     case 'rentShow': btn(ax - 110, by, 220, 54, 'Tiếp tục', () => { state.popup = null; afterAction(); }, 'primary', true, undefined, 'continue'); break;
-    case 'taxChoice': {
-      const pp = state.popup;
-      btn(ax - 230, by, 220, 54, `Trả ${Math.round(tune.prop_tax_pct * 100)}%: ${money(pp.pct)}`, () => payTax(pp.pct), pp.pct <= pp.flat ? 'primary' : 'secondary', true, '#8a5a2a', 'taxPct');
-      btn(ax + 10, by, 220, 54, `Trả ${money(pp.flat)}`, () => payTax(pp.flat), pp.pct <= pp.flat ? 'secondary' : 'primary', true, '#8a5a2a', 'taxFlat');
-      break;
-    }
     case 'pick': btn(ax - 110, by, 220, 54, `Bay tới ${TILES[state.pick].n}`, () => flyTo(state.pick), 'primary', true, '#2f8a3a', 'fly'); break;
     case 'debt': {
       const d = state.debt;
@@ -1911,7 +1898,12 @@ function seatLabel(s: Seat, i = -1): string {
   if (s.kind === 'ai') return `Máy · ${AI_LEVELS[s.lv!]}`;
   return 'Không chơi';
 }
-function startGame() { reset(); clearVis(); scene = 'play'; }
+/** Starts the game from the title screen, when at least two seats play. */
+function startGame() {
+  if (setup.seats.filter(s => s.kind !== 'off').length < 2) { netError = 'Cần ít nhất 2 người chơi để bắt đầu.'; sfx.click(); return; }
+  if (netError.startsWith('Cần ít nhất 2')) netError = '';
+  reset(); clearVis(); scene = 'play';
+}
 /** A seat's animal on the title screen: the host's choice, or what the host sent a friend. */
 function seatAnimal(i: number): number {
   return isGuest() ? (lobby?.animals?.[i] ?? DEFAULT_ANIMALS[i]) : setup.animals[i];
@@ -1955,10 +1947,11 @@ function buildTitleUI() {
     const locked = isHost() && (i === 0 || (s.kind === 'remote' && peerOnline(s.peer)));
     btn(T.seatX, T.y0 + i * T.step, T.seatW, T.seatH, seatLabel(s, i), () => {
       const base = isHost() ? ['human', 'remote', 'ai0', 'ai1', 'ai2'] : ['human', 'ai0', 'ai1', 'ai2'];
-      const order = i < 2 ? base : [...base, 'off'];
+      const order = i === 0 ? base : [...base, 'off']; // only the first seat always plays; starting needs two (startGame)
       const curKey = s.kind === 'ai' ? 'ai' + s.lv : s.kind;
       const nk = order[(order.indexOf(curKey) + 1) % order.length];
       setup.seats[i] = nk.startsWith('ai') ? { kind: 'ai', lv: Number(nk[2]) } : { kind: nk as Seat['kind'] };
+      if (netError.startsWith('Cần ít nhất 2')) netError = ''; // the seats changed: the "two players" note goes
       sendLobby();
     }, 'seat', !locked);
   });
@@ -2220,20 +2213,6 @@ function drawPopup() {
     if (pop.kind === 'nobuy') messageBox([`Vòng đầu tiên (chưa qua Xuất Phát): chưa được mua, chỉ ghé xem.`], cx, my(548), 600);
     if (!human && pop.kind !== 'rent' && pop.kind !== 'nobuy') messageBox([`${p.name} đang suy nghĩ...`], cx, my(548), 420);
   }
-  if (pop.kind === 'tax') {
-    const w = 460, h = 250, x = cx - w / 2, y = cy - h / 2;
-    ctx.save();
-    ctx.fillStyle = 'rgba(0,0,0,0.4)'; rrect(ctx, x + 6, y + 8, w, h, 16); ctx.fill();
-    ctx.fillStyle = '#fbf3df'; rrect(ctx, x, y, w, h, 16); ctx.fill(); ctx.strokeStyle = '#5a3d2b'; ctx.lineWidth = 3; ctx.stroke();
-    icon.coins(ctx, x + 70, y + 72, 90);
-    text('THUẾ TÀI SẢN', cx + 40, y + 52, 28, '#8a3a24', 'center', 'bold');
-    text(`Tiền mặt của ${p.name}: ${money(p.cash)}`, cx + 40, y + 90, 16, '#3a2416');
-    text(`Chọn một: ${Math.round(tune.prop_tax_pct * 100)}% tiền đang có = ${money(pop.pct)}`, cx, y + 150, 19, '#2b1d12', 'center', 'bold');
-    text(`hoặc trả gọn ${money(pop.flat)}`, cx, y + 182, 19, '#2b1d12', 'center', 'bold');
-    text('Tiền thuế vào hũ giữa bàn.', cx, y + 220, 15, '#6a5a4a');
-    ctx.restore();
-    if (!human) messageBox([`${p.name} đang tính...`], cx, my(548), 360);
-  }
   if (pop.kind === 'card') {
     const w = 380, h = 250, x = cx - w / 2, y = cy - h / 2;
     const co = pop.deck === 'co';
@@ -2256,7 +2235,7 @@ const SPECIAL_INFO: Record<string, (t: Tile) => string[]> = {
   gojail: () => ['Dừng ở đây: vào thẳng Nhà Tù, không đi qua Xuất Phát, không nhận lương.'],
   co: () => ['Rút một thẻ Cơ Hội: thường là đi tới đâu đó (về Xuất Phát, bay đi du lịch, lùi lại...), đôi khi được tiền hoặc bị phạt.'],
   kv: () => ['Rút một thẻ Khí Vận (bao lì xì): thường là được tiền hoặc mất tiền: lì xì, sinh nhật, khám răng, trúng số...'],
-  tax: (t: Tile) => [t.kind === 'income' ? `Trả cố định ${money(tune.income_tax)}. Tiền vào hũ giữa bàn.` : `Chọn trả ${Math.round(tune.prop_tax_pct * 100)}% tiền mặt đang có hoặc ${money(tune.prop_tax_flat)}. Tiền vào hũ giữa bàn.`, 'Vòng đầu (chưa qua Xuất Phát lần nào): được miễn.'],
+  tax: (t: Tile) => [t.kind === 'income' ? `Trả cố định ${money(tune.income_tax)}. Tiền vào hũ giữa bàn.` : `Trả ${Math.round(tune.prop_tax_pct * 100)}% tiền mặt đang có, tối đa ${money(tune.prop_tax_flat)}. Tiền vào hũ giữa bàn.`, 'Vòng đầu (chưa qua Xuất Phát lần nào): được miễn.'],
 };
 function drawInspect() {
   if (inspect < 0 || scene !== 'play') return;
@@ -2670,7 +2649,7 @@ function rulesHtml(): string {
       'Bến và công ty không xây được.',
     ]),
     sec('Thuế và hũ tiền', [
-      `Thuế Tài Sản: tự chọn trả ${pct(tune.prop_tax_pct)} tiền mặt đang có, hoặc ${money(tune.prop_tax_flat)}.`,
+      `Thuế Tài Sản: trả ${pct(tune.prop_tax_pct)} tiền mặt đang có, tối đa ${money(tune.prop_tax_flat)}.`,
       `Thuế Thu Nhập: trả ${money(tune.income_tax)}.`,
       'Tiền của 2 ô thuế dồn vào <b>hũ giữa bàn</b>. Dừng ở Bến Đỗ Tự Do thì lấy cả hũ.',
     ]),

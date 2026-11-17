@@ -9,8 +9,8 @@ holds no comments. The values themselves are in `data/config.json`.
 - `start_cash`: tiền khởi đầu mỗi người
 - `salary`: lương khi qua Xuất Phát
 - `income_tax`: ô Thuế Thu Nhập: trả cố định
-- `prop_tax_pct`: ô Thuế Tài Sản: phần trăm tiền mặt đang có...
-- `prop_tax_flat`: ...hoặc số tiền cố định này (người chơi chọn)
+- `prop_tax_pct`: ô Thuế Tài Sản: trả phần trăm này của tiền mặt đang có (làm tròn 10)...
+- `prop_tax_flat`: ...nhưng không quá số tiền này (mức trần). Từ 17/11/2026, theo yêu cầu của người chơi: không còn chọn giữa % và số cố định, luôn trả % và lấy số này làm mức tối đa
 - `card_max`: tiền trên một thẻ Cơ Hội / Khí Vận tối đa
 - `first_lap_count`: mỗi người: phải qua Xuất Phát bấy nhiêu lần mới được mua đất và phải đóng thuế
 - `pot_start`: hũ tiền giữa bàn lúc bắt đầu ván

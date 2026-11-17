@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import config from '../../data/config.json';
 import { TILES } from '../../src/game/data';
-import { buildCost, money, netWorth, ownsGroup, rentOf } from '../../src/game/rules';
+import { buildCost, money, netWorth, ownsGroup, propertyTax, rentOf } from '../../src/game/rules';
 import { rng, setSeed, shuffled } from '../../src/game/rng';
 import type { GameState, Player } from '../../src/game/types';
 
@@ -80,6 +80,26 @@ describe('buildCost and netWorth', () => {
     s.owner[BAC_NINH] = 0; s.mort[BAC_NINH] = true;
     const expected = p.cash + price(HA_NOI) + buildCost(HA_NOI, 1) + buildCost(HA_NOI, 2) + price(BAC_NINH) * config.mortgage_pct.value;
     expect(netWorth(s, p)).toBeCloseTo(expected, 6);
+  });
+});
+
+describe('propertyTax', () => {
+  const pct = config.prop_tax_pct.value, cap = config.prop_tax_flat.value;
+
+  it('charges prop_tax_pct of the cash when that is under the cap', () => {
+    const cash = roundTo10(cap / pct / 2);           // well below the point where the cap bites
+    expect(propertyTax(cash)).toBe(roundTo10(cash * pct));
+    expect(propertyTax(cash)).toBeLessThan(cap);
+  });
+
+  it('charges the cap when the percentage would be more', () => {
+    expect(propertyTax(cap / pct * 10)).toBe(cap);
+    expect(propertyTax(cap / pct)).toBe(cap);         // the boundary: exactly the cap
+  });
+
+  it('charges nothing on zero or negative cash', () => {
+    expect(propertyTax(0)).toBe(0);
+    expect(propertyTax(-500)).toBe(0);
   });
 });
 

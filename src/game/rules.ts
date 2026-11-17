@@ -51,6 +51,16 @@ export function buildCost(i: number, toLevel: number): number {
   return Math.round(p * pct / 10) * 10;
 }
 
+/**
+ * The Thuế Tài Sản bill for a player holding `cash`: prop_tax_pct of the cash in hand (not of land),
+ * rounded to 10, capped at prop_tax_flat. No cash (or debt) pays nothing.
+ * Design record: design/game-brief.md (After play: Ô thuế 10% / 2.000.000).
+ */
+export function propertyTax(cash: number): number {
+  const pct = Math.round(Math.max(0, cash) * tune.prop_tax_pct / 10) * 10;
+  return Math.min(pct, tune.prop_tax_flat);
+}
+
 /** Everything spent building on tile i so far. */
 export function builtValue(s: GameState, i: number): number {
   let v = 0;

@@ -13,12 +13,12 @@ const BASE = `http://localhost:${PORT}/`;
 // buildEmoteMenu, animalSpot).
 const AT = {
   online: [600, 630], start: [300, 630], rejoin: [1090, 638],
-  friendAnimal: [190, 461],                 // seat 4's animal on the title screen
+  friendAnimal: [190, 337],                 // seat 2's animal on the title screen
   history: [54, 693], emotes: [152, 693],   // the toolbar under the board
   emotePayUp: [355, 294],                   // "Trả tiền đi!", the second emote
 };
 const EMOTE_PAY_UP = 1;
-const FRIEND_SEAT = 3; // the default seats leave the fourth one free, so a friend sits there
+const FRIEND_SEAT = 1; // a friend takes the first seat after the host's, here a computer's (regression: they used to skip to the free fourth seat)
 
 type Online = { role: string; code: string; mySeat: number; seats: { kind: string; name?: string }[] | null; animals: number[] | null };
 type P = { id: number; kind: string; name: string; token: number; orderRoll?: number; offline?: boolean };

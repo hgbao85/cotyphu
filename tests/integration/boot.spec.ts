@@ -77,3 +77,26 @@ test('throws for the order of play, puts the highest first and the lowest last, 
   expect(first.cash.every(c => c === config.start_cash.value)).toBe(true); // nobody moved yet
   expect(await run()).toEqual(first);
 });
+
+test('the second seat can be set to not playing, and a game will not start with fewer than two players', async ({ page }) => {
+  // Regression: seats 1 and 2 never offered "Không chơi", so a host online could not leave seat 2 empty.
+  const errors = await open(page, 'manual=1&seed=7');
+  const seatKind = (i: number) => page.evaluate(k => (window.game!.online as { seats: { kind: string }[] }).seats[k].kind, i);
+  /** Taps a seat's button on the wide title screen until it shows the kind wanted. */
+  async function setSeat(i: number, kind: string) {
+    const box = (await page.locator('#game').boundingBox())!;
+    for (let k = 0; k < 8 && (await seatKind(i)) !== kind; k++) {
+      await page.mouse.click(box.x + 580 * box.width / 1280, box.y + (250 + i * 62 + 25) * box.height / 720);
+      await page.evaluate(() => window.game!.step(2));
+    }
+    return seatKind(i);
+  }
+  expect(await setSeat(1, 'off')).toBe('off');
+  expect(await setSeat(2, 'off')).toBe('off');   // seat 4 starts empty: one player is left
+  await page.evaluate(() => { window.game!.press('Enter'); window.game!.step(2); });
+  expect(await page.evaluate(() => window.game!.scene)).toBe('title');
+  expect(await setSeat(2, 'ai')).toBe('ai');
+  await page.evaluate(() => { window.game!.press('Enter'); window.game!.step(2); });
+  expect(await page.evaluate(() => window.game!.scene)).toBe('play');
+  expect(errors).toEqual([]);
+});

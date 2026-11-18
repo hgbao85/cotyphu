@@ -124,3 +124,21 @@ test('a tap anywhere closes an open tile card, and never opens another tile', as
   expect(await inspect()).toBe(-1);
   expect(errors).toEqual([]);
 });
+
+test('the kind of game cycles through 30 rounds, 50 rounds and until bankrupt, and a 50-round game ends after round 50', async ({ page }) => {
+  // Asked for: a longer limited game, 50 rounds, beside 30 rounds and until bankrupt.
+  const errors = await open(page, 'manual=1&seed=7');
+  const box = (await page.locator('#game').boundingBox())!;
+  const kind = () => page.evaluate(() => { const o = window.game!.online as { mode: string; rounds: number }; return o.mode === 'rounds' ? `${o.rounds}` : o.mode; });
+  const tapMode = async () => {
+    await page.mouse.click(box.x + 580 * box.width / 1280, box.y + (250 + 4 * 62 + 10 + 25) * box.height / 720);
+    await page.evaluate(() => window.game!.step(2));
+  };
+  const seen = [await kind()];
+  for (let k = 0; k < 3; k++) { await tapMode(); seen.push(await kind()); }
+  expect(seen).toEqual(['bankrupt', '30', '50', 'bankrupt']);
+  await tapMode(); await tapMode();                           // 50 rounds
+  await page.evaluate(() => { window.game!.press('Enter'); window.game!.step(5); });
+  expect(await page.evaluate(() => (window.game!.state as { maxRounds?: number }).maxRounds)).toBe(50);
+  expect(errors).toEqual([]);
+});

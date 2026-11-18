@@ -37,6 +37,7 @@
   "mortgage_pct": { "value": 0.5, "min": 0.1, "max": 1, "step": 0.05 },
   "unmortgage_pct": { "value": 0.55, "min": 0.1, "max": 1.5, "step": 0.05 },
   "max_rounds": { "value": 30, "min": 5, "max": 100, "step": 1 },
+  "max_rounds_long": { "value": 50, "min": 10, "max": 200, "step": 5 },
   "ai_delay": { "value": 0.7, "min": 0.1, "max": 3, "step": 0.1 },
   "ai_reserve_mid": { "value": 1200, "min": 0, "max": 6000, "step": 100 },
   "ai_reserve_hard": { "value": 800, "min": 0, "max": 6000, "step": 100 },

@@ -62,3 +62,4 @@ holds no comments. The values themselves are in `data/config.json`.
 - mood_gain: money coming in at once (in thousands of đồng) that makes a piece hop for joy
 - mood_loss: money paid at once (in thousands of đồng) that makes a piece shiver
 - `ai_hard_danger`, `ai_hard_buy_keep`, `ai_hard_build_keep`, `ai_hard_must_spare`, `ai_hard_unmortgage_spare`, `ai_hard_jail_tiles`: cách máy Khó giữ tiền, mua, xây, chuộc đất và giữ Thẻ Ra Tù. Bộ H1, chọn theo số đo: máy Khó thắng máy Dễ 67% ở kiểu phá sản (design/balance/self-play-2026-11-16.md)
+- `max_rounds_long`: vòng cuối của kiểu ván dài (50). `max_rounds` (30) là kiểu ván ngắn. Thêm 18/11/2026 theo yêu cầu: "Tới khi phá sản" quá dài, 20 vòng lại quá nhanh.

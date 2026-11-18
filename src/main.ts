@@ -166,7 +166,7 @@ function sendYou(id: number) {
 /** Host: the seats before a game, for the friends' waiting screen. */
 function sendLobby() {
   if (!isHost()) return;
-  net.toAll({ k: 'lobby', code: roomCode, mode: setup.mode, hostName: myName, seats: setup.seats.map(s => ({ ...s })), animals: [...setup.animals] });
+  net.toAll({ k: 'lobby', code: roomCode, mode: setup.mode, rounds: setup.rounds, hostName: myName, seats: setup.seats.map(s => ({ ...s })), animals: [...setup.animals] });
   for (const id of peers.keys()) sendYou(id);
 }
 
@@ -347,7 +347,7 @@ function restoreHostGame(code: string) {
   try { g = JSON.parse(store()?.getItem('tpdv-host-game') || 'null'); } catch { g = null; }
   if (!g || Date.now() - g.at > ROOM_MEMORY_MS || !g.state || !g.state.players) return;
   const sameRoom = g.code === code;
-  setup = g.setup; if (!Array.isArray(setup.animals) || setup.animals.length !== 4) setup.animals = [...DEFAULT_ANIMALS]; state = g.state; scene = g.scene === 'results' ? 'results' : 'play';
+  setup = g.setup; if (!Array.isArray(setup.animals) || setup.animals.length !== 4) setup.animals = [...DEFAULT_ANIMALS]; if (!setup.rounds) setup.rounds = tune.max_rounds; state = g.state; scene = g.scene === 'results' ? 'results' : 'play';
   state.vote = undefined; state.shaking = undefined;
   for (const p of state.players) if (p.kind === 'remote') {
     p.offline = true;
@@ -449,7 +449,13 @@ function drawVote() {
 
 
 // ---- Rules --------------------------------------------------------------------------
-let setup: { seats: Seat[]; mode: 'bankrupt' | 'rounds'; animals: number[] } = { seats: [{ kind: 'human' }, { kind: 'ai', lv: 1 }, { kind: 'ai', lv: 0 }, { kind: 'off' }], mode: 'bankrupt', animals: [...DEFAULT_ANIMALS] };
+let setup: { seats: Seat[]; mode: 'bankrupt' | 'rounds'; rounds: number; animals: number[] } = { seats: [{ kind: 'human' }, { kind: 'ai', lv: 1 }, { kind: 'ai', lv: 0 }, { kind: 'off' }], mode: 'bankrupt', rounds: tune.max_rounds, animals: [...DEFAULT_ANIMALS] };
+/** The kinds of game on the setup button, in turn: a short limited game, a long one, until one is left. */
+const GAME_KINDS = (): { mode: 'bankrupt' | 'rounds'; rounds: number }[] => [{ mode: 'rounds', rounds: tune.max_rounds }, { mode: 'rounds', rounds: tune.max_rounds_long }, { mode: 'bankrupt', rounds: tune.max_rounds }];
+/** This game's round limit: what the host chose, or the short one for a game saved before there was a choice. */
+const maxRounds = (): number => state.maxRounds ?? tune.max_rounds;
+/** The setup button's words for a kind of game. */
+function kindLabel(mode: string, rounds: number, long: boolean): string { return mode === 'rounds' ? (long ? `${rounds} vòng, giàu nhất thắng` : `${rounds} vòng`) : 'Tới khi phá sản'; }
 /** Gives seat i the next zodiac animal that no other seat has. */
 function nextAnimal(i: number) {
   const taken = setup.animals.filter((_, k) => k !== i);
@@ -486,13 +492,13 @@ function reset() {
     });
   });
   state = {
-    t: 0, score: 0, gained: '', players, cur: 0, round: 1, mode: setup.mode,
+    t: 0, score: 0, gained: '', players, cur: 0, round: 1, mode: setup.mode, maxRounds: setup.rounds,
     owner: Array(40).fill(-1), level: Array(40).fill(0), mort: Array(40).fill(false),
     phase: 'roll', timer: 0, dice: [3, 4], diceT: 9, rolledDouble: false, moveLeft: 0, moveDir: 1, hopT: 0,
     popup: null, debt: null, pick: 0, log: [], floaters: [], decks: { co: shuffled(16), kv: shuffled(16) }, used: { co: [], kv: [] },
     flash: { tile: -1, t: 0 }, ranking: null, turns: 0, pot: tune.pot_start,
   };
-  log(`Ván mới: ${players.length} người chơi, ${setup.mode === 'rounds' ? `${tune.max_rounds} vòng` : 'chơi tới khi phá sản'}.`);
+  log(`Ván mới: ${players.length} người chơi, ${setup.mode === 'rounds' ? `${setup.rounds} vòng` : 'chơi tới khi phá sản'}.`);
   if (tune.order_roll && players.length > 1) startOrder(); else startTurn();
 }
 
@@ -704,8 +710,8 @@ function nextTurn() {
   }
   if (i <= state.cur) {
     state.round++;
-    if (state.mode === 'rounds' && state.round > tune.max_rounds) { endGame(`Hết ${tune.max_rounds} vòng: ai giàu nhất thắng!`); return; }
-    if (state.mode === 'rounds' && state.round === tune.max_rounds) log('Vòng cuối cùng!');
+    if (state.mode === 'rounds' && state.round > maxRounds()) { endGame(`Hết ${maxRounds()} vòng: ai giàu nhất thắng!`); return; }
+    if (state.mode === 'rounds' && state.round === maxRounds()) log('Vòng cuối cùng!');
   }
   state.cur = i;
   startTurn();
@@ -1954,8 +1960,11 @@ function buildTitleUI() {
       sendLobby();
     }, 'seat', !locked);
   });
-  const roundsLabel = L.phone ? `${tune.max_rounds} vòng` : `${tune.max_rounds} vòng, giàu nhất thắng`;
-  btn(T.seatX, T.y0 + 4 * T.step + T.modeDy, T.seatW, T.seatH, setup.mode === 'rounds' ? roundsLabel : 'Tới khi phá sản', () => { setup.mode = setup.mode === 'rounds' ? 'bankrupt' : 'rounds'; sendLobby(); }, 'seat');
+  btn(T.seatX, T.y0 + 4 * T.step + T.modeDy, T.seatW, T.seatH, kindLabel(setup.mode, setup.rounds, !L.phone), () => {
+    const kinds = GAME_KINDS(), k = kinds.findIndex(x => x.mode === setup.mode && (x.mode === 'bankrupt' || x.rounds === setup.rounds));
+    const next = kinds[(k + 1) % kinds.length];
+    setup.mode = next.mode; setup.rounds = next.rounds; sendLobby();
+  }, 'seat');
   b4(T.start, L.phone ? 'Bắt đầu' : 'Bắt đầu (Enter)', startGame, 'primary', '#c8201f');
   if (isHost()) b4(T.online, `Giải tán phòng ${roomCode}`, leaveRoom, '', '#6a4a2a');
   else b4(T.online, 'Chơi online', () => showOnlinePanel(true), '', '#2b6cd6');
@@ -2082,8 +2091,8 @@ function drawTokenIcon(animal: number, x: number, y: number, s: number, color: s
 function drawPanel() {
   lacquer(PX, 0, PW, H);
   text('TỶ PHÚ ĐẤT VIỆT', PX + PW / 2 + 14, 30, 24, '#f2c44a', 'center', 'bold');
-  const roundTxt = state.mode === 'rounds' ? `Vòng ${Math.min(state.round, tune.max_rounds)} / ${tune.max_rounds}` : `Vòng ${state.round} · tới khi phá sản`;
-  if (roomCode) text(state.mode === 'rounds' ? `Vòng ${Math.min(state.round, tune.max_rounds)}/${tune.max_rounds}` : `Vòng ${state.round}`, PX + 24, 59, 16, '#e8d9b5', 'left');
+  const roundTxt = state.mode === 'rounds' ? `Vòng ${Math.min(state.round, maxRounds())} / ${maxRounds()}` : `Vòng ${state.round} · tới khi phá sản`;
+  if (roomCode) text(state.mode === 'rounds' ? `Vòng ${Math.min(state.round, maxRounds())}/${maxRounds()}` : `Vòng ${state.round}`, PX + 24, 59, 16, '#e8d9b5', 'left');
   else text(roundTxt, PX + PW / 2, 58, 16, '#e8d9b5');
   state.players.forEach((p, pi) => {
     const y = 76 + pi * 72, cur = pi === state.cur && state.phase !== 'over';
@@ -2299,7 +2308,7 @@ function phoneCard(pi: number): { x: number; y: number; w: number; h: number } {
 function drawPhoneChrome() {
   lacquer(0, 0, W, L.by);
   text('TỶ PHÚ ĐẤT VIỆT', 12, L.by / 2, 17, '#f2c44a', 'left', 'bold');
-  const roundTxt = state.mode === 'rounds' ? `Vòng ${Math.min(state.round, tune.max_rounds)}/${tune.max_rounds}` : `Vòng ${state.round}`;
+  const roundTxt = state.mode === 'rounds' ? `Vòng ${Math.min(state.round, maxRounds())}/${maxRounds()}` : `Vòng ${state.round}`;
   if (roomCode) { // in the gap between the rules pill and the room pill, smaller if it does not fit
     const r = rulesSpot(), left = r.x + r.w + 6, right = roomPill().x - 6;
     fitText(roundTxt, (left + right) / 2, L.by / 2, right - left, 15, '#e8d9b5', '');
@@ -2407,7 +2416,7 @@ function drawTitlePhone() {
   });
   const modeY = T.y0 + 4 * T.step + T.modeDy + T.seatH / 2;
   text('Kiểu ván', 64, modeY, 16, '#fff8e6', 'left', 'bold');
-  if (isGuest() && lobby) text(lobby.mode === 'rounds' ? `${tune.max_rounds} vòng` : 'Tới khi phá sản', T.seatX + T.seatW / 2, modeY, 15, '#fff8e6', 'center', 'bold');
+  if (isGuest() && lobby) text(kindLabel(lobby.mode, lobby.rounds ?? tune.max_rounds, false), T.seatX + T.seatW / 2, modeY, 15, '#fff8e6', 'center', 'bold');
   ui.forEach(drawButton);
   if (roomCode) {
     ctx.save(); ctx.fillStyle = '#5a2a1c'; rrect(ctx, 60, 712, W - 120, 96, 14); ctx.fill(); ctx.strokeStyle = '#f2c44a'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
@@ -2632,7 +2641,7 @@ function rulesHtml(): string {
     sec('Chuẩn bị', [
       '2 đến 4 người chơi. Mỗi chỗ ngồi là Người, Máy (Dễ, Vừa, Khó) hoặc Bạn online.',
       'Quân cờ là 12 con giáp, mỗi con một màu. Bấm vào con vật ở màn tạo ván để đổi; mỗi con chỉ một người dùng.',
-      `Kiểu ván: chơi tới khi phá sản, hoặc ${tune.max_rounds} vòng (hết vòng thì ai giàu nhất thắng).`,
+      `Kiểu ván: ${tune.max_rounds} vòng, ${tune.max_rounds_long} vòng (hết vòng thì ai giàu nhất thắng), hoặc chơi tới khi phá sản.`,
       `Mỗi người bắt đầu với ${money(tune.start_cash)} ở ô Xuất Phát.`,
       ...(tune.order_roll ? ['Đầu ván mỗi người tung xúc xắc một lần: <b>ai cao nhất đi trước, thấp nhất đi cuối</b>. Hòa điểm thì những người hòa tung lại.'] : []),
     ]),
@@ -2684,7 +2693,7 @@ function rulesHtml(): string {
     ]),
     sec('Kết thúc', [
       'Tới khi phá sản: người cuối cùng còn trụ lại thắng.',
-      `${tune.max_rounds} vòng: hết vòng ${tune.max_rounds} thì ai có tổng tài sản lớn nhất thắng (tiền mặt + giá đất, đất cầm cố tính nửa giá, + tiền đã xây).`,
+      `${tune.max_rounds} hoặc ${tune.max_rounds_long} vòng: hết vòng cuối thì ai có tổng tài sản lớn nhất thắng (tiền mặt + giá đất, đất cầm cố tính nửa giá, + tiền đã xây).`,
     ]),
     sec('Chơi online', [
       'Tạo phòng để nhận mã, bạn bè vào phòng bằng mã. Chủ phòng luôn ngồi ghế đầu tiên. Bạn bè tự bấm con vật của mình để chọn quân.',
@@ -2768,7 +2777,7 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
         ctx.strokeStyle = i === mySeat ? '#f2c44a' : '#6a4a2a'; ctx.lineWidth = i === mySeat ? 3 : 1; ctx.stroke(); ctx.restore();
         text(seatLabel(s, i) + (i === mySeat ? ' (bạn)' : ''), BW / 2 + 130, y + 26, 18, '#fff8e6', 'center', 'bold');
       });
-      if (isGuest() && lobby) text(lobby.mode === 'rounds' ? `${tune.max_rounds} vòng, giàu nhất thắng` : 'Tới khi phá sản', BW / 2 + 130, 250 + 4 * 62 + 35, 18, '#fff8e6', 'center', 'bold');
+      if (isGuest() && lobby) text(kindLabel(lobby.mode, lobby.rounds ?? tune.max_rounds, true), BW / 2 + 130, 250 + 4 * 62 + 35, 18, '#fff8e6', 'center', 'bold');
       seatsShown.forEach((s, i) => {
         const y = 250 + i * 62 + 25;
         drawSeatAnimal(i, BW / 2 - 300 + 40, y, 26, s);
@@ -2934,16 +2943,17 @@ install({
   get events() { return events; },
   /** For checks and the balance tools: the seats, the kind of game, the seed and tuning values for the next game, and
    * back to the title screen, where Enter starts it. */
-  configure(o: { seats?: Seat[]; mode?: 'bankrupt' | 'rounds'; seed?: number; tune?: Record<string, number> }) {
+  configure(o: { seats?: Seat[]; mode?: 'bankrupt' | 'rounds'; rounds?: number; seed?: number; tune?: Record<string, number> }) {
     for (const [k, v] of Object.entries(o.tune || {})) if (CONFIG[k] && typeof v === 'number') CONFIG[k].value = v; // try other values
     if (o.seats) setup.seats = o.seats.map(x => ({ ...x }));
     if (o.mode) setup.mode = o.mode;
+    if (o.rounds) setup.rounds = o.rounds;
     if (o.seed !== undefined) checkSeed = o.seed;
     scene = 'title'; clearVis();
   },
   get view() { return { inspect }; },
   get online() {
-    return { role: net.getRole(), code: roomCode, mySeat, seats: isGuest() ? lobby?.seats ?? null : setup.seats, animals: isGuest() ? lobby?.animals ?? null : setup.animals };
+    return { role: net.getRole(), code: roomCode, mySeat, seats: isGuest() ? lobby?.seats ?? null : setup.seats, animals: isGuest() ? lobby?.animals ?? null : setup.animals, mode: isGuest() ? lobby?.mode ?? null : setup.mode, rounds: isGuest() ? lobby?.rounds ?? null : setup.rounds };
   },
   step(n = 1, draw = true, alpha = 1) {
     for (let i = 0; i < n; i++) step();

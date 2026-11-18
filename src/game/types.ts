@@ -96,6 +96,8 @@ export interface GameState {
   cur: number;
   round: number;
   mode: 'bankrupt' | 'rounds';
+  /** A limited game's last round (30 or 50); absent in games saved before there was a choice. */
+  maxRounds?: number;
   /** Every log line of the game with its round, "V3: ...", for the history page (kept on the host). */
   history?: string[];
   /** Quick emotes showing over the pieces online: seat, which one, its age in seconds, a unique id. */

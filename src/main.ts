@@ -1300,15 +1300,20 @@ function boardTexture() {
       const top = tz + 14 + nameSize / 2;
       lines.forEach((ln, j) => c.fillText(ln, cx, top + j * (nameSize + 2)));
       const priceY = tz + th - 30, nameBottom = top + (lines.length - 1) * (nameSize + 2) + nameSize / 2;
-      const iconS = Math.min(tw * 0.55, priceY - 26 - nameBottom - 6), iconY = (nameBottom + priceY - 22) / 2 + 2;
+      const twoLine = t.t === 'tax' && t.kind === 'prop', priceTop = twoLine ? priceY - 44 : priceY; // Thuế Tài Sản: "10%" over "tối đa 2 tr"
+      const iconS = Math.min(tw * 0.55, priceTop - 26 - nameBottom - 6), iconY = (nameBottom + priceTop - 22) / 2 + 2;
       if (t.t === 'co') icon.lantern(c, cx, iconY, iconS);
       if (t.t === 'kv') icon.envelope(c, cx, iconY, iconS);
-      if (t.t === 'tax') { icon.coins(c, cx, iconY, iconS); }
+      if (t.t === 'tax' && iconS > 12) { icon.coins(c, cx, iconY, iconS); } // no room for the coins under two lines of words
       if (TILE_ICON[t.icon!]) (icon as Loose)[TILE_ICON[t.icon!]](c, cx, iconY, iconS);
       c.fillStyle = '#3a2416';
       let price = '';
       if (t.p) price = (t.p / 1000).toLocaleString('vi-VN', { maximumFractionDigits: 1 }) + ' tr';
-      if (t.t === 'tax') price = t.kind === 'income' ? `Trả ${(tune.income_tax / 1000).toLocaleString('vi-VN')} tr` : `${Math.round(tune.prop_tax_pct * 100)}%, tối đa ${(tune.prop_tax_flat / 1000).toLocaleString('vi-VN')} tr`;
+      if (t.t === 'tax' && t.kind === 'income') price = `Trả ${(tune.income_tax / 1000).toLocaleString('vi-VN')} tr`;
+      if (twoLine) { // two short lines read at a glance, where one long line shrank to a whisper
+        fitFont(`${Math.round(tune.prop_tax_pct * 100)}%`, 46, tw * 0.92); c.fillText(`${Math.round(tune.prop_tax_pct * 100)}%`, cx, priceTop);
+        price = `tối đa ${(tune.prop_tax_flat / 1000).toLocaleString('vi-VN')} tr`;
+      }
       if (price) { fitFont(price, 40, tw * 0.92); c.fillText(price, cx, priceY); }
     }
     c.strokeStyle = '#3a2416'; c.lineWidth = 10; c.strokeRect(5, 5, S - 10, S - 10);

@@ -17,14 +17,14 @@ const P = (n: string, g: number, p: number, lm: string, lk: string): Tile => ({ 
 export const TILES: Tile[] = [
   { t: 'go', n: 'Xuất Phát' },
   P('Hà Giang', 0, 600, 'Cột cờ Lũng Cú', 'cotco'),
-  P('Cao Bằng', 0, 600, 'Thác Bản Giốc', 'thac'),
   { t: 'kv', n: 'Khí Vận' },
-  P('Lào Cai', 1, 1000, 'Đỉnh Fansipan', 'nui'),
-  { t: 'port', n: 'Cảng Hải Phòng', icon: 'ship', p: 2000 },
-  P('Hạ Long', 1, 1000, 'Hòn Trống Mái', 'dao'),
-  { t: 'co', n: 'Cơ Hội' },
-  P('Ninh Bình', 1, 1200, 'Chùa Bái Đính', 'baidinh'),
+  P('Cao Bằng', 0, 600, 'Thác Bản Giốc', 'thac'),
   { t: 'tax', n: 'Thuế Tài Sản', kind: 'prop' },
+  { t: 'port', n: 'Cảng Hải Phòng', icon: 'ship', p: 2000 },
+  P('Lào Cai', 1, 1000, 'Đỉnh Fansipan', 'nui'),
+  { t: 'co', n: 'Cơ Hội' },
+  P('Hạ Long', 1, 1000, 'Hòn Trống Mái', 'dao'),
+  P('Ninh Bình', 1, 1200, 'Chùa Bái Đính', 'baidinh'),
   { t: 'jail', n: 'Nhà Tù' },
   P('Bắc Ninh', 2, 1400, 'Chùa Phật Tích', 'phattich'),
   P('Nam Định', 2, 1400, 'Tháp Phổ Minh', 'thap'),
@@ -37,8 +37,8 @@ export const TILES: Tile[] = [
   P('Quảng Bình', 3, 2000, 'Núi Phong Nha', 'phongnha'),
   { t: 'free', n: 'Bến Đỗ Tự Do' },
   P('Huế', 4, 2200, 'Ngọ Môn', 'cong'),
-  P('Hội An', 4, 2200, 'Chùa Cầu', 'chuacau'),
   { t: 'co', n: 'Cơ Hội' },
+  P('Hội An', 4, 2200, 'Chùa Cầu', 'chuacau'),
   P('Đà Nẵng', 4, 2400, 'Cầu Rồng', 'cau'),
   { t: 'port', n: 'Cảng Cam Ranh', icon: 'ship', p: 2000 },
   P('Quy Nhơn', 5, 2600, 'Tháp Đôi', 'thapdoi'),
@@ -47,8 +47,8 @@ export const TILES: Tile[] = [
   P('Đà Lạt', 5, 2800, 'Ga Đà Lạt', 'gadalat'),
   { t: 'gojail', n: 'Đi Tù' },
   P('Long An', 6, 3000, 'Tháp cổ Bình Tả', 'binhta'),
-  { t: 'kv', n: 'Khí Vận' },
   P('Cần Thơ', 6, 3000, 'Cầu Cần Thơ', 'caucantho'),
+  { t: 'kv', n: 'Khí Vận' },
   P('Vũng Tàu', 6, 3200, 'Hải đăng Vũng Tàu', 'vungtau'),
   { t: 'port', n: 'Sân bay Tân Sơn Nhất', b: 'Tân Sơn Nhất', icon: 'plane', p: 2000 },
   { t: 'co', n: 'Cơ Hội' },
@@ -76,13 +76,15 @@ export const DEFAULT_ANIMALS = [1, 3, 8, 10];
 export const AI_LEVELS = ['Dễ', 'Vừa', 'Khó'];
 
 // Cards: Cơ Hội moves you around; Khí Vận (a red lì xì envelope) is mostly money.
+/** The board index of a named tile, for the cards that send a player there. */
+const at = (name: string): number => { const i = TILES.findIndex(t => t.n === name); if (i < 0) throw new Error(`no tile ${name}`); return i; };
 export const CARDS: Record<DeckKind, Card[]> = {
   co: [
     { txt: 'Đi tới Xuất Phát. Nhận lương!', act: 'move', to: 0 },
-    { txt: 'Bay ra Phú Quốc nghỉ dưỡng.', act: 'move', to: 37 },
-    { txt: 'Đi tàu ra Hà Nội ăn phở.', act: 'move', to: 14 },
-    { txt: 'Ghé Hội An thả đèn hoa đăng.', act: 'move', to: 22 },
-    { txt: 'Lên Đà Nẵng ngắm Cầu Rồng phun lửa.', act: 'move', to: 24 },
+    { txt: 'Bay ra Phú Quốc nghỉ dưỡng.', act: 'move', to: at('Phú Quốc') },
+    { txt: 'Đi tàu ra Hà Nội ăn phở.', act: 'move', to: at('Hà Nội') },
+    { txt: 'Ghé Hội An thả đèn hoa đăng.', act: 'move', to: at('Hội An') },
+    { txt: 'Lên Đà Nẵng ngắm Cầu Rồng phun lửa.', act: 'move', to: at('Đà Nẵng') },
     { txt: 'Đi tới bến cảng hoặc sân bay gần nhất.', act: 'nearport' },
     { txt: 'Quên ví ở quán cà phê: lùi lại 3 ô.', act: 'back', v: 3 },
     { txt: 'Vượt đèn đỏ bị bắt! Vào thẳng Nhà Tù. Lần qua Xuất Phát tới không được nhận lương (trừ khi ra tù bằng Thẻ Ra Tù).', act: 'jail' },

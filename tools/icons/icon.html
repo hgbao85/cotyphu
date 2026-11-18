@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Icons</title>
+<style> html, body { margin: 0; background: transparent; } canvas { display: block; } </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script type="module">
+// The app icons and the link preview image, drawn with the game's own animal faces and font, so they
+// match the chibi look. tools/icons/render.mjs opens this page on the Vite dev server for each picture
+// (?kind=icon|maskable|og&size=N) and saves the canvas as a PNG into public/.
+import '@fontsource/baloo-2/latin-700.css';
+import '@fontsource/baloo-2/vietnamese-700.css';
+import { drawAnimalIcon } from '/src/animals.ts';
+import { ANIMALS } from '/src/game/data.ts';
+
+const q = new URLSearchParams(location.search), kind = q.get('kind') || 'icon';
+const W = kind === 'og' ? 1200 : Number(q.get('size') || 512), H = kind === 'og' ? 630 : W;
+const cv = document.getElementById('c'); cv.width = W; cv.height = H;
+const c = cv.getContext('2d');
+await document.fonts.load('700 40px "Baloo 2"', 'Tỷ Phú Đất Việt');
+
+/** Sky on top, water below: the chibi look's backdrop. */
+function sky(x, y, w, h) {
+  const g = c.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, '#d6f0fa'); g.addColorStop(1, '#8fd0e8');
+  c.fillStyle = g; c.fillRect(x, y, w, h);
+}
+/** The grass island: an earth rim under a rounded green top, with a few tufts. */
+function island(cx, cy, rx, ry) {
+  c.fillStyle = '#c08a5a'; c.beginPath(); c.ellipse(cx, cy + ry * 0.35, rx, ry, 0, 0, 7); c.fill();
+  c.fillStyle = '#86c95e'; c.beginPath(); c.ellipse(cx, cy, rx, ry, 0, 0, 7); c.fill();
+  c.fillStyle = '#6fb84e';
+  for (const [dx, dy] of [[-0.7, -0.1], [-0.45, 0.35], [0.55, 0.25], [0.75, -0.15], [0.1, 0.5]]) {
+    c.beginPath(); c.ellipse(cx + dx * rx, cy + dy * ry, rx * 0.04, ry * 0.18, dx, 0, 7); c.fill();
+  }
+}
+/** The ×2 coin of the board, gold with a brown rim. */
+function coin(x, y, r) {
+  const g = c.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.1, x, y, r);
+  g.addColorStop(0, '#fff2b0'); g.addColorStop(0.55, '#f2c44a'); g.addColorStop(1, '#b8861e');
+  c.fillStyle = '#5a2a1c'; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill();
+  c.fillStyle = g; c.beginPath(); c.arc(x, y, r * 0.86, 0, 7); c.fill();
+  c.fillStyle = '#5a2a1c'; c.font = `700 ${Math.round(r * 0.9)}px "Baloo 2"`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('đ', x, y + r * 0.08);
+}
+/** An animal's head with a white ring behind it, smiling. */
+function face(a, x, y, s) {
+  c.fillStyle = '#ffffff'; c.beginPath(); c.arc(x, y, s * 0.5, 0, 7); c.fill();
+  drawAnimalIcon(c, a, x, y + s * 0.03, s * 0.92, ANIMALS[a].color, 'happy');
+}
+
+if (kind === 'og') { // the link preview: the island with four animals, the name, a line on what it is
+  sky(0, 0, W, H);
+  island(W / 2, 470, 520, 120);
+  [1, 3, 8, 10].forEach((a, k) => face(a, 330 + k * 180, 430 - (k % 2) * 22, 150));
+  coin(170, 120, 54); coin(1040, 150, 40);
+  c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.font = '700 104px "Baloo 2"'; c.lineWidth = 16; c.strokeStyle = '#ffffff'; c.strokeText('Tỷ Phú Đất Việt', W / 2, 150);
+  c.fillStyle = '#d9622b'; c.fillText('Tỷ Phú Đất Việt', W / 2, 150);
+  c.font = '700 40px "Baloo 2"'; c.fillStyle = '#4a3020'; c.fillText('Cờ tỷ phú trên bản đồ Việt Nam · chơi online với bạn bè', W / 2, 250);
+} else { // an app icon: the buffalo on its island under the sky; "maskable" keeps it all in the middle 80%
+  const pad = kind === 'maskable' ? 0 : W * 0.06, r = kind === 'maskable' ? 0 : W * 0.2;
+  c.save(); c.beginPath(); c.roundRect(pad, pad, W - 2 * pad, H - 2 * pad, r); c.clip();
+  sky(0, 0, W, H);
+  const k = kind === 'maskable' ? 0.78 : 0.94; // the safe zone of a maskable icon
+  c.translate(W / 2, H / 2); c.scale(k, k); c.translate(-W / 2, -H / 2);
+  island(W / 2, H * 0.78, W * 0.42, H * 0.12);
+  coin(W * 0.74, H * 0.27, W * 0.11);
+  face(1, W / 2, H * 0.5, W * 0.56);
+  c.restore();
+}
+document.title = 'ready';
+</script>
+</body>
+</html>

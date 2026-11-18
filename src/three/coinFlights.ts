@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { state } from '../core/store';
 import { BOARD_TOP } from '../game/board';
 import { canvasTex } from './materials';
+import { prefs } from '../core/prefs';
 
 /** How long a flight lasts from the first coin leaving to the last one landing (seconds). */
 export const FLIGHT_TIME = 1.2;
@@ -34,7 +35,7 @@ export function buildFlights(scene: THREE.Scene): void {
  */
 export function stepFlights(seatAt: (k: number) => { x: number; y: number; z: number } | undefined, jarAt: { x: number; y: number; z: number }): void {
   let used = 0;
-  for (const f of state.flights || []) {
+  for (const f of prefs.effects ? state.flights || [] : []) { // effects off: no coins fly
     const a = f.from < 0 ? jarAt : seatAt(f.from), b = f.to < 0 ? jarAt : seatAt(f.to);
     if (!a || !b) continue;
     for (let j = 0; j < COINS && used < POOL; j++) {

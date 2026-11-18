@@ -15,6 +15,7 @@ if (location.protocol.startsWith('http') && !import.meta.env.DEV) {
   const add = (rel: string, href: string) => { const l = document.createElement('link'); l.rel = rel; l.href = href; document.head.appendChild(l); };
   add('manifest', './manifest.webmanifest');
   add('apple-touch-icon', './icons/apple-touch-icon.png');
+  add('icon', './icons/icon-192.png'); // the tab's icon
   for (const [name, content] of [['apple-mobile-web-app-capable', 'yes'], ['mobile-web-app-capable', 'yes'], ['apple-mobile-web-app-title', 'Tỷ Phú'], ['apple-mobile-web-app-status-bar-style', 'black-translucent']]) {
     const m = document.createElement('meta'); m.name = name; m.content = content; document.head.appendChild(m);
   }
@@ -37,6 +38,10 @@ async function keepAwake() {
 setInterval(keepAwake, 2000);
 document.addEventListener('visibilitychange', () => { keepAwake(); });
 
+/** Where the title screen's settings button sits: the phone's top-left corner, or the panel's top left. */
+export function settingsSpot(): { x: number; y: number; w: number; h: number } {
+  return L.phone ? { x: 12, y: 6, w: 84, h: 30 } : { x: PX + 16, y: 28, w: 84, h: 32 };
+}
 /** Where the rules button sits: the title's corner, the panel's top, or the phone's header. */
 export function rulesSpot(): { x: number; y: number; w: number; h: number } {
   if (scene === 'title') return L.phone ? { x: W - 92, y: 6, w: 80, h: 30 } : { x: PX + PW - 104, y: 28, w: 84, h: 32 };

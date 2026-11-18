@@ -6,10 +6,8 @@ import { params } from '../hook';
 
 /** True when the little-village look is on. */
 export const CHIBI = params.get('theme') !== 'lacquer';
-if (CHIBI) { // the page's own panels (index.html: online, chat, rules) and the phone's status bar
-  document.documentElement.classList.add('chibi');
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#bfe6f5');
-}
+if (CHIBI) document.documentElement.classList.add('chibi'); // the page's own panels (index.html: online, chat, rules)
+else document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#1d120c'); // the phone's status bar
 
 /** The 2D screens' colours in the chibi look: every dark lacquer fill becomes a light pastel and
  * every light word a dark brown, so the screens keep their layout and only their colours turn. */

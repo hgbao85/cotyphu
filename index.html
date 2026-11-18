@@ -3,9 +3,21 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#1d120c">
+<meta name="theme-color" content="#bfe6f5">
 <meta name="color-scheme" content="only light"> <!-- the game draws its own colours: a phone's "dark mode for every site" must not darken its panels -->
 <title>Tỷ Phú Đất Việt</title>
+<!-- The link preview (Messenger, Zalo, Facebook): read without running the page, so it is written here.
+     The image needs a whole address: the game's home on Render. tools/icons/render.mjs draws it. -->
+<meta name="description" content="Cờ tỷ phú trên bản đồ Việt Nam: chơi một máy hoặc online với bạn bè.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Tỷ Phú Đất Việt">
+<meta property="og:description" content="Cờ tỷ phú trên bản đồ Việt Nam: chơi một máy hoặc online với bạn bè.">
+<meta property="og:url" content="https://ty-phu-dat-viet-oizq.onrender.com/">
+<meta property="og:image" content="https://ty-phu-dat-viet-oizq.onrender.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="vi_VN">
+<meta name="twitter:card" content="summary_large_image">
 <style>
   :root { color-scheme: only light; }
   html, body { margin: 0; height: 100%; background: #1d120c; overflow: hidden; }
@@ -41,6 +53,15 @@
   #rules li { margin: 3px 0; }
   #rules b { color: #ffe9a8; }
   #rules .ru-close { margin-top: 12px; padding: 12px; font-size: 18px; font-weight: bold; border-radius: 12px; border: 2px solid #f2c44a; background: #6a4a2a; color: #fff8e6; cursor: pointer; }
+  /* The settings panel, inside the reading panel (src/ui/settings.ts) */
+  #rules .st-row { margin: 6px 0 18px; }
+  #rules .st-label { font-size: 18px; font-weight: bold; margin-bottom: 8px; display: flex; justify-content: space-between; }
+  #rules input[type=range] { width: 100%; height: 28px; accent-color: #d9622b; }
+  #rules .st-two { display: flex; gap: 10px; }
+  #rules .st-two button { flex: 1; padding: 12px; font-size: 17px; font-weight: bold; border-radius: 12px; border: 2px solid #c9a24a; background: transparent; color: inherit; cursor: pointer; font-family: inherit; }
+  #rules .st-two button.on { background: #c8201f; color: #fff8e6; }
+  html.chibi #rules .st-two button { border-color: #e8a86a; } html.chibi #rules .st-two button.on { background: #ff9a76; color: #4a3020; }
+  #rules .st-note { margin: 6px 0 0; font-size: 14px; opacity: 0.8; }
   #online #op-error { min-height: 1.2em; margin: 0 0 8px; color: #ff9a8a; font-size: 15px; text-align: center; }
   /* The chibi look (the default; src/core/theme.ts sets html.chibi): cream cards, dark brown words, pastel buttons */
   html.chibi, html.chibi body { background: #bfe6f5; }

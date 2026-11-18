@@ -92,7 +92,7 @@ function rulesHtml(): string {
     ]),
     sec('Mẹo', [
       'Bấm vào một ô bất kỳ trên bàn cờ để xem thông tin ô đó.',
-      'Nhấn M (hoặc nút loa) để tắt hay bật tiếng.',
+      'Nút loa (hay nút Cài đặt ở màn tạo ván): chỉnh âm lượng, bật tắt hiệu ứng. Phím M: tắt hay bật tiếng.',
       'Nút Lịch sử: xem lại mọi diễn biến của ván, theo vòng.',
       'Chơi online: nút Biểu cảm gửi một câu nhanh, hiện trên quân của bạn cho cả phòng thấy.',
     ]),
@@ -110,6 +110,12 @@ function showPage(title: string, html: string) {
   (rulesPanel!.querySelector('.ru-body') as HTMLElement).innerHTML = html;
   rulesPanel!.style.display = 'flex';
   (rulesPanel!.querySelector('.ru-body') as HTMLElement).scrollTop = 0;
+}
+/** Opens the reading page with a title and HTML, and gives back its body so the caller can wire up
+ * the controls in it (the settings panel). */
+export function openPage(title: string, html: string): HTMLElement {
+  showPage(title, html);
+  return rulesPanel!.querySelector('.ru-body') as HTMLElement;
 }
 function hidePage() { if (rulesPanel) rulesPanel.style.display = 'none'; }
 function pagePanel() {

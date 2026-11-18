@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { BOARD_TOP, L as BOARD_SIZE } from '../game/board';
 import { canvasTex } from './materials';
+import { prefs } from '../core/prefs';
 
 const soft = (color: number, rough = 0.85) => new THREE.MeshStandardMaterial({ color, roughness: rough });
 /** Where the pond sits in the field (world units), and its size: in the lower half, under the buttons. */
@@ -79,6 +80,7 @@ export function buildVillage(scene: THREE.Scene): void {
 
 /** Moves the village one step: the ducks swim round the pond, the water ripples. */
 export function villageStep(dt: number, t: number): void {
+  if (!prefs.effects) return; // effects off: the ducks rest and the water lies still
   for (const d of ducks) {
     d.a += d.speed * dt;
     d.g.position.x = POND.x + Math.cos(d.a) * d.r; d.g.position.z = POND.z + Math.sin(d.a) * d.r * 0.8;

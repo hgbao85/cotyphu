@@ -12,6 +12,7 @@ import { rawSfx } from '../net/room';
 
 import { tokAnim } from '../three/scene3d';
 import { canvasTex } from './materials';
+import { prefs } from '../core/prefs';
 
 // ---- The pieces' moods ---------------------------------------------------------------------------
 // Every screen works them out from the state it sees, so a friend online sees the same: a piece
@@ -57,7 +58,7 @@ export function applyMood(inner: THREE.Object3D | undefined, p: Player) {
   }
   else if (cur && !moving && (state.phase === 'roll' || state.phase === 'order')) y = Math.abs(Math.sin(animT * 4.5)) * 0.06;
   if (cur && state.shaking) roll = 0.14 * Math.sin(animT * 32);
-  const m = moods[k];
+  const m = prefs.effects ? moods[k] : null; // effects off: no hops, bows or spins
   if (m && !moving) {
     const u = Math.min(1, m.t / MOOD_TIME[m.kind]);
     if (m.kind === 'happy') {
@@ -74,6 +75,7 @@ export function applyMood(inner: THREE.Object3D | undefined, p: Player) {
   if (scene === 'results' && champ && (champ === p || (state.teams && champ.team === p.team))) { // the winner (a whole team) dances
     y = Math.abs(Math.sin(animT * 3.6)) * 0.22; spin = Math.sin(animT * 1.8) * 0.9; tilt = 0;
   }
+  if (!prefs.effects) { y = 0; spin = 0; roll = 0; sx = 1; sy = p.inJail ? 0.92 : 1; pitch = p.inJail ? 0.3 : 0; } // still, but a jailed piece still hangs its head
   inner.position.y = y; inner.rotation.set(roll + pitch, spin, tilt); inner.scale.set(sx, sy, sx);
   sleepZs(inner.parent, p);
 }
@@ -90,7 +92,7 @@ function sleepZs(outer: THREE.Object3D | null, p: Player) {
     zSprites.set(outer, zs);
   }
   zs.forEach((s, j) => {
-    s.visible = p.inJail && !p.bankrupt;
+    s.visible = p.inJail && !p.bankrupt && prefs.effects;
     if (!s.visible) return;
     const u = (animT * 0.45 + j * 0.5) % 1; // each Z: rises 1.5 s, then the next
     s.position.set(outer.position.x + 0.15 + u * 0.25, outer.position.y + 0.75 + u * 0.55, outer.position.z);

@@ -2,6 +2,7 @@
 // synthesised tone, so the game ships no sound files.
 import { tune } from './config';
 import { audioContext } from './hook';
+import { prefs } from './core/prefs';
 
 let audio: { ac: AudioContext; out: GainNode } | null = null;
 let muted = false;
@@ -15,7 +16,7 @@ export function isMuted(): boolean {
 export function startAudio(): void {
   if (!audio) {
     const ac = audioContext(); // a check may inject one
-    const out = ac.createGain(); out.gain.value = muted ? 0 : tune.volume;
+    const out = ac.createGain(); out.gain.value = muted ? 0 : volume();
     out.connect(ac.destination); audio = { ac, out };
   }
   if (audio.ac.state === 'suspended') audio.ac.resume();
@@ -24,8 +25,10 @@ export function startAudio(): void {
 /** Turns the sound off or on. */
 export function setMuted(m: boolean): void {
   muted = m;
-  if (audio) audio.out.gain.value = m ? 0 : tune.volume;
+  if (audio) audio.out.gain.value = m ? 0 : volume();
 }
+/** The volume now: the player's own from the settings, else the game's (data/config.json). */
+export const volume = (): number => prefs.volume ?? tune.volume;
 addEventListener('tune', () => setMuted(muted)); // the tweak panel moved a value: the volume follows
 
 /** One tone: freq Hz for dur seconds, starting delay seconds from now. */

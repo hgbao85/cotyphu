@@ -34,8 +34,10 @@ import { moodStep } from './three/moods';
 import { confetti, partyAnimals } from './ui/celebrate';
 import { FLIGHT_TIME } from './three/coinFlights';
 import { buildToolbar, buildPhoneHistory, buildEmoteMenu, drawEmotes, drawEmoteMenu } from './ui/toolbar';
-import { rulesSpot } from './app/install';
+import { rulesSpot, settingsSpot } from './app/install';
 import { CHECKED } from './core/env';
+import { openSettings } from './ui/settings';
+import { prefs } from './core/prefs';
 import { CHIBI } from './core/theme';
 import '@fontsource/baloo-2/latin-400.css'; // Baloo 2 for the chibi look: Latin and Vietnamese, regular and bold (about 50 KB)
 import '@fontsource/baloo-2/vietnamese-400.css';
@@ -144,7 +146,7 @@ function buildUI() {
     return;
   }
   if (scene !== 'play') return;
-  btn(W - 52, 12, 40, 34, '', () => setMuted(!muted()), 'mute');
+  btn(W - 52, 12, 40, 34, '', openSettings, 'mute'); // the speaker opens the settings (M still mutes)
   { const r = rulesSpot(); btn(r.x, r.y, r.w, r.h, 'Luật', () => showRules(true), 'room'); }
   const speedOn = !isGuest() && state.players.some(p => p.kind !== 'human');
   if (speedOn && !L.phone) { const r = speedSpot(); btn(r.x, r.y, r.w, r.h, `×${gameSpeed}`, cycleSpeed, 'room'); }
@@ -295,7 +297,7 @@ export function drawSeatAnimal(i: number, x: number, y: number, r: number, s: Se
  * paw (a seat nobody plays sits still and faded). A gold mark when a tap changes the animal. */
 function waveOnGrass(a: number, i: number, x: number, y: number, r: number, off: boolean, pick: boolean) {
   const color = ANIMALS[a].color, t = state?.t ?? performance.now() / 1000, ph = i * 1.4;
-  const bob = off ? 0 : Math.abs(Math.sin(t * 2.4 + ph)) * r * 0.08;
+  const still = off || !prefs.effects, bob = still ? 0 : Math.abs(Math.sin(t * 2.4 + ph)) * r * 0.08;
   ctx.save(); ctx.globalAlpha = off ? 0.45 : 1;
   ctx.fillStyle = '#8fcf68'; ctx.beginPath(); ctx.ellipse(x, y + r * 0.88, r * 1.05, r * 0.26, 0, 0, 7); ctx.fill(); // the grass mound
   ctx.fillStyle = '#6fb84e'; for (const dx of [-0.7, -0.35, 0.5, 0.8]) { ctx.beginPath(); ctx.ellipse(x + dx * r, y + r * 0.78, r * 0.07, r * 0.16, dx, 0, 7); ctx.fill(); }
@@ -303,7 +305,7 @@ function waveOnGrass(a: number, i: number, x: number, y: number, r: number, off:
   ctx.fillStyle = color; ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = Math.max(1, r * 0.06);
   ctx.beginPath(); ctx.ellipse(x, by, r * 0.5, r * 0.38, 0, 0, 7); ctx.fill(); ctx.stroke();
   drawTokenIcon(a, x, y - r * 0.28 - bob, r * 1.45, color, off ? undefined : 'happy');
-  const wave = off ? 0.3 : 0.5 + 0.55 * Math.sin(t * 7 + ph); // one paw raised and waving hello
+  const wave = still ? 0.3 : 0.5 + 0.55 * Math.sin(t * 7 + ph); // one paw raised and waving hello
   ctx.save(); ctx.translate(x + r * 0.45, by - r * 0.1); ctx.rotate(-0.55 - wave * 0.6); // out beside the head, so the wave shows
   ctx.beginPath(); ctx.ellipse(r * 0.42, 0, r * 0.4, r * 0.13, 0, 0, 7); ctx.fill(); ctx.stroke();
   ctx.beginPath(); ctx.arc(r * 0.82, 0, r * 0.16, 0, 7); ctx.fill(); ctx.stroke(); ctx.restore();
@@ -322,6 +324,7 @@ function buildTitleUI() {
     btn(anchor.x, anchor.y, anchor.w, anchor.h, '', () => openAnimalPicker(i, anchor), 'hidden');
   });
   { const r = rulesSpot(); btn(r.x, r.y, r.w, r.h, 'Luật chơi', () => showRules(true), 'room'); }
+  { const r = settingsSpot(); btn(r.x, r.y, r.w, r.h, 'Cài đặt', openSettings, 'room'); }
   const b4 = (r: number[], label: string, fn: () => void, role: string, color: string) => btn(r[0], r[1], r[2], r[3], label, fn, role, true, color);
   if (isGuest()) { b4(T.leave, 'Rời phòng', leaveRoom, 'secondary', '#6a4a2a'); buildPicker(); return; }
   setup.seats.forEach((s, i) => {

@@ -25,6 +25,7 @@ import { L, hoverTile } from '../main';
 import { applyMood } from './moods';
 import { CHEAP } from '../core/env';
 import { CHIBI } from '../core/theme';
+import { prefs } from '../core/prefs';
 import { buildVillage, villageStep } from './village';
 import { buildFlights, stepFlights } from './coinFlights';
 import { sfx } from '../audio';
@@ -219,7 +220,7 @@ function syncCoins(dt: number) {
     if (on !== !!coinOn[i]) {
       coinOn[i] = on;
       const g = TILES[i].g!;
-      if (on && !fresh) { coinT[i] = -(order[g] = (order[g] ?? -1) + 1) * COIN_STAGGER; if (!rang[g] && !isGuest()) { sfx.landmark(); rang[g] = true; } } else coinT[i] = COIN_POP; // the host's gong reaches friends online
+      if (on && !fresh && prefs.effects) { coinT[i] = -(order[g] = (order[g] ?? -1) + 1) * COIN_STAGGER; if (!rang[g] && !isGuest()) { sfx.landmark(); rang[g] = true; } } else coinT[i] = COIN_POP; // the host's gong reaches friends online
     }
     c.visible = on && coinT[i] >= 0;
     if (!on) continue;

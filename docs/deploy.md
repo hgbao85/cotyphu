@@ -52,6 +52,6 @@ Vercel không giữ được kết nối WebSocket nên không chạy được m
 1. Vào <https://vercel.com>, đăng nhập bằng **GitHub** (tài khoản sở hữu repo này).
 2. **Add New…** → **Project** → chọn repo `cotyphu` → **Import**. Vercel đọc `vercel.json` (build `npm run build`, thư mục `dist`); để nguyên các mục khác.
 3. Bấm **Deploy**. Từ đó mỗi lần push lên `main`, Vercel tự build lại.
-4. Lấy địa chỉ Vercel đưa (ví dụ `su-thay.vercel.app`) và sửa trong `index.html` hai thẻ `og:url` và `og:image`, để ảnh xem trước khi chia sẻ link lấy từ trang không ngủ.
+4. Lấy địa chỉ Vercel đưa và sửa trong `index.html` hai thẻ `og:url` và `og:image`, để ảnh xem trước khi chia sẻ link lấy từ trang không ngủ. Hiện là <https://suthay.vercel.app/>.
 5. Gửi địa chỉ Vercel cho bạn bè thay cho địa chỉ Render.
 

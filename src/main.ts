@@ -577,6 +577,7 @@ install({
   press(code: string) { hit.add(code); },
   hold(code: string, on: boolean) { if (on) down.add(code); else down.delete(code); },
   get events() { return events; },
+  get render() { const r = renderer?.info.render, c = renderer?.domElement; return { calls: r?.calls, triangles: r?.triangles, px: c ? c.width * c.height : 0, shadows: renderer?.shadowMap.enabled }; },
   /** For checks and the balance tools: the seats, the kind of game, the seed and tuning values for the next game, and
    * back to the title screen, where Enter starts it. */
   configure(o: { seats?: Seat[]; mode?: 'bankrupt' | 'rounds'; rounds?: number; teams?: boolean; teamOf?: number[]; seed?: number; tune?: Record<string, number> }) {

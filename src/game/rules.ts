@@ -7,8 +7,16 @@ import type { GameState, Player } from './types';
 
 /** Money as players read it: thousands of đồng in, "1.500.000 đ" out. */
 export function money(k: number): string {
-  return (Math.round(k) * 1000).toLocaleString('vi-VN') + ' đ';
+  const n = Math.round(k);
+  let s = moneyCache.get(n);
+  if (s === undefined) { // formatting is slow and the same sums show every frame: keep the last few hundred
+    s = VND.format(n * 1000) + ' đ';
+    if (moneyCache.size > 500) moneyCache.clear();
+    moneyCache.set(n, s);
+  }
+  return s;
 }
+const VND = new Intl.NumberFormat('vi-VN'), moneyCache = new Map<number, string>();
 
 /** The tiles player pi owns, in board order. */
 export function owned(s: GameState, pi: number): number[] {

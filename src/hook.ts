@@ -32,6 +32,8 @@ interface GameHook {
   readonly view?: unknown;
   /** Online play, read-only: the room code, this screen's role and seat, the seats and their animals. */
   readonly online?: unknown;
+  /** The last frame's 3D drawing work, read-only: draw calls, triangles, pixels drawn (for the speed checks). */
+  readonly render?: unknown;
 }
 
 /** A clock in seconds. */

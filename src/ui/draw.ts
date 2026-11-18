@@ -2,7 +2,7 @@
 
 import { tune } from '../config';
 
-import { W, H, BW, FONT, ctx, text, rrect, wrapLines } from '../screen';
+import { W, H, BW, FONT, ctx, text, rrect, wrapLines, screenScale } from '../screen';
 
 import { GROUPS, TILES, OWNABLE, LEVEL_NAMES, LEVEL_SHORT, MAX_LEVEL, AI_LEVELS } from '../game/data';
 import { drawAnimalIcon, type IconMood } from '../animals';
@@ -19,7 +19,7 @@ import { owned, rentOf, shakePower, teamTag, maxRounds, hasKeep, rentPct, drawOr
 
 import { roomCode } from '../net/room';
 import { F } from '../core/flags';
-import { CHIBI } from '../core/theme';
+import { CHIBI, themeCanvas } from '../core/theme';
 
 import { render3D, project, dice3, POT_X, renderer, POT_Z } from '../three/scene3d';
 import { fitText } from '../ui/setupScreen';
@@ -73,7 +73,20 @@ function drawSpeaker(b: Loose) {
   ctx.restore();
 }
 /** A piece's face for the HUD: its zodiac animal (src/animals.ts). */
-export function drawTokenIcon(animal: number, x: number, y: number, s: number, color: string, mood?: IconMood) { drawAnimalIcon(ctx, animal, x, y, s, color, mood); }
+export function drawTokenIcon(animal: number, x: number, y: number, s: number, color: string, mood?: IconMood) {
+  // drawn once into a small canvas at the screen's pixel size, then copied: the cards show the same faces every frame
+  const px = Math.max(1, Math.round(s * 1.6 * screenScale)), key = `${animal}|${color}|${mood ?? ''}|${px}`;
+  let c = iconCache.get(key);
+  if (!c) {
+    c = document.createElement('canvas'); c.width = c.height = px;
+    const g = c.getContext('2d')!; themeCanvas(g); // the look's colours, as on the screen
+    g.scale(px / (s * 1.6), px / (s * 1.6)); drawAnimalIcon(g, animal, s * 0.8, s * 0.8, s, color, mood);
+    if (iconCache.size > 200) iconCache.clear();
+    iconCache.set(key, c);
+  }
+  ctx.drawImage(c, x - s * 0.8, y - s * 0.8, s * 1.6, s * 1.6);
+}
+const iconCache = new Map<string, HTMLCanvasElement>();
 /** How long a player's animal keeps its happy or sad face after money moves (seconds). */
 const FACE_TIME = 2.5;
 /** The face a player's animal makes on their card now: the last money for a moment, else asleep in jail. */

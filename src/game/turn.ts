@@ -25,7 +25,7 @@ import { tokAnim } from '../three/scene3d';
 import { fitText } from '../ui/setupScreen';
 import { F } from '../core/flags';
 import { CHIBI } from '../core/theme';
-import { drawAnimalIcon } from '../animals';
+import { drawTokenIcon } from '../ui/draw';
 import { icon } from '../draw/icons';
 import { phoneToolbarEnd } from '../ui/toolbar';
 import { CHEAP } from '../core/env';
@@ -260,7 +260,7 @@ function drawOrderChibi() {
     ctx.strokeStyle = cur ? '#ff9a76' : '#ecd2a8'; ctx.lineWidth = cur ? 2.5 : 1.5; ctx.stroke(); ctx.restore();
     const hop = cur && v === null ? -Math.abs(Math.sin(state.t * 6)) * 5 : 0;
     ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(cx + 19, cy + hop, 16, 0, 7); ctx.fill();
-    drawAnimalIcon(ctx, p.token, cx + 19, cy + 1 + hop, 28, p.color, v !== null && v === best ? 'happy' : undefined);
+    drawTokenIcon(p.token, cx + 19, cy + 1 + hop, 28, p.color, v !== null && v === best ? 'happy' : undefined);
     if (v !== null && v === best) icon.crown(ctx, cx + 19, cy - 20 + hop, 16);
     text(p.name, cx + 42, cy, 15, '#4a3020', 'left', cur ? 'bold' : '');
     const dx = cx + cw - 30;

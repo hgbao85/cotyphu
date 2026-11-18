@@ -29,7 +29,7 @@ function tree(s: number): THREE.Group {
   const g = new THREE.Group();
   const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.3, 8), soft(0x9a6a44)); trunk.position.y = 0.15; g.add(trunk);
   for (const [y, r, x] of [[0.42, 0.24, 0], [0.62, 0.17, 0.05]]) {
-    const b = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), soft(0x5fb84a)); b.position.set(x, y, 0); b.castShadow = true; g.add(b);
+    const b = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 8), soft(0x5fb84a)); b.position.set(x, y, 0); g.add(b);
   }
   g.scale.setScalar(s); return g;
 }
@@ -40,7 +40,6 @@ function duck(): THREE.Group {
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.08, 16, 12), yellow); head.position.set(0.12, 0.17, 0); g.add(head);
   const beak = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.08, 8), soft(0xff8a2a)); beak.rotation.z = -Math.PI / 2; beak.position.set(0.22, 0.16, 0); g.add(beak);
   for (const z of [-0.035, 0.035]) { const eye = new THREE.Mesh(new THREE.SphereGeometry(0.014, 8, 6), soft(0x2a1a10)); eye.position.set(0.17, 0.2, z); g.add(eye); }
-  g.traverse(o => { (o as THREE.Mesh).castShadow = true; });
   return g;
 }
 /** Builds the village into the scene: call once, with the board already in place. */

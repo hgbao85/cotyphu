@@ -94,6 +94,7 @@ export function build3D() {
   const edge = CHIBI ? mat(0x86c95e, { roughness: 0.9 }) : mat(0x4a2c1a, { roughness: 0.5 });
   const top = boardTop = new THREE.MeshStandardMaterial({ map: boardTexture(), roughness: 0.65 });
   const board = mesh(new THREE.BoxGeometry(BOARD_SIZE, BOARD_TOP, BOARD_SIZE), [edge, edge, top, edge, edge, edge], 0, BOARD_TOP / 2, 0);
+  board.castShadow = false; // it only takes shadows
   scene3.add(board);
   // the two decks of cards in the centre
   for (const [dx, dz, kind] of [[-2.3, -2.9, 'co'], [2.3, -2.9, 'kv']] as [number, number, string][]) {
@@ -102,11 +103,9 @@ export function build3D() {
       c.strokeStyle = kind === 'co' ? '#b3201e' : '#f2c44a'; c.lineWidth = 8; c.strokeRect(10, 10, w - 20, h - 20);
       if (kind === 'co') icon.lantern(c, w / 2, h / 2, 120); else icon.envelope(c, w / 2, h / 2, 130);
     });
-    const deck = new THREE.Group();
-    for (let k = 0; k < 6; k++) {
-      const card = mesh(new THREE.BoxGeometry(1.7, 0.03, 1.25), k === 5 ? [mat(0xf4ead2), mat(0xf4ead2), new THREE.MeshStandardMaterial({ map: faceTex, roughness: 0.5 }), mat(0xf4ead2), mat(0xf4ead2), mat(0xf4ead2)] : mat(0xf4ead2), (k % 2) * 0.02, BOARD_TOP + 0.015 + k * 0.03, 0);
-      deck.add(card);
-    }
+    const deck = new THREE.Group(), side = mat(0xf4ead2); // one block for the stack, its top the face card: two draws, not eleven
+    const card = mesh(new THREE.BoxGeometry(1.7, 0.18, 1.25), [side, side, new THREE.MeshStandardMaterial({ map: faceTex, roughness: 0.5 }), side, side, side], 0, BOARD_TOP + 0.09, 0);
+    card.castShadow = false; deck.add(card);
     deck.position.set(dx, 0, dz); deck.rotation.y = dx < 0 ? 0.12 : -0.12; scene3.add(deck);
   }
   buildFlights(scene3); // coins that fly with a payment
@@ -116,8 +115,8 @@ export function build3D() {
     if (!OWNABLE(TILES[i])) continue;
     const ti = tileInfo(i);
     const horiz = ti.side === 0 || ti.side === 2;
-    const m = mesh(new THREE.BoxGeometry(horiz ? 0.84 : 0.14, 0.05, horiz ? 0.14 : 0.84), mat(0xffffff), ti.x + ti.ox * 0.68, BOARD_TOP + 0.025, ti.z + ti.oz * 0.68);
-    m.visible = false; scene3.add(m); ownerMarks[i] = m;
+    const m = mesh(new THREE.BoxGeometry(horiz ? 0.84 : 0.14, 0.05, horiz ? 0.14 : 0.84), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.55 }), ti.x + ti.ox * 0.68, BOARD_TOP + 0.025, ti.z + ti.oz * 0.68); // its own: it takes the owner's colour
+    m.castShadow = false; m.visible = false; scene3.add(m); ownerMarks[i] = m; // flat: no shadow worth a draw
     if (TILES[i].t === 'prop') { // the ×2 coin just inside the tile's colour band, on the field, shown while the owner holds the whole group
       const c = new THREE.Sprite(new THREE.SpriteMaterial({ map: coinTex(), sizeAttenuation: false, transparent: true, depthTest: false, depthWrite: false }) /* whole, never cut by the board it stands on */);
       // next to a corner, two sides' coins would touch: move it along the side, away from the corner
@@ -357,8 +356,10 @@ export function render3D() {
     pick3.visible = state.phase === 'pick';
     if (pick3.visible) { const ti = tileInfo(state.pick); const hz = ti.side === 0 || ti.side === 2; pick3.position.set(ti.x, BOARD_TOP + 0.02, ti.z); pick3.scale.set(ti.side < 0 ? 1.6 : hz ? 1 : 1.6, 1, ti.side < 0 ? 1.6 : hz ? 1.6 : 1); pick3.material.opacity = 0.35 + 0.25 * Math.sin(state.t * 8); }
   } else { ring3.visible = false; flash3.visible = false; pick3.visible = false; placeDice(); }
+  if (renderer.shadowMap.enabled) { renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = (shadowTurn++ & 1) === 0; } // shadows every other frame: half their cost, a lag too short to see
   renderer.render(scene3, camera);
 }
+let shadowTurn = 0;
 export function project(x: number, y: number, z: number, cam = camera) {
   const v = new THREE.Vector3(x, y, z).project(cam);
   return cam === camera ? { x: L.bx + (v.x + 1) / 2 * L.bw, y: L.by + (1 - v.y) / 2 * L.bh } : { x: (v.x + 1) / 2 * BW, y: (1 - v.y) / 2 * 720 };

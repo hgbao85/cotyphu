@@ -4,7 +4,15 @@ import * as THREE from 'three';
 import { CHEAP } from '../core/env';
 
 
-export function mat(color: THREE.ColorRepresentation, opts = {}) { return new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.55, metalness: 0.0 }, opts)); }
+/** A plain material, shared by every model asking for the same colour and options: the renderer then
+ * switches materials less often. Never change one it hands out; make a new material for that. */
+export function mat(color: THREE.ColorRepresentation, opts: Record<string, number | boolean | string> = {}) {
+  const key = `${String(color)}|${JSON.stringify(opts)}`;
+  let m = shared.get(key);
+  if (!m) { m = new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.55, metalness: 0.0 }, opts)); shared.set(key, m); }
+  return m;
+}
+const shared = new Map<string, THREE.MeshStandardMaterial>();
 export function plastic(color: THREE.ColorRepresentation) { return new THREE.MeshPhongMaterial({ color, shininess: 90, specular: 0x666666 }); }
 export function canvasTex(w: number, h: number, draw: (c: CanvasRenderingContext2D, w: number, h: number) => void) {
   const c = document.createElement('canvas'); c.width = w; c.height = h;

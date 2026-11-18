@@ -142,3 +142,29 @@ test('the kind of game cycles through 30 rounds, 50 rounds and until bankrupt, a
   expect(await page.evaluate(() => (window.game!.state as { maxRounds?: number }).maxRounds)).toBe(50);
   expect(errors).toEqual([]);
 });
+
+test('a game on one screen comes back after a reload, where it was left', async ({ page }) => {
+  // Asked for: a reload or a closed tab used to lose the whole game (a game at round 50, for one).
+  const errors = await open(page, 'manual=1&seed=7');
+  type S = { round: number; cur: number; players: { name: string; cash: number; pos: number }[] };
+  await page.evaluate(() => {
+    const g = window.game!;
+    g.configure({ seats: [{ kind: 'ai', lv: 1 }, { kind: 'ai', lv: 1 }, { kind: 'off' }, { kind: 'off' }] });
+    g.press('Enter'); g.step(1);
+    g.step(3000, false);                                      // the computers play a while
+    (g.state as { round: number }).round = 7;                 // a round to read back on the button
+    g.step(120, false);                                       // long enough for the game to be kept
+  });
+  const before = await page.evaluate(() => JSON.parse(JSON.stringify(window.game!.state)) as S);
+  await page.reload();
+  await expect.poll(() => page.evaluate(() => typeof window.game?.step)).toBe('function');
+  expect(await page.evaluate(() => window.game!.scene)).toBe('title');
+  const box = (await page.locator('#game').boundingBox())!;
+  await page.mouse.click(box.x + 1090 * box.width / 1280, box.y + 638 * box.height / 720); // "Chơi tiếp ván trước"
+  await page.evaluate(() => window.game!.step(2));
+  expect(await page.evaluate(() => window.game!.scene)).toBe('play');
+  const after = await page.evaluate(() => window.game!.state as S);
+  expect(after.round).toBe(before.round);
+  expect(after.players.map(p => [p.name, p.cash, p.pos])).toEqual(before.players.map(p => [p.name, p.cash, p.pos]));
+  expect(errors).toEqual([]);
+});

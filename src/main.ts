@@ -9,7 +9,7 @@ import { startAudio, setMuted, isMuted, sfx } from './audio';
 import * as net from './net/net';
 import { W, H, BW, FONT, canvas, ctx, screenScale, afterFit, beforeFit, setLogical, fit, clear, text, rrect, wrapLines } from './screen';
 import { rng, setSeed, freshSeed, shuffled } from './game/rng';
-import { GROUPS, TILES, OWNABLE, LEVEL_NAMES, LEVEL_SHORT, MAX_LEVEL, PLAYER_COLORS, ANIMALS, DEFAULT_ANIMALS, AI_LEVELS, CARDS } from './game/data';
+import { GROUPS, TILES, OWNABLE, LEVEL_NAMES, LEVEL_SHORT, MAX_LEVEL, PLAYER_COLORS, ANIMALS, DEFAULT_ANIMALS, AI_LEVELS, CARDS, EVENTS } from './game/data';
 import { makeAnimal, drawAnimalIcon } from './animals';
 import { HALF, CORNER, BAND, BOARD_TOP, L as BOARD_SIZE, tileInfo, tileAt, tokenSpot } from './game/board';
 import * as R from './game/rules';
@@ -340,6 +340,35 @@ function keepHostGame() {
   keepEvery = 0;
   try { store()?.setItem('tpdv-host-game', JSON.stringify({ code: roomCode, at: Date.now(), scene, setup, state })); } catch { /* full or blocked: the game just is not kept */ }
 }
+// ---- A game on one screen, kept: a reload or a closed tab does not lose it ---------------------------
+const LOCAL_KEY = 'tpdv-local-game', LOCAL_MEMORY_MS = 7 * 24 * 3600 * 1000;
+let keepLocalEvery = 0;
+/** Every second or so of a game played on this screen alone, its state goes to this browser's storage. */
+function keepLocalGame() {
+  if (isHost() || isGuest() || CHEAP || scene !== 'play' || ++keepLocalEvery < 60) return; // online games keep their own way; self-play keeps nothing
+  keepLocalEvery = 0;
+  try { store()?.setItem(LOCAL_KEY, JSON.stringify({ at: Date.now(), setup, state })); } catch { /* full or blocked: the game just is not kept */ }
+}
+function forgetLocalGame() { try { store()?.removeItem(LOCAL_KEY); } catch { /* nothing kept */ } }
+/** The game left unfinished on this screen, if there is one from the last week: its round, for the button. */
+function localGame(): { round: number } | null {
+  let g: Loose = null;
+  try { g = JSON.parse(store()?.getItem(LOCAL_KEY) || 'null'); } catch { g = null; }
+  if (!g || !g.state || !g.state.players || Date.now() - g.at > LOCAL_MEMORY_MS) return null;
+  return { round: g.state.round };
+}
+/** The unfinished game, back on the table where it was left. */
+function resumeLocalGame() {
+  let g: Loose = null;
+  try { g = JSON.parse(store()?.getItem(LOCAL_KEY) || 'null'); } catch { g = null; }
+  if (!g || !g.state || !g.state.players) return;
+  setup = g.setup;
+  if (!Array.isArray(setup.animals) || setup.animals.length !== 4) setup.animals = [...DEFAULT_ANIMALS];
+  if (!setup.rounds) setup.rounds = tune.max_rounds;
+  state = g.state; state.vote = undefined; state.shaking = undefined;
+  clearVis(); scene = 'play';
+  log(`Chơi tiếp ván trước, vòng ${state.round}.`);
+}
 /** Host: the kept game, back on the table. Friends in a room that was lost with the server come
  * back by name (seatPeer). */
 function restoreHostGame(code: string) {
@@ -500,6 +529,55 @@ function reset() {
   };
   log(`Ván mới: ${players.length} người chơi, ${setup.mode === 'rounds' ? `${setup.rounds} vòng` : 'chơi tới khi phá sản'}.`);
   if (tune.order_roll && players.length > 1) startOrder(); else startTurn();
+}
+
+// ---- Round events ----------------------------------------------------------------------------------
+// Every event_every rounds one event (EVENTS in game/data.ts) is drawn for the whole table and lasts
+// event_rounds rounds: a festival doubles a province's rent, a storm halves central Vietnam's, Tết doubles
+// the salary... Drawn with the game's rng, so a seed repeats them. Design: game-brief.md (After play).
+/** At the start of a round: the event that ran out ends, and on every event_every-th round a new one begins. */
+function roundEvents() {
+  if (state.event && state.round > state.event.until) { log(`Hết sự kiện ${EVENTS[state.event.i].name}.`); state.event = undefined; }
+  if (!tune.event_every || state.round % tune.event_every !== 0) return;
+  const i = Math.floor(rng() * EVENTS.length);
+  state.event = { i, until: state.round + tune.event_rounds - 1, t: 0 };
+  log(`Sự kiện: ${EVENTS[i].name}. ${EVENTS[i].txt}${tune.event_rounds > 1 ? ` (${tune.event_rounds} vòng)` : ' (vòng này)'}.`);
+  sfx.card();
+}
+const activeEvent = () => R.activeEvent(state);
+/** What building to a level costs now: the base price, halved while Kích cầu xây dựng is on. */
+function buildPrice(i: number, to: number): number {
+  const e = activeEvent();
+  return Math.round(buildCost(i, to) * (e && e.kind === 'build' ? e.v : 1));
+}
+/** The salary for passing Xuất Phát now: doubled at Tết. */
+function salaryNow(): number {
+  const e = activeEvent();
+  return Math.round(tune.salary * (e && e.kind === 'salary' ? e.v : 1));
+}
+/** The event's banner: big for a few seconds when it begins, then a small card in the corner while it lasts. */
+function drawEvent() {
+  const e = activeEvent();
+  if (!e || !state.event || inspect >= 0) return;
+  const left = state.event.until - state.round + 1, fresh = state.event.t < tune.event_banner_time;
+  const sub = `${e.txt}${left > 1 ? ` · còn ${left} vòng` : ' · vòng này'}`;
+  if (fresh) { // the announcement over the board
+    const a = Math.min(1, state.event.t / 0.25, (tune.event_banner_time - state.event.t) / 0.4);
+    const w = Math.min(L.maxW, 440), h = 104, x = L.cx - w / 2, y = L.phone ? L.by + 150 : 200;
+    ctx.save(); ctx.globalAlpha = Math.max(0, a);
+    ctx.fillStyle = 'rgba(122,20,18,0.95)'; rrect(ctx, x, y, w, h, 16); ctx.fill(); ctx.strokeStyle = '#f2c44a'; ctx.lineWidth = 3; ctx.stroke();
+    text('SỰ KIỆN', L.cx, y + 22, 15, '#f2c44a', 'center', 'bold');
+    fitText(e.name, L.cx, y + 52, w - 30, 28, '#fff8e6');
+    fitText(sub, L.cx, y + 84, w - 30, 17, '#ffe9a8', '');
+    ctx.restore();
+    return;
+  }
+  // the reminder: a phone puts it in the toolbar row, right of the pills, clear of the board
+  const toolbarEnd = 12 + 84 + 8 + (roomCode ? 96 + 8 : 0);
+  const x = L.phone ? toolbarEnd : BW - 340, w = L.phone ? W - 12 - toolbarEnd : 330, y = L.phone ? L.by + 6 : 10, h = L.phone ? 32 : 46;
+  ctx.save(); ctx.fillStyle = 'rgba(122,20,18,0.88)'; rrect(ctx, x, y, w, h, 10); ctx.fill(); ctx.strokeStyle = '#f2c44a'; ctx.lineWidth = 1.5; ctx.stroke(); ctx.restore();
+  fitText(`Sự kiện: ${e.name}`, x + w / 2, y + (L.phone ? 10 : 15), w - 12, L.phone ? 13 : 15, '#f2c44a');
+  fitText(sub, x + w / 2, y + (L.phone ? 24 : 33), w - 12, L.phone ? 11 : 13, '#fff8e6', '');
 }
 
 // ---- Choosing who goes first ----------------------------------------------------------------
@@ -687,6 +765,7 @@ function endGame(reason: string) {
   events.push({ type: 'over', winner: ranking[0].i });
   sfx.win();
   scene = 'results'; state.t = 0;
+  forgetLocalGame(); // a finished game is not offered again
 }
 
 // ---- Turn flow ----------------------------------------------------------------------
@@ -712,6 +791,7 @@ function nextTurn() {
     state.round++;
     if (state.mode === 'rounds' && state.round > maxRounds()) { endGame(`Hết ${maxRounds()} vòng: ai giàu nhất thắng!`); return; }
     if (state.mode === 'rounds' && state.round === maxRounds()) log('Vòng cuối cùng!');
+    roundEvents();
   }
   state.cur = i;
   startTurn();
@@ -815,6 +895,10 @@ function resolveLanding() {
     log(`${p.name} rút thẻ ${t.n}: ${card.txt}`);
     return;
   }
+  if (t.t === 'tax' && activeEvent()?.kind === 'noTax') { // Giảm thuế: neither tax tile charges this round
+    state.popup = { kind: 'notax', tile: i }; state.phase = 'rentShow'; state.timer = 0;
+    log(`${p.name} được miễn ${t.n} (sự kiện ${activeEvent()!.name}).`); return;
+  }
   if (t.t === 'tax' && firstLap(p)) { // no tax on the first lap either
     state.popup = { kind: 'notax', tile: i }; state.phase = 'rentShow'; state.timer = 0;
     log(`${p.name} đang đi vòng đầu: miễn ${t.n}.`); return;
@@ -843,7 +927,7 @@ function doBuy() {
 }
 function doBuild(i: number, free = false) {
   const pi = state.cur, p = curP();
-  const to = state.level[i] + 1, cost = free ? 0 : buildCost(i, to);
+  const to = state.level[i] + 1, cost = free ? 0 : buildPrice(i, to);
   if (to > MAX_LEVEL || p.cash < cost) return;
   p.cash -= cost; state.level[i] = to;
   if (cost) floatAtRow(pi, '-' + money(cost), '#ff9a8a');
@@ -1004,7 +1088,7 @@ function maxRentAgainst(pi: number) { // the worst rent this player could meet o
   return m;
 }
 function aiWantsBuild(pi: number, i: number) {
-  const p = state.players[pi], cost = buildCost(i, state.level[i] + 1);
+  const p = state.players[pi], cost = buildPrice(i, state.level[i] + 1);
   if (p.cash < cost) return false;
   if (p.lv === 0) return rng() < 0.7;
   const keep = p.lv === 2 ? hardReserve(pi) * tune.ai_hard_build_keep : tune.ai_reserve_mid + 300;
@@ -1857,7 +1941,7 @@ function buildTurnUI() {
     }
     case 'buy': { const t = TILES[state.popup.tile]; btn(ax - 230, by, 220, 54, `Mua ${money(t.p!)}`, doBuy, 'primary', p.cash >= t.p!, '#2f8a3a', 'buy'); btn(ax + 10, by, 220, 54, 'Bỏ qua', () => { log(`${p.name} bỏ qua ${t.n}.`); skip(); }, 'secondary', true, undefined, 'skip'); break; }
     case 'build': {
-      const i = state.popup.tile, to = state.level[i] + 1, cost = buildCost(i, to);
+      const i = state.popup.tile, to = state.level[i] + 1, cost = buildPrice(i, to);
       btn(ax - 230, by, 220, 54, `Xây ${LEVEL_NAMES[to]}: ${money(cost)}`, () => { doBuild(i); state.popup = null; afterAction(); }, 'primary', p.cash >= cost, '#2f8a3a', 'build');
       btn(ax + 10, by, 220, 54, 'Không xây', () => { state.popup = null; afterAction(); }, 'secondary', true, undefined, 'noBuild');
       break;
@@ -1912,6 +1996,7 @@ function seatLabel(s: Seat, i = -1): string {
 function startGame() {
   if (setup.seats.filter(s => s.kind !== 'off').length < 2) { netError = 'Cần ít nhất 2 người chơi để bắt đầu.'; sfx.click(); return; }
   if (netError.startsWith('Cần ít nhất 2')) netError = '';
+  if (!isHost()) forgetLocalGame(); // a new game on this screen replaces the one left unfinished; an online game does not
   reset(); clearVis(); scene = 'play';
 }
 /** A seat's animal on the title screen: the host's choice, or what the host sent a friend. */
@@ -1973,8 +2058,9 @@ function buildTitleUI() {
   b4(T.start, L.phone ? 'Bắt đầu' : 'Bắt đầu (Enter)', startGame, 'primary', '#c8201f');
   if (isHost()) b4(T.online, `Giải tán phòng ${roomCode}`, leaveRoom, '', '#6a4a2a');
   else b4(T.online, 'Chơi online', () => showOnlinePanel(true), '', '#2b6cd6');
-  const last = !isHost() && !isGuest() ? lastRoom() : null;
-  if (last) b4(T.rejoin, `Vào lại phòng ${last.code}`, rejoinRoom, '', '#2f8a3a');
+  const last = !isHost() && !isGuest() ? lastRoom() : null, kept = !isHost() && !isGuest() ? localGame() : null;
+  if (kept) b4(T.rejoin, `Chơi tiếp ván trước (vòng ${kept.round})`, resumeLocalGame, '', '#2f8a3a');
+  if (last) b4(kept ? T.rejoin2 : T.rejoin, `Vào lại phòng ${last.code}`, rejoinRoom, '', '#2f8a3a');
 }
 /** One centred line of text, its font made smaller (down to 10 px) until it fits maxW. */
 function fitText(s: string, x: number, y: number, maxW: number, size: number, color: string, weight = 'bold') {
@@ -2393,8 +2479,8 @@ function drawSheet() {
 /** Where the title screen's buttons sit, wide or phone. */
 function titleSpots() {
   return L.phone
-    ? { seatX: 246, seatW: 226, seatH: 52, y0: 178, step: 64, modeDy: 8, start: [16, 560, 448, 60], online: [16, 632, 448, 56], leave: [16, 600, 448, 60], rejoin: [16, 700, 448, 56] }
-    : { seatX: BW / 2 - 20, seatW: 300, seatH: 50, y0: 250, step: 62, modeDy: 10, start: [BW / 2 - 290, 600, 280, 60], online: [BW / 2 + 10, 600, 280, 60], leave: [BW / 2 - 140, 600, 280, 60], rejoin: [PX + 24, 610, PW - 48, 56] };
+    ? { seatX: 246, seatW: 226, seatH: 52, y0: 178, step: 64, modeDy: 8, start: [16, 560, 448, 60], online: [16, 632, 448, 56], leave: [16, 600, 448, 60], rejoin: [16, 700, 448, 56], rejoin2: [16, 766, 448, 48] }
+    : { seatX: BW / 2 - 20, seatW: 300, seatH: 50, y0: 250, step: 62, modeDy: 10, start: [BW / 2 - 290, 600, 280, 60], online: [BW / 2 + 10, 600, 280, 60], leave: [BW / 2 - 140, 600, 280, 60], rejoin: [PX + 24, 610, PW - 48, 56], rejoin2: [PX + 24, 672, PW - 48, 40] };
 }
 /** Phone: the title screen, one column. */
 function drawTitlePhone() {
@@ -2691,6 +2777,10 @@ function rulesHtml(): string {
       '· Lắc trượt cả 3 lượt: tới lượt thứ 4 mới được ra.',
       'Rút thẻ Vào tù: lần qua Xuất Phát kế tiếp mất lương. Chỉ ra tù bằng Thẻ Ra Tù mới gỡ được.',
     ]),
+    ...(tune.event_every ? [sec('Sự kiện', [
+      `Cứ ${tune.event_every} vòng lại có một sự kiện cho cả bàn, kéo dài ${tune.event_rounds} vòng. Ví dụ:`,
+      ...EVENTS.map(e => `<b>${e.name}</b>: ${e.txt}.`),
+    ])] : []),
     sec('Thiếu tiền và phá sản', [
       `Bán bớt 1 cấp nhà: hoàn ${pct(tune.sell_pct)} giá xây cấp đó.`,
       `Cầm cố đất (phải bán hết nhà trên ô trước): nhận ${pct(tune.mortgage_pct)} giá đất. Đất cầm cố không thu tiền thuê, và không được tính để gom đủ nhóm, đủ bến hay đủ công ty. Chuộc lại: ${pct(tune.unmortgage_pct)} giá đất.`,
@@ -2820,6 +2910,8 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
       const k = turnSpeed(); // the computer's turns can run faster
       updateTurn(dt * k);
       updateTokens(dt * k); syncBuildings(dt); moodStep(dt);
+      keepLocalGame();
+      if (state.event) state.event.t += dt;
       state.flash.t += dt;
       for (const f of state.floaters) f.t += dt;
       state.floaters = state.floaters.filter(f => f.t < 1.4);
@@ -2837,6 +2929,7 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
       drawFloaters();
       drawInspect();
       drawNetBanner();
+      drawEvent();
       drawEmotes();
       drawEmoteMenu();
       drawRoomMenu();
@@ -2910,7 +3003,7 @@ function updateTurn(dt: number) {
       sfx.tick();
       if (p.pos === 0 && state.moveDir > 0) p.laps++;
       if (p.pos === 0 && state.moveDir > 0 && p.noSalary) { p.noSalary = false; floatAtToken(pi, 'Mất lương!', '#ff5a4a'); log(`${p.name} qua Xuất Phát nhưng không được nhận lương (thẻ vào tù).`); sfx.pay(); }
-      else if (p.pos === 0 && state.moveDir > 0) gain(pi, tune.salary, `${p.name} qua Xuất Phát: nhận lương ${money(tune.salary)}.`);
+      else if (p.pos === 0 && state.moveDir > 0) { const pay = salaryNow(); gain(pi, pay, `${p.name} qua Xuất Phát: nhận lương ${money(pay)}${pay !== tune.salary ? ' (Tết: lương × 2)' : ''}.`); }
       state.moveLeft--;
       if (state.moveLeft <= 0) { state.phase = 'landing'; state.timer = 0; }
     }

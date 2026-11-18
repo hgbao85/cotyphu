@@ -3,8 +3,8 @@
 // Design record: design/game-brief.md (Core loop: rent, building, full group ×2).
 import { describe, expect, it } from 'vitest';
 import config from '../../data/config.json';
-import { TILES } from '../../src/game/data';
-import { buildCost, money, netWorth, ownsGroup, propertyTax, rentOf } from '../../src/game/rules';
+import { EVENTS, TILES } from '../../src/game/data';
+import { buildCost, eventRentMult, money, netWorth, ownsGroup, propertyTax, rentOf } from '../../src/game/rules';
 import { rng, setSeed, shuffled } from '../../src/game/rng';
 import type { GameState, Player } from '../../src/game/types';
 
@@ -162,5 +162,45 @@ describe('money and rng', () => {
     expect(deckB).toEqual(deckA);
     expect(a.every(n => n >= 0 && n < 1)).toBe(true);
     expect([...deckA].sort((x, y) => x - y)).toEqual([...Array(16).keys()]);
+  });
+});
+
+describe('round events', () => {
+  const ev = (name: string): number => EVENTS.findIndex(e => e.name === name);
+  const tile = (name: string): number => TILES.findIndex(t => t.n === name);
+
+  it("doubles one province's rent during its festival and leaves the others alone", () => {
+    const s = board(), dn = tile('Đà Nẵng'), hue = tile('Huế');
+    s.owner[dn] = 0; s.owner[hue] = 0;
+    const plain = rentOf(s, dn, 7), other = rentOf(s, hue, 7);
+    s.event = { i: ev('Pháo hoa Đà Nẵng'), until: 99, t: 0 };
+    expect(rentOf(s, dn, 7)).toBe(plain * 2);
+    expect(rentOf(s, hue, 7)).toBe(other);
+  });
+
+  it("halves central Vietnam's rent in the storm, not the north's or the south's", () => {
+    const s = board(), hue = tile('Huế'), hn = tile('Hà Nội'), hcm = tile('TP. Hồ Chí Minh');
+    for (const i of [hue, hn, hcm]) s.owner[i] = 1;
+    const before = [hue, hn, hcm].map(i => rentOf(s, i, 7));
+    s.event = { i: ev('Bão miền Trung'), until: 99, t: 0 };
+    expect([hue, hn, hcm].map(i => rentOf(s, i, 7))).toEqual([Math.round(before[0] * 0.5), before[1], before[2]]);
+  });
+
+  it('doubles port rent in the summer season, and an event that is not about rent changes none', () => {
+    const s = board();
+    s.owner[PORTS[0]] = 0;
+    const plain = rentOf(s, PORTS[0], 7);
+    s.event = { i: ev('Mùa du lịch hè'), until: 99, t: 0 };
+    expect(rentOf(s, PORTS[0], 7)).toBe(plain * 2);
+    s.event = { i: ev('Tết Nguyên Đán'), until: 99, t: 0 };
+    expect(eventRentMult(s, PORTS[0])).toBe(1);
+    expect(rentOf(s, PORTS[0], 7)).toBe(plain);
+  });
+
+  it('names a real tile and real groups in every event', () => {
+    for (const e of EVENTS) {
+      if (e.tile) expect(TILES.some(t => t.n === e.tile)).toBe(true);
+      for (const g of e.groups ?? []) expect(TILES.some(t => t.t === 'prop' && t.g === g)).toBe(true);
+    }
   });
 });

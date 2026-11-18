@@ -75,6 +75,26 @@ export const ANIMALS: { name: string; color: string }[] = [
 export const DEFAULT_ANIMALS = [1, 3, 8, 10];
 export const AI_LEVELS = ['Dễ', 'Vừa', 'Khó'];
 
+/**
+ * The round events: every few rounds (config event_every) one is drawn for the whole table and lasts
+ * event_rounds rounds. kind says what it changes: salary (× v), rent of colour groups or one province
+ * (× v), ports and airports (× v), building (cost × v), or the two tax tiles (none paid).
+ * Design record: design/game-brief.md (After play: sự kiện theo vòng).
+ */
+export interface RoundEvent { name: string; txt: string; kind: 'salary' | 'rentGroups' | 'rentTile' | 'ports' | 'build' | 'noTax'; v: number; groups?: number[]; tile?: string }
+export const EVENTS: RoundEvent[] = [
+  { name: 'Tết Nguyên Đán', txt: 'Lương qua Xuất Phát × 2', kind: 'salary', v: 2 },
+  { name: 'Bão miền Trung', txt: 'Đất miền Trung thu nửa tiền thuê', kind: 'rentGroups', v: 0.5, groups: [3, 4, 5] },
+  { name: 'Pháo hoa Đà Nẵng', txt: 'Tiền thuê Đà Nẵng × 2', kind: 'rentTile', v: 2, tile: 'Đà Nẵng' },
+  { name: 'Festival Huế', txt: 'Tiền thuê Huế × 2', kind: 'rentTile', v: 2, tile: 'Huế' },
+  { name: 'Festival hoa Đà Lạt', txt: 'Tiền thuê Đà Lạt × 2', kind: 'rentTile', v: 2, tile: 'Đà Lạt' },
+  { name: 'Giỗ Tổ Hùng Vương', txt: 'Đất miền Bắc thu tiền thuê × 1,5', kind: 'rentGroups', v: 1.5, groups: [0, 1, 2] },
+  { name: 'Mùa nước nổi', txt: 'Đất miền Tây & biển thu tiền thuê × 1,5', kind: 'rentGroups', v: 1.5, groups: [6] },
+  { name: 'Mùa du lịch hè', txt: 'Bến cảng, sân bay thu tiền thuê × 2', kind: 'ports', v: 2 },
+  { name: 'Kích cầu xây dựng', txt: 'Giá xây nhà giảm một nửa', kind: 'build', v: 0.5 },
+  { name: 'Giảm thuế', txt: 'Miễn cả 2 ô thuế', kind: 'noTax', v: 0 },
+];
+
 // Cards: Cơ Hội moves you around; Khí Vận (a red lì xì envelope) is mostly money.
 /** The board index of a named tile, for the cards that send a player there. */
 const at = (name: string): number => { const i = TILES.findIndex(t => t.n === name); if (i < 0) throw new Error(`no tile ${name}`); return i; };

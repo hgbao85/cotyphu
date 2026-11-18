@@ -2,7 +2,7 @@
 // game state and the tuning values, no browser, so Vitest runs them in Node.
 // Design record: design/game-brief.md (Core loop; Features: rent, building, mortgage).
 import { tune } from '../config';
-import { TILES } from './data';
+import { EVENTS, TILES } from './data';
 import type { GameState, Player } from './types';
 
 /** Money as players read it: thousands of đồng in, "1.500.000 đ" out. */
@@ -28,6 +28,20 @@ export function rentPct(lvl: number): number {
   return tune['rent_l' + lvl];
 }
 
+/** The round event in play, if any. */
+export function activeEvent(s: GameState) {
+  return s.event ? EVENTS[s.event.i] : undefined;
+}
+/** How the round event in play changes the rent of tile i: 1 when it does not. */
+export function eventRentMult(s: GameState, i: number): number {
+  const e = activeEvent(s), t = TILES[i];
+  if (!e) return 1;
+  if (e.kind === 'rentGroups' && t.t === 'prop' && e.groups!.includes(t.g as number)) return e.v;
+  if (e.kind === 'rentTile' && t.n === e.tile) return e.v;
+  if (e.kind === 'ports' && t.t === 'port') return e.v;
+  return 1;
+}
+
 /** What landing on tile i costs, with diceSum for the utilities. 0 when unowned or mortgaged. */
 export function rentOf(s: GameState, i: number, diceSum: number): number {
   const t = TILES[i], o = s.owner[i];
@@ -37,11 +51,11 @@ export function rentOf(s: GameState, i: number, diceSum: number): number {
     // group pays exactly that times full_group_mult
     let r = Math.round((t.p as number) * rentPct(s.level[i]) * tune.rent_scale);
     if (ownsGroup(s, o, t.g as number)) r = Math.round(r * tune.full_group_mult);
-    return r;
+    return Math.round(r * eventRentMult(s, i));
   }
   if (t.t === 'port') {
     const n = TILES.filter((u, j) => u.t === 'port' && s.owner[j] === o && !s.mort[j]).length;
-    return Math.round(tune.port_rent * Math.pow(2, n - 1) * tune.rent_scale);
+    return Math.round(Math.round(tune.port_rent * Math.pow(2, n - 1) * tune.rent_scale) * eventRentMult(s, i));
   }
   const n = TILES.filter((u, j) => u.t === 'util' && s.owner[j] === o && !s.mort[j]).length;
   return Math.round(diceSum * (n >= 2 ? tune.util_mult_two : tune.util_mult_one) * tune.rent_scale);

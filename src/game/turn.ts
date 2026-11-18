@@ -24,6 +24,9 @@ import { isGuest, lobby, sendLobby, peerOnline, isHost, myName } from '../net/ro
 import { tokAnim } from '../three/scene3d';
 import { fitText } from '../ui/setupScreen';
 import { F } from '../core/flags';
+import { CHIBI } from '../core/theme';
+import { drawAnimalIcon } from '../animals';
+import { icon } from '../draw/icons';
 import { phoneToolbarEnd } from '../ui/toolbar';
 import { CHEAP } from '../core/env';
 
@@ -227,6 +230,7 @@ function finishOrder() {
 export function drawOrder() {
   // A slim table low on the board, so the dice thrown above it stay in view.
   if (!state.ordering) return;
+  if (CHIBI) { drawOrderChibi(); return; }
   const n = state.players.length, cols = 2, rows = Math.ceil(n / cols);
   const w = Math.min(460, L.maxW), h = 52 + rows * 32, x = L.cx - w / 2, y = L.by + L.bh - h - (L.phone ? 10 : 70), cw = (w - 24) / cols;
   ctx.save(); ctx.fillStyle = 'rgba(30,12,8,0.88)'; rrect(ctx, x, y, w, h, 14); ctx.fill();
@@ -239,6 +243,30 @@ export function drawOrder() {
     text(p.name, cx + 26, yy, 16, '#fff8e6', 'left', cur ? 'bold' : '');
     const v = state.order![i];
     text(v === null ? (cur ? 'đang tung' : 'chờ') : String(v), cx + cw - 16, yy, v === null ? 14 : 20, v === null ? '#cbb994' : '#f2c44a', 'right', 'bold');
+  });
+}
+/** The chibi look's order table: each player's animal in a bubble, their throw on a little die, the
+ * one throwing now hopping; the highest throw so far wears a crown. */
+function drawOrderChibi() {
+  const n = state.players.length, cols = 2, rows = Math.ceil(n / cols), rowH = 46;
+  const w = Math.min(460, L.maxW), h = 50 + rows * rowH, x = L.cx - w / 2, y = L.by + L.bh - h - (L.phone ? 10 : 70), cw = (w - 24) / cols;
+  ctx.save(); ctx.fillStyle = 'rgba(255,249,234,0.96)'; rrect(ctx, x, y, w, h, 22); ctx.fill();
+  ctx.strokeStyle = '#e8a86a'; ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
+  text('Tung xúc xắc chọn lượt · cao nhất đi trước', L.cx, y + 24, 17, '#d9622b', 'center', 'bold');
+  const thrown = state.order!.filter((v): v is number => v !== null), best = thrown.length ? Math.max(...thrown) : -1;
+  state.players.forEach((p, i) => {
+    const cx = x + 12 + (i % cols) * cw, cy = y + 50 + Math.floor(i / cols) * rowH + rowH / 2 - 4, cur = i === state.cur, v = state.order![i];
+    ctx.save(); ctx.fillStyle = cur ? '#ffe2b0' : '#fff6e2'; rrect(ctx, cx, cy - 19, cw - 8, 38, 19); ctx.fill();
+    ctx.strokeStyle = cur ? '#ff9a76' : '#ecd2a8'; ctx.lineWidth = cur ? 2.5 : 1.5; ctx.stroke(); ctx.restore();
+    const hop = cur && v === null ? -Math.abs(Math.sin(state.t * 6)) * 5 : 0;
+    ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(cx + 19, cy + hop, 16, 0, 7); ctx.fill();
+    drawAnimalIcon(ctx, p.token, cx + 19, cy + 1 + hop, 28, p.color, v !== null && v === best ? 'happy' : undefined);
+    if (v !== null && v === best) icon.crown(ctx, cx + 19, cy - 20 + hop, 16);
+    text(p.name, cx + 42, cy, 15, '#4a3020', 'left', cur ? 'bold' : '');
+    const dx = cx + cw - 30;
+    if (v === null) { text(cur ? '...' : 'chờ', dx, cy, 14, '#9a7a5a', 'center', 'bold'); return; }
+    ctx.save(); ctx.fillStyle = '#ffffff'; rrect(ctx, dx - 15, cy - 15, 30, 30, 8); ctx.fill(); ctx.strokeStyle = '#d2a878'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
+    text(String(v), dx, cy + 1, 18, '#d9622b', 'center', 'bold');
   });
 }
 export const curP = () => state.players[state.cur];

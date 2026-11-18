@@ -37,11 +37,24 @@ function tone(freq: number, dur: number, type: OscillatorType = 'square', vol = 
   o.connect(g).connect(audio.out); o.start(t); o.stop(t + dur);
 }
 
+/** A knock on wood: a short tone whose pitch drops fast, like a wooden die on a wooden table. */
+function knock(freq: number, vol = 0.3, delay = 0): void {
+  if (!audio || muted) return;
+  const t = audio.ac.currentTime + delay, o = audio.ac.createOscillator(), g = audio.ac.createGain();
+  o.type = 'triangle'; o.frequency.setValueAtTime(freq, t); o.frequency.exponentialRampToValueAtTime(freq * 0.55, t + 0.05);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+  o.connect(g).connect(audio.out); o.start(t); o.stop(t + 0.08);
+}
+/** A small bell: a clear note with the softer, higher partials a bell has, ringing out. */
+function bell(freq: number, vol = 0.2, delay = 0): void {
+  tone(freq, 0.7, 'sine', vol, delay); tone(freq * 2.76, 0.35, 'sine', vol * 0.3, delay); tone(freq * 5.4, 0.18, 'sine', vol * 0.12, delay);
+}
+
 /** The game's sound effects. */
 export const sfx = {
   tick() { tone(880, 0.045, 'triangle', 0.25); tone(1320, 0.03, 'sine', 0.12); },          // quân cờ "tách"
-  dice() { for (let i = 0; i < 6; i++) tone(180 + i * 37, 0.05, 'square', 0.08, i * 0.07); },
-  coin() { tone(1250, 0.08, 'sine', 0.25); tone(1870, 0.18, 'sine', 0.2, 0.07); },          // "ting"
+  dice() { [0, 0.09, 0.16, 0.22, 0.27, 0.31].forEach((at, i) => knock(700 + ((i * 173) % 300), 0.32 - i * 0.04, at)); }, // wooden dice tumbling to a stop
+  coin() { bell(1568, 0.2); bell(2093, 0.13, 0.08); },                                       // "ting": a little bell
   buy() { [523, 659, 784].forEach((f, i) => tone(f, 0.12, 'triangle', 0.22, i * 0.07)); },
   build() { [392, 523, 659, 1047].forEach((f, i) => tone(f, 0.1, 'square', 0.12, i * 0.06)); },
   pay() { tone(330, 0.12, 'triangle', 0.25); tone(247, 0.2, 'triangle', 0.22, 0.1); },
@@ -50,7 +63,7 @@ export const sfx = {
   broke() { [300, 250, 200, 140].forEach((f, i) => tone(f, 0.25, 'sawtooth', 0.12, i * 0.18)); },
   win() { [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, 0.18, 'triangle', 0.25, i * 0.13)); },
   click() { tone(520, 0.05, 'sine', 0.22); tone(300, 0.08, 'sine', 0.18, 0.025); },     // a soft "bụp"
-  rattle(t: number) { tone(240 + (Math.floor(t * 37) % 5) * 45, 0.035, 'square', 0.07); tone(520 + (Math.floor(t * 53) % 4) * 60, 0.025, 'triangle', 0.05, 0.03); },
+  rattle(t: number) { knock(600 + (Math.floor(t * 37) % 5) * 70, 0.18); knock(900 + (Math.floor(t * 53) % 4) * 60, 0.12, 0.03); }, // wooden dice clacking in the hand
   land() { tone(150, 0.08, 'triangle', 0.3); tone(110, 0.1, 'triangle', 0.25, 0.08); },
   double() { tone(150, 0.08, 'triangle', 0.3); [784, 988, 1175].forEach((f, i) => tone(f, 0.12, 'triangle', 0.2, 0.08 + i * 0.07)); },
   /** A short call for each zodiac animal, 0 Chuột ... 11 Heo: a squeak, a moo, a meow. */

@@ -9,7 +9,7 @@ import { startAudio, setMuted, isMuted, sfx } from './audio';
 import * as net from './net/net';
 import { W, H, BW, canvas, ctx, beforeFit, setLogical, fit, clear, text, rrect } from './screen';
 
-import { TILES, LEVEL_NAMES, PLAYER_COLORS, ANIMALS, DEFAULT_ANIMALS, AI_LEVELS } from './game/data';
+import { TILES, LEVEL_NAMES, ANIMALS, DEFAULT_ANIMALS, AI_LEVELS } from './game/data';
 
 import { tileAt } from './game/board';
 
@@ -31,6 +31,7 @@ import { buildPropUI, openAnimalPicker, buildPicker, openSeatPicker, teamSpot, o
 import { propRows, PROP_Y, PROP_ROW_H, lacquer, drawBoardView, drawPotLabel, drawDiceFeel, drawPopup, drawPanel, drawFloaters, drawInspect, messageBox, drawButton, drawTokenIcon } from './ui/draw';
 import { buildSheetUI, buildSheetButton, drawTitlePhone, drawPhoneChrome, drawSheet, drawResultsPhone, titleSpots } from './ui/phone';
 import { moodStep } from './three/moods';
+import { confetti, partyAnimals } from './ui/celebrate';
 import { FLIGHT_TIME } from './three/coinFlights';
 import { buildToolbar, buildPhoneHistory, buildEmoteMenu, drawEmotes, drawEmoteMenu } from './ui/toolbar';
 import { rulesSpot } from './app/install';
@@ -466,15 +467,9 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
       drawBoardView();
       ctx.fillStyle = 'rgba(20,10,6,0.55)'; ctx.fillRect(0, 0, BW, H);
       ctx.save(); ctx.fillStyle = 'rgba(30,12,8,0.94)'; rrect(ctx, BW / 2 - 320, 70, 640, 580, 20); ctx.fill(); ctx.strokeStyle = '#c9a24a'; ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
-      // a fanfare of drawn confetti
-      for (let k = 0; k < 40; k++) {
-        const x = BW / 2 - 300 + ((k * 137) % 600), y = 80 + ((k * 53 + state.t * 90 * (1 + k % 3)) % 560);
-        ctx.fillStyle = PLAYER_COLORS[k % 4]; ctx.save(); ctx.translate(x, y); ctx.rotate(k + state.t * 3); ctx.fillRect(-5, -2, 10, 4); ctx.restore();
-      }
-      const w = state.players[state.ranking![0].i];
+      confetti(BW / 2 - 300, 80, 600, 560, 40);
       text(state.reason || '', BW / 2, 112, 18, '#e8d9b5');
-      ctx.fillStyle = '#f4ead2'; ctx.beginPath(); ctx.arc(BW / 2, 185, 44, 0, 7); ctx.fill();
-      drawTokenIcon(w.token, BW / 2, 188, 72, w.color);
+      partyAnimals(BW / 2, 185, 110);
       text(state.gained, BW / 2, 262, 30, '#f2c44a', 'center', 'bold');
       state.ranking!.forEach((r, j) => {
         const p = state.players[r.i], y = 320 + j * 50;

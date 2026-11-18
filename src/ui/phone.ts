@@ -4,7 +4,7 @@ import { tune } from '../config';
 
 import { W, H, BW, FONT, ctx, clear, text, rrect, wrapLines } from '../screen';
 
-import { GROUPS, TILES, LEVEL_SHORT, PLAYER_COLORS, ANIMALS } from '../game/data';
+import { GROUPS, TILES, LEVEL_SHORT, ANIMALS } from '../game/data';
 
 import { state, setup } from '../core/store';
 
@@ -17,6 +17,7 @@ import { drawVote, isGuest, mySeat, isHost, roomCode, lobby } from '../net/room'
 import { F } from '../core/flags';
 
 import { drawSummary } from '../ui/summary';
+import { confetti, partyAnimals } from './celebrate';
 
 import { drawNetBanner, drawPicker, fitText } from '../ui/setupScreen';
 import { lacquer, drawBoardView, drawButton, drawTokenIcon, faceOf } from '../ui/draw';
@@ -166,15 +167,10 @@ export function drawResultsPhone() {
   ctx.fillStyle = 'rgba(20,10,6,0.7)'; ctx.fillRect(0, 0, W, H);
   ctx.save(); ctx.translate(0, phoneExtra() / 2); // drawn for 960 high: a taller phone centres it
   ctx.save(); ctx.fillStyle = 'rgba(30,12,8,0.94)'; rrect(ctx, 10, 60, W - 20, 760, 20); ctx.fill(); ctx.strokeStyle = '#c9a24a'; ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
-  for (let k = 0; k < 30; k++) { // a fanfare of drawn confetti
-    const x = 30 + ((k * 137) % (W - 60)), y = 70 + ((k * 53 + state.t * 90 * (1 + k % 3)) % 740);
-    ctx.fillStyle = PLAYER_COLORS[k % 4]; ctx.save(); ctx.translate(x, y); ctx.rotate(k + state.t * 3); ctx.fillRect(-5, -2, 10, 4); ctx.restore();
-  }
-  const w = state.players[state.ranking![0].i];
+  confetti(30, 70, W - 60, 740, 30);
   ctx.font = `16px ${FONT}`;
   wrapLines(ctx, state.reason || '', W - 60).forEach((l, j) => text(l, W / 2, 100 + j * 22, 16, '#e8d9b5'));
-  ctx.fillStyle = '#f4ead2'; ctx.beginPath(); ctx.arc(W / 2, 185, 44, 0, 7); ctx.fill();
-  drawTokenIcon(w.token, W / 2, 188, 72, w.color);
+  partyAnimals(W / 2, 185, 92);
   ctx.font = `bold 26px ${FONT}`;
   wrapLines(ctx, state.gained, W - 50).forEach((l, j) => text(l, W / 2, 262 + j * 32, 26, '#f2c44a', 'center', 'bold'));
   state.ranking!.forEach((r, j) => {

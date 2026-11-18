@@ -2,6 +2,12 @@
 import { rrect } from '../screen';
 
 export const icon = {
+  /** A little gold crown, s across: the highest throw so far on the order table. */
+  crown(c: CanvasRenderingContext2D, x: number, y: number, s: number) {
+    const h = s * 0.6; c.save(); c.translate(x, y); c.fillStyle = '#ffd84a'; c.strokeStyle = '#b8861e'; c.lineWidth = Math.max(1, s * 0.08);
+    c.beginPath(); c.moveTo(-s / 2, h / 2); c.lineTo(-s / 2, -h / 2); c.lineTo(-s / 4, 0); c.lineTo(0, -h / 2); c.lineTo(s / 4, 0); c.lineTo(s / 2, -h / 2); c.lineTo(s / 2, h / 2); c.closePath();
+    c.fill(); c.stroke(); c.restore();
+  },
   lantern(c: CanvasRenderingContext2D, x: number, y: number, s: number) { // đèn lồng đỏ: Cơ Hội
     c.save(); c.translate(x, y);
     c.fillStyle = '#5a3a1a'; c.fillRect(-s * 0.04, -s * 0.62, s * 0.08, s * 0.16);

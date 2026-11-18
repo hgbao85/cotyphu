@@ -2012,11 +2012,11 @@ function handleInput() {
     const b = ui.find(b => c.x >= b.x && c.x <= b.x + b.w && c.y >= b.y && c.y <= b.y + b.h);
     if (b) { if (b.enabled) pressBtn(b); continue; }
     if (roomMenu) continue; // the room menu is open: only its buttons answer
+    if (scene === 'play' && inspect >= 0) { inspect = -1; continue; } // a tile card is open: a tap anywhere closes it, and opens nothing
     if (scene === 'play' && state.phase === 'pick' && humanTurn() && inBoard(c.x, c.y)) {
       const pt = boardPointAt(c.x, c.y);
       if (pt) { const i = tileAt(pt.x, pt.z); if (i >= 0) { if (i === state.pick) pressAct('fly', () => flyTo(i)); else pickTile(i); } }
-    } else if (scene === 'play' && inBoard(c.x, c.y) && inspect < 0) { // anywhere else on the board: open that tile's card
-      // an open card covers the board: taps behind it do nothing; Đóng (or Esc, Enter, Space) closes it
+    } else if (scene === 'play' && inBoard(c.x, c.y)) { // anywhere else on the board: open that tile's card
       const pt = boardPointAt(c.x, c.y), i = pt ? tileAt(pt.x, pt.z) : -1;
       if (i >= 0) { inspect = i; sfx.card(); }
     }

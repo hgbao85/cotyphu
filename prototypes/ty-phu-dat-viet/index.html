@@ -960,7 +960,6 @@ function boardTexture() {
     c.fillText('TỶ PHÚ ĐẤT VIỆT', 0, 6);
     c.restore();
     c.fillStyle = '#6a4a2a'; c.font = `italic 40px ${FONT}`; c.textAlign = 'center';
-    c.fillText('Từ Hà Giang tới Cà Mau', S / 2, Z(3.95));
     // deck spots
     for (const [dx, dz, kind, label] of [[-2.3, -2.9, 'co', 'CƠ HỘI'], [2.3, -2.9, 'kv', 'KHÍ VẬN']]) {
       c.save(); c.translate(X(dx), Z(dz)); c.rotate(dx < 0 ? -0.12 : 0.12);

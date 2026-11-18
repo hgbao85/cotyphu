@@ -18,6 +18,7 @@ Where each part of Tỷ Phú Đất Việt lives, and the four rules that keep t
 | 2D drawing, the phone layout, the setup screen | `src/ui/draw.ts`, `phone.ts`, `setupScreen.ts`, icons in `src/draw/icons.ts` |
 | Small screens | `src/ui/toolbar.ts` (history, emotes, chat), `tips.ts`, `summary.ts`, `pages.ts` (rules, history), `chatBox.ts` |
 | Installing as an app, keeping the screen on | `src/app/install.ts` |
+| The look: chibi village (default) or sơn mài (`?theme=lacquer`) | `src/core/theme.ts` (2D colours), `src/three/village.ts` (island, pond, ducks), `src/three/coinFlights.ts` |
 | Sound, the canvas, tuning | `src/audio.ts`, `src/screen.ts`, `src/config.ts` (+ `data/config.json`) |
 
 ## The rules that keep it working

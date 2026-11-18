@@ -147,7 +147,9 @@ export function makeAnimal(a: number, color: string, shadows = true): THREE.Grou
  * @param s the size: the face is about s wide
  * @param color its colour
  */
-export function drawAnimalIcon(ctx: CanvasRenderingContext2D, a: number, x: number, y: number, s: number, color: string): void {
+/** A face an animal icon can make: happy (^ ^), sad (a tear), asleep (closed eyes and a z). */
+export type IconMood = 'happy' | 'sad' | 'sleep';
+export function drawAnimalIcon(ctx: CanvasRenderingContext2D, a: number, x: number, y: number, s: number, color: string, mood?: IconMood): void {
   const r = s * 0.34, dark = shade(color, 0.62), light = shade(color, 1.35);
   ctx.save(); ctx.translate(x, y + s * 0.04); ctx.lineWidth = Math.max(1, s * 0.035); ctx.strokeStyle = 'rgba(0,0,0,0.45)';
   const blob = (cx: number, cy: number, rx: number, ry: number, fill: string, stroke = true, rot = 0) => {
@@ -184,10 +186,22 @@ export function drawAnimalIcon(ctx: CanvasRenderingContext2D, a: number, x: numb
   if (a === 5) blob(0, r * 0.45, r * 0.6, r * 0.28, light, false);
   if (a === 11) { blob(0, r * 0.4, r * 0.42, r * 0.3, light); sides(k => blob(k * r * 0.15, r * 0.4, r * 0.07, r * 0.11, dark, false)); }
   sides(k => {
-    blob(k * r * 0.38, -r * 0.08, r * 0.15, r * 0.17, '#1e1a18', false);
-    blob(k * r * 0.38 + r * 0.05, -r * 0.15, r * 0.055, r * 0.055, '#ffffff', false);
-    blob(k * r * 0.62, r * 0.25, r * 0.15, r * 0.09, 'rgba(255,120,150,0.75)', false);
+    if (mood === 'happy' || mood === 'sleep') { // ^ ^ when happy, ‿ ‿ when asleep
+      ctx.save(); ctx.strokeStyle = '#1e1a18'; ctx.lineWidth = Math.max(1.5, r * 0.09); ctx.lineCap = 'round'; ctx.beginPath();
+      if (mood === 'happy') ctx.arc(k * r * 0.38, -r * 0.02, r * 0.14, Math.PI * 1.1, Math.PI * 1.9); else ctx.arc(k * r * 0.38, -r * 0.14, r * 0.14, Math.PI * 0.15, Math.PI * 0.85);
+      ctx.stroke(); ctx.restore();
+    } else {
+      blob(k * r * 0.38, -r * 0.08, r * 0.15, r * 0.17, '#1e1a18', false);
+      blob(k * r * 0.38 + r * 0.05, -r * 0.15, r * 0.055, r * 0.055, '#ffffff', false);
+    }
+    if (mood === 'sad') { // brows tilted up in the middle
+      ctx.save(); ctx.strokeStyle = '#1e1a18'; ctx.lineWidth = Math.max(1.2, r * 0.07); ctx.lineCap = 'round'; ctx.beginPath();
+      ctx.moveTo(k * r * 0.22, -r * 0.4); ctx.lineTo(k * r * 0.55, -r * 0.3); ctx.stroke(); ctx.restore();
+    }
+    blob(k * r * 0.62, r * 0.25, r * 0.15, r * 0.09, mood === 'happy' ? 'rgba(255,90,130,0.9)' : 'rgba(255,120,150,0.75)', false);
   });
+  if (mood === 'sad') { ctx.beginPath(); ctx.moveTo(-r * 0.4, r * 0.08); ctx.quadraticCurveTo(-r * 0.52, r * 0.3, -r * 0.4, r * 0.34); ctx.quadraticCurveTo(-r * 0.28, r * 0.3, -r * 0.4, r * 0.08); ctx.fillStyle = '#6cc6ff'; ctx.fill(); } // a tear
+  if (mood === 'sleep') { ctx.fillStyle = '#5a7ab0'; ctx.font = `bold ${Math.round(r * 0.55)}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('z', r * 0.95, -r * 0.95); ctx.font = `bold ${Math.round(r * 0.38)}px sans-serif`; ctx.fillText('z', r * 1.25, -r * 1.3); }
   if (a === 0 || a === 2 || a === 3 || a === 7) blob(0, r * 0.3, r * 0.1, r * 0.07, '#ff7f9a', false);
   if (a === 10 || a === 4) blob(0, r * 0.3, r * 0.13, r * 0.09, '#1e1a18', false);
   if (a === 1 || a === 6) sides(k => blob(k * r * 0.2, r * 0.45, r * 0.06, r * 0.08, '#1e1a18', false));

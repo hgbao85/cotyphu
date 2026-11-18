@@ -1,8 +1,11 @@
 // Houses, hotels and each province's Landmark as small 3D models (about 0.9 tall).
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mat, mesh } from './materials';
+import { CHIBI } from '../core/theme';
 
 export function makeHouse() {
+  if (CHIBI) return toyHouse();
   const g = new THREE.Group();
   g.add(mesh(new THREE.BoxGeometry(0.17, 0.13, 0.17), mat(0xf4ead2), 0, 0.065, 0));
   const roof = mesh(new THREE.ConeGeometry(0.15, 0.11, 4), mat(0xc0502a), 0, 0.185, 0); roof.rotation.y = Math.PI / 4; g.add(roof);
@@ -10,6 +13,7 @@ export function makeHouse() {
   return g;
 }
 export function makeHotel() {
+  if (CHIBI) return toyHotel();
   const g = new THREE.Group();
   g.add(mesh(new THREE.BoxGeometry(0.62, 0.34, 0.26), mat(0x3d7fb8), 0, 0.17, 0));
   g.add(mesh(new THREE.BoxGeometry(0.66, 0.04, 0.3), mat(0xf4ead2), 0, 0.36, 0));
@@ -215,5 +219,27 @@ export function makeLandmark(kind: string) { // ~0.9 tall, a toy model of the pr
     g.add(mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.06, 8), mat(0x2a2a2a), 0.2, 0.17, 0.13));
     g.add(mesh(new THREE.BoxGeometry(0.07, 0.07, 0.08), red, 0.07, 0.17, 0.13));
   }
+  if (CHIBI) { const toy = new THREE.Group(); g.scale.set(1.1, 0.88, 1.1); toy.add(g); return toy; } // chibi: a little squatter and rounder
+  return g;
+}
+
+// ---- The chibi look's toy buildings: rounded, pastel, a little chubby ----------------------------
+const PASTEL_ROOFS = [0xff8a6a, 0x7ab8f0, 0x9ad66a, 0xffc14a];
+let roofTurn = 0;
+/** A toy house: a rounded cream body, a round window, a soft roof in one of four pastel colours. */
+function toyHouse() {
+  const g = new THREE.Group();
+  g.add(mesh(new RoundedBoxGeometry(0.19, 0.15, 0.19, 3, 0.045), mat(0xfff4e0, { roughness: 0.8 }), 0, 0.075, 0));
+  const roof = mesh(new THREE.ConeGeometry(0.16, 0.12, 4), mat(PASTEL_ROOFS[roofTurn++ % PASTEL_ROOFS.length], { roughness: 0.7 }), 0, 0.2, 0); roof.rotation.y = Math.PI / 4; g.add(roof);
+  g.add(mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.01, 16), mat(0xffd84a, { emissive: 0x332200 }), 0, 0.085, 0.097).rotateX(Math.PI / 2));
+  return g;
+}
+/** A toy hotel: a peach rounded block with round windows and a striped awning. */
+function toyHotel() {
+  const g = new THREE.Group();
+  g.add(mesh(new RoundedBoxGeometry(0.6, 0.34, 0.26, 4, 0.07), mat(0xffb59a, { roughness: 0.8 }), 0, 0.17, 0));
+  g.add(mesh(new RoundedBoxGeometry(0.64, 0.06, 0.3, 3, 0.03), mat(0xfff4e0), 0, 0.36, 0));
+  for (let r = 0; r < 2; r++) for (let k = -2; k <= 2; k++) g.add(mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.01, 14), mat(0xfff0b0, { emissive: 0x332200 }), k * 0.11, 0.1 + r * 0.13, 0.132).rotateX(Math.PI / 2));
+  g.add(mesh(new THREE.SphereGeometry(0.05, 14, 10), mat(0xff6a8a), 0.24, 0.42, 0)); // a round sign on top
   return g;
 }

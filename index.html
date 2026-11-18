@@ -40,6 +40,18 @@
   #rules b { color: #ffe9a8; }
   #rules .ru-close { margin-top: 12px; padding: 12px; font-size: 18px; font-weight: bold; border-radius: 12px; border: 2px solid #f2c44a; background: #6a4a2a; color: #fff8e6; cursor: pointer; }
   #online #op-error { min-height: 1.2em; margin: 0 0 8px; color: #ff9a8a; font-size: 15px; text-align: center; }
+  /* The chibi look (the default; src/core/theme.ts sets html.chibi): cream cards, dark brown words, pastel buttons */
+  html.chibi, html.chibi body { background: #bfe6f5; }
+  html.chibi #online, html.chibi #rules { background: rgba(70, 110, 130, 0.4); } html.chibi #rules .ru-card { color: #4a3020; } html.chibi #chat { background: rgba(70, 110, 130, 0.25); }
+  html.chibi #online .op-card, html.chibi #chat .ch-card, html.chibi #rules .ru-card { font-family: "Baloo 2", "Segoe UI", Arial, sans-serif; background: linear-gradient(#fff3d6, #f7dfb0); border-color: #e8a86a; color: #4a3020; }
+  html.chibi #online h2, html.chibi #rules h2, html.chibi #rules h3 { color: #d9622b; }
+  html.chibi #online label, html.chibi #online .op-or, html.chibi #chat #ch-count { color: #6a4a32; } html.chibi #rules b { color: #b0501f; }
+  html.chibi #online button, html.chibi #chat button, html.chibi #rules .ru-close { border-color: #e8a86a; color: #4a3020; background: #8cc4f5; }
+  html.chibi #online button.op-main { background: #ff9a76; } html.chibi #chat #ch-send { background: #8fd16a; }
+  html.chibi #chat #ch-close, html.chibi #rules .ru-close { background: #ffe2b0; }
+  html.chibi #online button.op-close { background: transparent; color: #6a4a32; border-color: #e8a86a; }
+  html.chibi #online #op-error { color: #d9442b; }
+  html.chibi #online button, html.chibi #online input, html.chibi #chat button, html.chibi #chat input, html.chibi #rules button { font-family: "Baloo 2", "Segoe UI", Arial, sans-serif; }
 </style>
 </head>
 <body>

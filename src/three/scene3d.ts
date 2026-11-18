@@ -24,6 +24,9 @@ import { rawSfx, isGuest } from '../net/room';
 import { L, hoverTile } from '../main';
 import { applyMood } from './moods';
 import { CHEAP } from '../core/env';
+import { CHIBI } from '../core/theme';
+import { buildVillage, villageStep } from './village';
+import { buildFlights, stepFlights } from './coinFlights';
 import { sfx } from '../audio';
 
 // ---- 3D: renderer, table, board ------------------------------------------------------
@@ -69,6 +72,9 @@ function syncPieces() {
 }
 
 // ---- 3D scene assembly ---------------------------------------------------------------
+let boardTop: THREE.MeshStandardMaterial | null = null;
+/** Draws the board's face again: after a font arrives that the first drawing did not have yet. */
+export function redrawBoardFace() { if (!boardTop) return; boardTop.map?.dispose(); boardTop.map = boardTexture(); boardTop.needsUpdate = true; }
 export function build3D() {
   renderer = new THREE.WebGLRenderer({ antialias: !CHEAP, preserveDrawingBuffer: true, alpha: false });
   renderer.shadowMap.enabled = !CHEAP; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -78,11 +84,14 @@ export function build3D() {
   camera = new THREE.PerspectiveCamera(30, BW / 720, 0.1, 100);
   aimCamera();
   addLights(scene3);
-  const wood = woodTexture(); wood.wrapS = wood.wrapT = THREE.RepeatWrapping; wood.repeat.set(3, 3);
-  const table = mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ map: wood, roughness: 0.75 }), 0, 0, 0);
-  table.rotation.x = -Math.PI / 2; scene3.add(table);
-  const edge = mat(0x4a2c1a, { roughness: 0.5 });
-  const top = new THREE.MeshStandardMaterial({ map: boardTexture(), roughness: 0.65 });
+  if (CHIBI) buildVillage(scene3); // the chibi look: water, a grass island, a pond (src/three/village.ts)
+  else {
+    const wood = woodTexture(); wood.wrapS = wood.wrapT = THREE.RepeatWrapping; wood.repeat.set(3, 3);
+    const table = mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ map: wood, roughness: 0.75 }), 0, 0, 0);
+    table.rotation.x = -Math.PI / 2; scene3.add(table);
+  }
+  const edge = CHIBI ? mat(0x86c95e, { roughness: 0.9 }) : mat(0x4a2c1a, { roughness: 0.5 });
+  const top = boardTop = new THREE.MeshStandardMaterial({ map: boardTexture(), roughness: 0.65 });
   const board = mesh(new THREE.BoxGeometry(BOARD_SIZE, BOARD_TOP, BOARD_SIZE), [edge, edge, top, edge, edge, edge], 0, BOARD_TOP / 2, 0);
   scene3.add(board);
   // the two decks of cards in the centre
@@ -99,6 +108,7 @@ export function build3D() {
     }
     deck.position.set(dx, 0, dz); deck.rotation.y = dx < 0 ? 0.12 : -0.12; scene3.add(deck);
   }
+  buildFlights(scene3); // coins that fly with a payment
   // owner marks along each ownable tile's outer edge
   for (let i = 0; i < 40; i++) {
     tileGroups[i] = new THREE.Group(); scene3.add(tileGroups[i]); tileShown[i] = -1;
@@ -151,8 +161,8 @@ function syncPot() {
   potCoins.forEach((c, k) => { c.visible = k < n; }); potShown = n;
 }
 function addLights(s: THREE.Scene) {
-  s.add(new THREE.HemisphereLight(0xfff0d8, 0x5a6f9a, 1.35));
-  const sun = new THREE.DirectionalLight(0xffe0b0, 2.3);
+  s.add(CHIBI ? new THREE.HemisphereLight(0xffffff, 0x9ccb7a, 1.6) : new THREE.HemisphereLight(0xfff0d8, 0x5a6f9a, 1.35));
+  const sun = CHIBI ? new THREE.DirectionalLight(0xfff4e0, 2.0) : new THREE.DirectionalLight(0xffe0b0, 2.3);
   sun.position.set(-6, 14, 7); sun.castShadow = !CHEAP;
   sun.shadow.mapSize.set(2048, 2048);
   Object.assign(sun.shadow.camera, { left: -9, right: 9, top: 9, bottom: -9, near: 1, far: 40 });
@@ -222,6 +232,8 @@ function syncCoins(dt: number) {
 // ---- 3D per-frame sync ---------------------------------------------------------------
 export function syncBuildings(dt: number) {
   syncCoins(dt);
+  if (CHIBI) villageStep(dt, state.t);
+  stepFlights(k => tokVis[k] ?? tok3[k]?.position, { x: POT_X, y: 0, z: POT_Z });
   for (let i = 0; i < 40; i++) {
     if (!OWNABLE(TILES[i])) continue;
     const o = state.owner[i];

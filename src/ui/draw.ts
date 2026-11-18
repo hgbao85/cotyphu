@@ -5,7 +5,7 @@ import { tune } from '../config';
 import { W, H, BW, FONT, ctx, text, rrect, wrapLines } from '../screen';
 
 import { GROUPS, TILES, OWNABLE, LEVEL_NAMES, LEVEL_SHORT, MAX_LEVEL, AI_LEVELS } from '../game/data';
-import { drawAnimalIcon } from '../animals';
+import { drawAnimalIcon, type IconMood } from '../animals';
 import { BOARD_TOP } from '../game/board';
 
 import { state, scene } from '../core/store';
@@ -13,12 +13,13 @@ import { state, scene } from '../core/store';
 import { icon, star } from '../draw/icons';
 
 import { buyHint, money, rentHint } from '../game/rules';
-import type { Loose, Tile } from '../game/types';
+import type { Loose, Player, Tile } from '../game/types';
 
 import { owned, rentOf, shakePower, teamTag, maxRounds, hasKeep, rentPct, drawOrder, ownsGroup, curP, isAI, firstLap } from '../game/turn';
 
 import { roomCode } from '../net/room';
 import { F } from '../core/flags';
+import { CHIBI } from '../core/theme';
 
 import { render3D, project, dice3, POT_X, renderer, POT_Z } from '../three/scene3d';
 import { fitText } from '../ui/setupScreen';
@@ -27,8 +28,9 @@ import { rowSpot } from './phone';
 
 // ---- 2D drawing ----------------------------------------------------------------------
 export function drawBoardView() { render3D(); ctx.drawImage(renderer!.domElement, L.bx, L.by, L.bw, L.bh); }
-export function lacquer(x: number, y: number, w: number, h: number) { // sơn mài: deep red-black lacquer with a gold trim
-  const g = ctx.createLinearGradient(x, y, x, y + h); g.addColorStop(0, '#3b1712'); g.addColorStop(1, '#1f0c09');
+export function lacquer(x: number, y: number, w: number, h: number) { // sơn mài: deep red-black lacquer with a gold trim (chibi: a cream wooden sign)
+  const g = ctx.createLinearGradient(x, y, x, y + h);
+  if (CHIBI) { g.addColorStop(0, '#fff3d6'); g.addColorStop(1, '#f7dfb0'); } else { g.addColorStop(0, '#3b1712'); g.addColorStop(1, '#1f0c09'); }
   ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
   ctx.strokeStyle = '#c9a24a'; ctx.lineWidth = 2; ctx.strokeRect(x + 6, y + 6, w - 12, h - 12);
 }
@@ -71,7 +73,14 @@ function drawSpeaker(b: Loose) {
   ctx.restore();
 }
 /** A piece's face for the HUD: its zodiac animal (src/animals.ts). */
-export function drawTokenIcon(animal: number, x: number, y: number, s: number, color: string) { drawAnimalIcon(ctx, animal, x, y, s, color); }
+export function drawTokenIcon(animal: number, x: number, y: number, s: number, color: string, mood?: IconMood) { drawAnimalIcon(ctx, animal, x, y, s, color, mood); }
+/** How long a player's animal keeps its happy or sad face after money moves (seconds). */
+const FACE_TIME = 2.5;
+/** The face a player's animal makes on their card now: the last money for a moment, else asleep in jail. */
+export function faceOf(p: Player): IconMood | undefined {
+  if (p.face && state.t - p.face.at < FACE_TIME) return p.face.k;
+  return p.inJail && !p.bankrupt ? 'sleep' : undefined;
+}
 export function drawPanel() {
   lacquer(PX, 0, PW, H);
   text('TỶ PHÚ ĐẤT VIỆT', PX + PW / 2 + 14, 30, 24, '#f2c44a', 'center', 'bold');
@@ -86,7 +95,7 @@ export function drawPanel() {
     ctx.strokeStyle = cur ? '#f2c44a' : '#6a4a2a'; ctx.lineWidth = cur ? 3 : 1; ctx.stroke();
     ctx.fillStyle = p.color; rrect(ctx, PX + 14, y, 8, 64, 4); ctx.fill();
     ctx.fillStyle = '#f4ead2'; ctx.beginPath(); ctx.arc(PX + 52, y + 32, 22, 0, 7); ctx.fill();
-    drawTokenIcon(p.token, PX + 52, y + 34, 38, p.color);
+    drawTokenIcon(p.token, PX + 52, y + 34, 38, p.color, faceOf(p));
     text(p.name, PX + 84, y + 18, 18, '#fff8e6', 'left', 'bold');
     const sub = (state.teams ? `${teamTag(p.team)} · ` : '') + (isAI(p) ? `Máy ${AI_LEVELS[p.lv]}` : p.kind === 'remote' ? (p.offline ? 'Online · mất kết nối' : 'Online') : 'Người chơi') + ` · ${owned(pi).length} ô` + (firstLap(p) && !p.bankrupt ? ' · vòng đầu' : '') + (p.inJail ? ' · trong tù' : '') + (p.noSalary ? ' · mất lương' : '') + (p.freeCards.length ? ' · có thẻ ra tù' : '') + (hasKeep(p, 'norent') ? ' · thẻ miễn thuê' : '') + (hasKeep(p, 'reroll') ? ' · thẻ đổ lại' : '') + (p.bankrupt ? ' · phá sản' : '');
     text(sub, PX + 84, y + 45, 15, '#d9c8a6', 'left');

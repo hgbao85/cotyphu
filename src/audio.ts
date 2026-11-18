@@ -49,7 +49,7 @@ export const sfx = {
   jail() { [392, 330, 262, 196].forEach((f, i) => tone(f, 0.16, 'sawtooth', 0.1, i * 0.12)); },
   broke() { [300, 250, 200, 140].forEach((f, i) => tone(f, 0.25, 'sawtooth', 0.12, i * 0.18)); },
   win() { [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, 0.18, 'triangle', 0.25, i * 0.13)); },
-  click() { tone(600, 0.03, 'square', 0.08); },
+  click() { tone(520, 0.05, 'sine', 0.22); tone(300, 0.08, 'sine', 0.18, 0.025); },     // a soft "bụp"
   rattle(t: number) { tone(240 + (Math.floor(t * 37) % 5) * 45, 0.035, 'square', 0.07); tone(520 + (Math.floor(t * 53) % 4) * 60, 0.025, 'triangle', 0.05, 0.03); },
   land() { tone(150, 0.08, 'triangle', 0.3); tone(110, 0.1, 'triangle', 0.25, 0.08); },
   double() { tone(150, 0.08, 'triangle', 0.3); [784, 988, 1175].forEach((f, i) => tone(f, 0.12, 'triangle', 0.2, 0.08 + i * 0.07)); },

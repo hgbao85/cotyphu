@@ -19,7 +19,7 @@ import { F } from '../core/flags';
 import { drawSummary } from '../ui/summary';
 
 import { drawNetBanner, drawPicker, fitText } from '../ui/setupScreen';
-import { lacquer, drawBoardView, drawButton, drawTokenIcon } from '../ui/draw';
+import { lacquer, drawBoardView, drawButton, drawTokenIcon, faceOf } from '../ui/draw';
 import { phoneExtra, roomPill, TITLE, drawSeatAnimal, titleTeams, seatLabel, L, PX, PW, btn, humanTurn, seatAnimal } from '../main';
 import { rulesSpot } from '../app/install';
 
@@ -59,7 +59,7 @@ export function drawPhoneChrome() {
     ctx.strokeStyle = cur ? '#f2c44a' : '#6a4a2a'; ctx.lineWidth = cur ? 3 : 1; ctx.stroke();
     ctx.fillStyle = p.color; rrect(ctx, c.x, c.y, 7, c.h, 4); ctx.fill();
     ctx.fillStyle = '#f4ead2'; ctx.beginPath(); ctx.arc(c.x + 30, c.y + c.h / 2, 19, 0, 7); ctx.fill();
-    drawTokenIcon(p.token, c.x + 30, c.y + c.h / 2 + 2, 32, p.color);
+    drawTokenIcon(p.token, c.x + 30, c.y + c.h / 2 + 2, 32, p.color, faceOf(p));
     let name = p.name;
     ctx.font = `bold 16px ${FONT}`;
     while (name.length > 3 && ctx.measureText(name).width > c.w - 64) name = name.slice(0, -1);

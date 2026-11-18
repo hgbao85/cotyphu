@@ -26,14 +26,20 @@ import { buildVoteUI, startVote, leaveRoom, showOnlinePanel, lastRoom, rejoinRoo
 import { F } from './core/flags';
 import { buildTip, drawTip, tipNow } from './ui/tips';
 import { drawSummary } from './ui/summary';
-import { camera, aimCamera, boardPointAt, render3D, project, figItems, updateTokens, syncBuildings, hop, build3D, renderer, figCamera } from './three/scene3d';
+import { redrawBoardFace, camera, aimCamera, boardPointAt, render3D, project, figItems, updateTokens, syncBuildings, hop, build3D, renderer, figCamera } from './three/scene3d';
 import { buildPropUI, openAnimalPicker, buildPicker, openSeatPicker, teamSpot, openPicker, clearSetupNote, drawNetBanner, drawPicker, handleInput, clearVis } from './ui/setupScreen';
 import { propRows, PROP_Y, PROP_ROW_H, lacquer, drawBoardView, drawPotLabel, drawDiceFeel, drawPopup, drawPanel, drawFloaters, drawInspect, messageBox, drawButton, drawTokenIcon } from './ui/draw';
 import { buildSheetUI, buildSheetButton, drawTitlePhone, drawPhoneChrome, drawSheet, drawResultsPhone, titleSpots } from './ui/phone';
 import { moodStep } from './three/moods';
+import { FLIGHT_TIME } from './three/coinFlights';
 import { buildToolbar, buildPhoneHistory, buildEmoteMenu, drawEmotes, drawEmoteMenu } from './ui/toolbar';
 import { rulesSpot } from './app/install';
 import { CHECKED } from './core/env';
+import { CHIBI } from './core/theme';
+import '@fontsource/baloo-2/latin-400.css'; // Baloo 2 for the chibi look: Latin and Vietnamese, regular and bold (about 50 KB)
+import '@fontsource/baloo-2/vietnamese-400.css';
+import '@fontsource/baloo-2/latin-700.css';
+import '@fontsource/baloo-2/vietnamese-700.css';
 
 if (import.meta.env.DEV) await import('./dev/tune'); // the tweak panel, on the dev server only
 
@@ -422,6 +428,7 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
       state.flash.t += dt;
       for (const f of state.floaters) f.t += dt;
       state.floaters = state.floaters.filter(f => f.t < 1.4);
+      if (state.flights?.length) state.flights = state.flights.filter(f => state.t - f.at < FLIGHT_TIME);
     },
     draw() {
       clear('#1d120c');
@@ -451,6 +458,7 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
       updateTokens(dt); syncBuildings(dt); moodStep(dt);
       if (isGuest()) return;
       for (const f of state.floaters) f.t += dt; state.floaters = state.floaters.filter(f => f.t < 1.4);
+      if (state.flights?.length) state.flights = state.flights.filter(f => state.t - f.at < FLIGHT_TIME);
     },
     draw() {
       if (L.phone) { drawResultsPhone(); return; }
@@ -572,6 +580,8 @@ install({
 
 fit();
 build3D();
+// the chibi look's rounded font is embedded in the build; once the browser has it, the board's face is drawn again with it
+if (CHIBI) Promise.all(['400 20px "Baloo 2"', '700 20px "Baloo 2"'].map(f => document.fonts.load(f, 'Tỷ Phú Đất Việt'))).then(redrawBoardFace, () => {});
 reset();
 setScene(params.get('scene') || 'title');
 if (scene === 'play') clearVis();

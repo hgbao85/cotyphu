@@ -263,13 +263,13 @@ export function floatAtToken(pi: number, s: string, color: string) {
 function floatAtRow(pi: number, s: string, color: string) { state.floaters.push({ row: pi, s, color, t: 0 }); }
 export function gain(pi: number, amt: number, why?: string) {
   if (amt <= 0) return;
-  state.players[pi].cash += amt;
+  state.players[pi].cash += amt; state.players[pi].face = { k: 'happy', at: state.t };
   floatAtRow(pi, '+' + money(amt), '#7ee08a'); floatAtToken(pi, '+' + money(amt), '#3fcf5a');
   if (why) log(why);
   sfx.coin();
 }
 function lose(pi: number, amt: number) {
-  state.players[pi].cash -= amt;
+  state.players[pi].cash -= amt; state.players[pi].face = { k: 'sad', at: state.t };
   floatAtRow(pi, '-' + money(amt), '#ff9a8a'); floatAtToken(pi, '-' + money(amt), '#ff5a4a');
 }
 // pay: the current player pays amounts to players (or the bank, to -1). If the cash is short the
@@ -286,17 +286,19 @@ function charge(payments: Loose[], why: string, then: () => void) {
 function settle(pi: number, payments: Loose[]) {
   for (const x of payments) {
     lose(pi, x.amt);
-    if (x.to >= 0) gain(x.to, x.amt);
-    else if (x.pot) feedPot(x.amt); // only the two tax tiles feed the jar; other bank payments just leave the game
+    if (x.to >= 0) { gain(x.to, x.amt); fly(pi, x.to); }
+    else if (x.pot) { feedPot(x.amt); fly(pi, -1); } // only the two tax tiles feed the jar; other bank payments just leave the game
   }
   sfx.pay();
 }
+/** Coins fly with a payment, from a seat (or the jar, -1) to a seat (or the jar): src/three/coinFlights.ts. */
+function fly(from: number, to: number) { (state.flights ||= []).push({ from, to, at: state.t }); }
 // Hũ tiền giữa bàn: the two tax tiles pay into the jar; landing on Bến Đỗ Tự Do takes it all.
 function feedPot(amt: number) { const add = Math.round(amt * tune.pot_share); if (add > 0) { state.pot += add; } }
 function takePot(pi: number) {
   const p = state.players[pi], amt = state.pot;
   if (amt <= 0) { log(`${p.name} nghỉ chân ở Bến Đỗ Tự Do, nhưng hũ tiền đang trống.`); return; }
-  state.pot = 0;
+  state.pot = 0; fly(-1, pi);
   gain(pi, amt, `${p.name} dừng ở Bến Đỗ Tự Do: ôm trọn hũ tiền ${money(amt)}!`);
   sfx.win(); events.push({ type: 'pot', who: pi, amt });
 }

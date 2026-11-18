@@ -1,5 +1,5 @@
 browser	/c/Program Files/Google/Chrome/Application/chrome.exe
-time	2026-11-18 14:12:59
+time	2026-11-18 14:59:50
 render	cheap
 webgl	ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)
 ua	HeadlessChrome/158.0.0.0
@@ -8,177 +8,177 @@ state	0	title	{"t":0,"score":0,"gained":"","players":[{"id":0,"kind":"human","lv
 scene	1	play
 state	1	play	{"t":0,"score":0,"gained":"","players":[{"id":0,"kind":"human","lv":0,"color":"#d62828","token":1,"name":"Người Trâu","cash":2000,"pos":0,"laps":0,"inJail":false,"jailTries":0,"freeCards":[],"bankrupt
 playinput	4	Space
-frame	3481	460860b6
-frame	3482	a85360e1
-frame	3483	910f5166
-frame	3484	15ba6d15
-frame	3485	b658fe4f
-frame	3486	dfac2d60
-frame	3487	514901d3
-frame	3488	9efcb9e7
-frame	3489	557390b4
-frame	3490	883df9b2
-frame	3491	f6d32ed3
-frame	3492	3be6507d
-frame	3493	e60b3956
-frame	3494	1b937467
-frame	3495	9e89d09a
-frame	3496	7f823943
-frame	3497	4cc840c3
-frame	3498	183901cf
-frame	3499	d35d48c1
-frame	3500	3c840314
-frame	3501	480fca1
-frame	3502	7ed4d1b9
-frame	3503	e83bcff7
-frame	3504	b51979e9
-frame	3505	de1c68d0
-frame	3506	b1cdc937
-frame	3507	af3ae15f
-frame	3508	ced2d16d
-frame	3509	e2c963a
-frame	3510	6d98a4f6
-frame	3511	ee06deb2
-frame	3512	be1abe2e
-frame	3513	aedc7ac
-frame	3514	b1ffaca5
-frame	3515	5b45992a
-frame	3516	1ba581d5
-frame	3517	3d2c1e1a
-frame	3518	16f4891d
-frame	3519	61214e00
-frame	3520	8effc2b6
-frame	3521	81728a34
-frame	3522	8dbc3df5
-frame	3523	2442a8d8
-frame	3524	918361c5
-frame	3525	9c1e14c9
-frame	3526	a12e1da9
-frame	3527	3856f1b0
-frame	3528	b81b70c5
-frame	3529	afcd5a17
-frame	3530	638d26f4
-frame	3531	93e38fe
-frame	3532	9c4284d5
-frame	3533	dbb3180
-frame	3534	682df877
-frame	3535	83365c78
-frame	3536	27695baa
-frame	3537	83d325ba
-frame	3538	c2d0f75c
-frame	3539	dbfb2c59
-frame	3540	eb1a4fb2
-frame	3541	8cb2a280
-frame	3542	a1cb58dd
-frame	3543	5b0b8c84
-frame	3544	b7d61601
-frame	3545	d0f85039
-frame	3546	5c7161fc
-frame	3547	a5641e6a
-frame	3548	d3621439
-frame	3549	3a4bd3e3
-frame	3550	ea909ac8
-frame	3551	5e36c135
-frame	3552	70e93d70
-frame	3553	2c3bee96
-frame	3554	45bd065e
-frame	3555	c76cd346
-frame	3556	4a1d89b7
-frame	3557	25486159
-frame	3558	a03a3e7b
-frame	3559	2e410903
-frame	3560	311a0825
-frame	3561	28128990
-frame	3562	8b00ecee
-frame	3563	5812a040
-frame	3564	4d0f51da
-frame	3565	a4c12cbe
-frame	3566	ed0c5eb1
-frame	3567	3fa94ccc
-frame	3568	956d11f3
-frame	3569	2513e2c6
-frame	3570	dc7a1fa5
-frame	3571	efe45643
-frame	3572	93303ec8
-frame	3573	b2f1f22e
-frame	3574	5f15d9ef
-frame	3575	3c755f14
-frame	3576	d4f97316
-frame	3577	d5896ac7
-frame	3578	36f9acaf
-frame	3579	5d9b264b
-frame	3580	3bfc686
-frame	3581	5c31995c
-frame	3582	a3d194f9
-frame	3583	c75806d6
-frame	3584	f4af4a54
-frame	3585	94cc6835
-frame	3586	82da7362
-frame	3587	672713ff
-frame	3588	e5a80296
-frame	3589	400c194
-frame	3590	7ac37af1
-frame	3591	93523ec8
-frame	3592	6823b399
-frame	3593	63a65c30
-frame	3594	a23670dd
-frame	3595	d66d83cf
-frame	3596	aa0d2a4b
-frame	3597	f9091bbf
-frame	3598	d342298d
-frame	3599	edcc3290
-frame	3600	c183d497
+frame	3481	2edd502a
+frame	3482	70b5d85b
+frame	3483	91df4ba4
+frame	3484	25907fc4
+frame	3485	fb9b494f
+frame	3486	7eb4428a
+frame	3487	e27c9d40
+frame	3488	63be8cf1
+frame	3489	4cb10a8c
+frame	3490	dc4c593e
+frame	3491	b133b91e
+frame	3492	6ba213e0
+frame	3493	3c477307
+frame	3494	d89716e9
+frame	3495	f64f7dad
+frame	3496	bb594f66
+frame	3497	2ec55376
+frame	3498	d9512bbf
+frame	3499	26cba9b4
+frame	3500	191a144f
+frame	3501	f64f0d3b
+frame	3502	7e570d63
+frame	3503	38db988b
+frame	3504	277ce914
+frame	3505	1f36c966
+frame	3506	dd7ac459
+frame	3507	683ead2d
+frame	3508	aad0418c
+frame	3509	dd6d54e1
+frame	3510	43cd8b38
+frame	3511	48d41cc
+frame	3512	d36600af
+frame	3513	b98327b9
+frame	3514	7fe3bf4a
+frame	3515	51e7aae2
+frame	3516	154577c3
+frame	3517	2460b30e
+frame	3518	9b932b4e
+frame	3519	3ae1bbb1
+frame	3520	54ae7803
+frame	3521	cbfda808
+frame	3522	5dc7a048
+frame	3523	ea1136e1
+frame	3524	fffae87
+frame	3525	d469ba61
+frame	3526	d70967c4
+frame	3527	3bfa6b94
+frame	3528	35dad786
+frame	3529	bac70ad
+frame	3530	b31e080b
+frame	3531	85312a6a
+frame	3532	6ee53fe6
+frame	3533	df679b6c
+frame	3534	2925c520
+frame	3535	f89adef5
+frame	3536	bad00c54
+frame	3537	708b9830
+frame	3538	3e571c88
+frame	3539	2fd0de7c
+frame	3540	b9b02e73
+frame	3541	7c4e47ec
+frame	3542	d3252591
+frame	3543	198b8fc3
+frame	3544	1fffce13
+frame	3545	edf7f931
+frame	3546	55567dcd
+frame	3547	7a13622
+frame	3548	e1460d51
+frame	3549	dfbc1fa9
+frame	3550	af1ac1c6
+frame	3551	8315996b
+frame	3552	580ecc97
+frame	3553	a864de9b
+frame	3554	799101d6
+frame	3555	6be126ab
+frame	3556	b7ea2ff8
+frame	3557	363bfa36
+frame	3558	ec963d3e
+frame	3559	37094030
+frame	3560	a6587264
+frame	3561	3883dd16
+frame	3562	29e4e012
+frame	3563	97cfffb6
+frame	3564	3335429e
+frame	3565	f6fd97a6
+frame	3566	c02d2d7a
+frame	3567	573587d
+frame	3568	650d3276
+frame	3569	3168c3b
+frame	3570	b51846c1
+frame	3571	faef448f
+frame	3572	cec79736
+frame	3573	84618891
+frame	3574	c0d69092
+frame	3575	217edaf9
+frame	3576	53e0aa60
+frame	3577	386f03ca
+frame	3578	ac616c2c
+frame	3579	2dfc7d70
+frame	3580	f2ad9009
+frame	3581	b85ad77
+frame	3582	8f5b80a7
+frame	3583	46523010
+frame	3584	9c8c309
+frame	3585	bdf23e3f
+frame	3586	bae2e8fe
+frame	3587	e38f7715
+frame	3588	822b2849
+frame	3589	a52a9744
+frame	3590	2b6b1982
+frame	3591	d8217a02
+frame	3592	e0a9ac52
+frame	3593	442435e1
+frame	3594	316c9746
+frame	3595	7af47a0e
+frame	3596	bd5e4f74
+frame	3597	225ce8a6
+frame	3598	630cd5d7
+frame	3599	ccf1a3e2
+frame	3600	b5724418
 state	3600	play	{"t":59.98,"score":0,"gained":"","players":[{"id":2,"kind":"ai","lv":0,"color":"#f2c200","token":8,"name":"Máy Khỉ","cash":2000,"pos":14,"laps":0,"inJail":false,"jailTries":0,"freeCards":[],"bankrupt"
-digits	log	bold 40px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
-digits	log	bold 46px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
-digits	log	bold 32px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
+digits	log	bold 40px "Baloo 2", "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
+digits	log	bold 46px "Baloo 2", "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
+digits	log	bold 32px "Baloo 2", "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
 digits	log	bold 56px "Segoe UI", Arial, sans-serif	tabular	0
-digits	log	19px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
-digits	log	16px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
-digits	log	bold 16px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
-digits	log	bold 44px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
-digits	log	bold 20px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
-digits	log	15px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
-digits	log	bold 18px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
-digits	log	14px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
-digits	log	bold 15px "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
+digits	log	19px "Baloo 2", "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
+digits	log	16px "Baloo 2", "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
+digits	log	bold 16px "Baloo 2", "Segoe UI", "Helvetica Neue", Arial, sans-serif	proportional	3.456
+digits	log	bold 44px "Baloo 2", "Segoe UI", "Helvetica Neue", Arial, sans-serif	proportional	9.504
+digits	log	bold 20px "Baloo 2", "Segoe UI", "Helvetica Neue", Arial, sans-serif	proportional	4.32
+digits	log	15px "Baloo 2", "Segoe UI", "Helvetica Neue", Arial, sans-serif	proportional	3.39
+digits	log	bold 18px "Baloo 2", "Segoe UI", "Helvetica Neue", Arial, sans-serif	proportional	3.888
+digits	log	14px "Baloo 2", "Segoe UI", "Helvetica Neue", Arial, sans-serif	proportional	3.164
+digits	log	bold 15px "Baloo 2", "Segoe UI", "Helvetica Neue", Arial, sans-serif	proportional	3.24
 loop	log	none	no loop() step was marked
 first	log	none	no state.beat
 pressure	none	the game set no number state.margin in play
-steptime	3600	0.025	4.200
-frametime	60	32.2	169.5	60	60	2
-done	3600	play	stop	60.0	8605
-console	0	[.WebGL-0x2dc00627600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
-console	0	[.WebGL-0x2dc00627600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
-console	0	[.WebGL-0x2dc00627600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
-console	0	[.WebGL-0x2dc00627600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)
+steptime	3600	0.027	4.600
+frametime	60	43.2	151.0	60	60	4
+done	3600	play	stop	60.0	10672
+console	0	[.WebGL-0x2afc00633600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+console	0	[.WebGL-0x2afc00633600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+console	0	[.WebGL-0x2afc00633600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+console	0	[.WebGL-0x2afc00633600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)
 measured	1280x720
-text	play	canvas	407,164,495,176	22.5	7.81	inside	Hũ tiền: 0 đ
-text	play	canvas	1005,14,1204,41	34.5	9.74	inside	TỶ PHÚ ĐẤT VIỆT
-text	play	canvas	1006,50,1173,66	22.5	11.58	inside	Vòng 2 · tới khi phá sản
-text	play	canvas	985,85,1053,103	25.5	16.33	inside	Máy Khỉ
-text	play	canvas	985,111,1141,128	21.0	10.51	inside	Máy Dễ · 0 ô · vòng đầu
-text	play	canvas	1155,85,1255,99	25.5	10.52	inside	2.000.000 đ
-text	play	canvas	985,157,1080,175	25.5	11.12	inside	Người Trâu
-text	play	canvas	985,185,1163,200	21.0	7.16	inside	Người chơi · 0 ô · vòng đầu
-text	play	canvas	1155,157,1255,171	25.5	7.16	inside	2.000.000 đ
-text	play	canvas	985,230,1064,247	25.5	16.33	inside	Máy Mèo
-text	play	canvas	985,257,1148,272	21.0	10.51	inside	Máy Vừa · 0 ô · vòng đầu
-text	play	canvas	1155,229,1255,243	25.5	10.52	inside	2.300.000 đ
-text	play	canvas	922,376,1043,392	24.0	10.70	inside	Tài sản của bạn
-text	play	canvas	922,410,1047,422	21.0	10.74	inside	Chưa có ô đất nào.
-text	play	canvas	922,449,989,462	21.0	11.52	inside	Diễn biến
-text	play	canvas	925,474,1069,489	19.5	9.84	inside	Máy Mèo được đổ tiếp!
-text	play	canvas	925,494,1067,509	19.5	9.88	inside	Máy Mèo đổ 6 + 1 = 7.
-text	play	canvas	925,515,1228,529	19.5	9.91	inside	Máy Mèo chưa qua Xuất Phát lần nào: chưa được
-text	play	canvas	924,536,1019,546	19.5	9.93	inside	mua Ninh Bình.
-text	play	canvas	925,554,1058,569	19.5	9.93	inside	Máy Khỉ đổ 2 + 1 = 3.
-text	play	canvas	925,575,1250,589	19.5	18.10	inside	Máy Khỉ chưa qua Xuất Phát lần nào: chưa được mua
-text	play	canvas	925,596,970,608	19.5	18.10	inside	Hà Nội.
-text	play	canvas	931,23,961,37	21.0	7.16	inside	Luật
-text	play	canvas	1235,55,1252,66	21.0	7.16	inside	×1
-text	play	canvas	30,686,79,701	21.0	7.16	inside	Lịch sử
-text	play	canvas	361,389,539,408	30.0	5.38	inside	Giữ để lắc xúc xắc
-screen	3600	play	c339be82	drawn
+text	play	canvas	410,160,491,175	21.0	3.41	inside	Hũ tiền: 0 đ
+text	play	canvas	1014,11,1194,39	30.0	3.30	inside	TỶ PHÚ ĐẤT VIỆT
+text	play	canvas	1013,49,1167,65	21.0	7.10	inside	Vòng 2 · tới khi phá sản
+text	play	canvas	984,83,1048,101	22.5	11.26	inside	Máy Khỉ
+text	play	canvas	984,111,1126,127	19.5	4.61	inside	Máy Dễ · 0 ô · vòng đầu
+text	play	canvas	1158,84,1255,98	22.5	3.41	inside	2.000.000 đ
+text	play	canvas	985,155,1074,173	22.5	9.02	inside	Người Trâu
+text	play	canvas	985,184,1148,199	19.5	3.69	inside	Người chơi · 0 ô · vòng đầu
+text	play	canvas	1158,156,1255,170	22.5	2.73	inside	2.000.000 đ
+text	play	canvas	984,227,1056,245	22.5	11.26	inside	Máy Mèo
+text	play	canvas	984,256,1133,271	19.5	4.61	inside	Máy Vừa · 0 ô · vòng đầu
+text	play	canvas	1158,228,1255,242	22.5	3.41	inside	2.300.000 đ
+text	play	canvas	922,374,1038,391	22.5	3.04	inside	Tài sản của bạn
+text	play	canvas	922,409,1039,422	19.5	4.07	inside	Chưa có ô đất nào.
+text	play	canvas	922,447,986,462	19.5	3.27	inside	Diễn biến
+text	play	canvas	924,472,1058,487	18.0	4.42	inside	Máy Mèo được đổ tiếp!
+text	play	canvas	924,492,1052,507	18.0	4.42	inside	Máy Mèo đổ 6 + 1 = 7.
+text	play	canvas	924,513,1240,527	18.0	4.42	inside	Máy Mèo chưa qua Xuất Phát lần nào: chưa được mua
+text	play	canvas	924,534,985,545	18.0	4.39	inside	Ninh Bình.
+text	play	canvas	924,552,1045,567	18.0	4.39	inside	Máy Khỉ đổ 2 + 1 = 3.
+text	play	canvas	924,573,1252,587	18.0	10.72	inside	Máy Khỉ chưa qua Xuất Phát lần nào: chưa được mua Hà
+text	play	canvas	924,594,947,607	18.0	10.63	inside	Nội.
+text	play	canvas	931,22,961,37	19.5	2.73	inside	Luật
+text	play	canvas	1236,55,1252,65	19.5	2.73	inside	×1
+text	play	canvas	30,685,79,701	19.5	2.73	inside	Lịch sử
+text	play	canvas	367,387,533,407	27.0	5.84	inside	Giữ để lắc xúc xắc
+screen	3600	play	6f79fe7e	drawn
 uncaught	0
-shot	/d/cotyphu/production/qa/evidence/grow-ty-phu-dat-viet/story.png	372851
+shot	/d/cotyphu/production/qa/evidence/grow-ty-phu-dat-viet/story.png	370699

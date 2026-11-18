@@ -7,14 +7,17 @@ import { HALF, CORNER, BAND, L as BOARD_SIZE, tileInfo } from '../game/board';
 import type { Loose } from '../game/types';
 import { canvasTex } from './materials';
 import { icon, TILE_ICON } from '../draw/icons';
+import { CHIBI } from '../core/theme';
 
 export function boardTexture() {
   const S = 2048, k = S / BOARD_SIZE;
   return canvasTex(S, S, (c: CanvasRenderingContext2D) => {
     const X = (x: number) => (x + HALF) * k, Z = (z: number) => (z + HALF) * k;
-    c.fillStyle = '#f2e6c8'; c.fillRect(0, 0, S, S);
-    // the centre: a bamboo frame, rice-field stripes, the title, and the two deck spots
+    c.fillStyle = CHIBI ? '#86c95e' : '#f2e6c8'; c.fillRect(0, 0, S, S);
+    // the centre: a bamboo frame, rice-field stripes, the title, and the two deck spots (chibi: rice paddies)
     const e = HALF - CORNER;
+    if (CHIBI) chibiField(c, X(-e), Z(-e), 2 * e * k);
+    else {
     c.fillStyle = '#e9dcb6'; c.fillRect(X(-e), Z(-e), (2 * e) * k, (2 * e) * k);
     c.save(); c.beginPath(); c.rect(X(-e), Z(-e), 2 * e * k, 2 * e * k); c.clip();
     for (let r = -20; r < 30; r++) { c.fillStyle = r % 2 ? 'rgba(120,170,80,0.10)' : 'rgba(200,190,120,0.08)'; c.fillRect(X(-e) + r * 60, Z(-e), 30, 2 * e * k); }
@@ -32,6 +35,7 @@ export function boardTexture() {
     c.fillStyle = 'rgba(150,40,30,0.30)'; c.font = `bold 108px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle';
     c.fillText('TỶ PHÚ ĐẤT VIỆT', 0, 6);
     c.restore();
+    }
     c.fillStyle = '#6a4a2a'; c.font = `italic 40px ${FONT}`; c.textAlign = 'center';
     // deck spots
     for (const [dx, dz, , label] of [[-2.3, -2.9, 'co', 'CƠ HỘI'], [2.3, -2.9, 'kv', 'KHÍ VẬN']] as [number, number, string, string][]) {
@@ -49,7 +53,10 @@ export function boardTexture() {
       else { x0 = ti.x - 0.8; z0 = ti.z - 0.5; w = 1.6; h = 1; }
       const px = X(x0), pz = Z(z0), pw = w * k, ph = h * k;
       c.fillStyle = t.t === 'prop' ? '#fbf3df' : ti.side === -1 ? '#f6e3b8' : '#f4ecd6';
-      c.fillRect(px, pz, pw, ph);
+      if (CHIBI) { // a rounded card on the grass, its band clipped to the card
+        c.fillStyle = t.t === 'prop' ? '#fffaf0' : ti.side === -1 ? '#fff0c8' : '#fdf4dc';
+        c.save(); c.beginPath(); c.roundRect(px + CARD_GAP, pz + CARD_GAP, pw - 2 * CARD_GAP, ph - 2 * CARD_GAP, CARD_R); c.fill(); c.clip();
+      } else c.fillRect(px, pz, pw, ph);
       // text area: the tile minus its inner band
       let tx = px, tz = pz, tw = pw, th = ph;
       if (t.t === 'prop') {
@@ -65,7 +72,8 @@ export function boardTexture() {
         if (ti.side === 1) { c.beginPath(); c.moveTo(px + pw - b, pz); c.lineTo(px + pw - b, pz + ph); c.stroke(); }
         if (ti.side === 3) { c.beginPath(); c.moveTo(px + b, pz); c.lineTo(px + b, pz + ph); c.stroke(); }
       }
-      c.strokeStyle = '#5a3d2b'; c.lineWidth = 4; c.strokeRect(px, pz, pw, ph);
+      if (CHIBI) { c.restore(); c.strokeStyle = '#d2a878'; c.lineWidth = 5; c.beginPath(); c.roundRect(px + CARD_GAP, pz + CARD_GAP, pw - 2 * CARD_GAP, ph - 2 * CARD_GAP, CARD_R); c.stroke(); }
+      else { c.strokeStyle = '#5a3d2b'; c.lineWidth = 4; c.strokeRect(px, pz, pw, ph); }
       const cx = tx + tw / 2;
       c.fillStyle = '#2b1d12'; c.textAlign = 'center'; c.textBaseline = 'middle';
       // Names as large as the tile allows: start big and shrink until they fit in at most 3 lines.
@@ -111,8 +119,22 @@ export function boardTexture() {
       }
       if (price) { fitFont(price, 40, tw * 0.92); c.fillText(price, cx, priceY); }
     }
-    c.strokeStyle = '#3a2416'; c.lineWidth = 10; c.strokeRect(5, 5, S - 10, S - 10);
+    if (!CHIBI) { c.strokeStyle = '#3a2416'; c.lineWidth = 10; c.strokeRect(5, 5, S - 10, S - 10); }
   });
+}
+/** Chibi tiles: the grass showing between the rounded cards, and their corner radius (texture pixels). */
+const CARD_GAP = 7, CARD_R = 26;
+/** The chibi centre: rice paddies in rows of green, with paths between them; the pond, the ducks and
+ * the lotus are 3D (src/three/village.ts). */
+function chibiField(c: CanvasRenderingContext2D, x: number, y: number, size: number) {
+  c.fillStyle = '#e8d29a'; c.beginPath(); c.roundRect(x + 14, y + 14, size - 28, size - 28, 40); c.fill(); // the paths
+  const n = 4, gap = 18, cell = (size - 28 - gap * (n + 1)) / n;
+  for (let r = 0; r < n; r++) for (let q = 0; q < n; q++) {
+    const px = x + 14 + gap + q * (cell + gap), py = y + 14 + gap + r * (cell + gap);
+    c.fillStyle = (r + q) % 2 ? '#9fd977' : '#8fcf68'; c.beginPath(); c.roundRect(px, py, cell, cell, 18); c.fill();
+    c.strokeStyle = 'rgba(70,140,60,0.35)'; c.lineWidth = 4; // rows of rice
+    for (let l = 1; l < 6; l++) { c.beginPath(); c.moveTo(px + 10, py + l * cell / 6); c.lineTo(px + cell - 10, py + l * cell / 6); c.stroke(); }
+  }
 }
 export function pipTexture(n: number) {
   return canvasTex(128, 128, (c: CanvasRenderingContext2D, w: number) => {
@@ -120,6 +142,13 @@ export function pipTexture(n: number) {
     c.strokeStyle = '#d8d0bf'; c.lineWidth = 6; c.strokeRect(3, 3, w - 6, w - 6);
     const P3 = { 1: [[2, 2]], 2: [[1, 1], [3, 3]], 3: [[1, 1], [2, 2], [3, 3]], 4: [[1, 1], [3, 1], [1, 3], [3, 3]], 5: [[1, 1], [3, 1], [2, 2], [1, 3], [3, 3]], 6: [[1, 1], [3, 1], [1, 2], [3, 2], [1, 3], [3, 3]] }[n];
     c.fillStyle = n === 1 ? '#c8201f' : '#1d1d1d';
-    for (const [a, b] of P3!) { c.beginPath(); c.arc(a * w / 4, b * w / 4, n === 1 ? 17 : 12, 0, Math.PI * 2); c.fill(); }
+    for (const [a, b] of P3!) paw(c, a * w / 4, b * w / 4, n === 1 ? 22 : 13); // each pip a little paw print
   });
+}
+/** A paw print centred on (x, y), about 2r across: a round pad and four toes above it. */
+function paw(c: CanvasRenderingContext2D, x: number, y: number, r: number) {
+  c.beginPath(); c.ellipse(x, y + r * 0.3, r * 0.55, r * 0.45, 0, 0, Math.PI * 2); c.fill();
+  for (const [dx, dy, tr] of [[-0.62, -0.18, 0.22], [-0.24, -0.6, 0.24], [0.24, -0.6, 0.24], [0.62, -0.18, 0.22]]) {
+    c.beginPath(); c.arc(x + dx * r, y + dy * r, tr * r, 0, Math.PI * 2); c.fill();
+  }
 }

@@ -93,6 +93,8 @@ export interface Player {
   wasRemote?: boolean;
   /** The throw that set this player's place in the order of play. */
   orderRoll?: number;
+  /** The face their animal makes for a moment: happy on getting money, sad on paying it (state.t when). */
+  face?: { k: 'happy' | 'sad'; at: number };
 }
 
 /** The state of one game: everything the rules read and change. */
@@ -139,6 +141,8 @@ export interface GameState {
   pick: number;
   log: string[];
   floaters: Loose[];
+  /** Coins flying with a payment: from a seat to a seat, -1 the jar in the middle (state.t when it left). */
+  flights?: { from: number; to: number; at: number }[];
   decks: Record<DeckKind, number[]>;
   used: Record<DeckKind, number[]>;
   flash: { tile: number; t: number };

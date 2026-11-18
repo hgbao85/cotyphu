@@ -1,5 +1,6 @@
 // The 2D canvas: a 1280x720 logical screen that fills the window, and the drawing helpers the
 // HUD, popups and buttons use. The 3D board is drawn into it each frame by main.ts.
+import { CHIBI, themeCanvas } from './core/theme';
 
 /** The logical size: 1280x720 on a wide screen, 480x960 on a phone held upright (setLogical). */
 export let W = 1280, H = 720;
@@ -11,10 +12,12 @@ export function setLogical(w: number, h: number): void {
   W = w; H = h;
 }
 const PIXEL = false;
-export const FONT = '"Segoe UI", "Helvetica Neue", Arial, sans-serif';
+/** The words' font: the chibi look's rounded Baloo 2 (embedded, Vietnamese included), else the system's. */
+export const FONT = (CHIBI ? '"Baloo 2", ' : '') + '"Segoe UI", "Helvetica Neue", Arial, sans-serif';
 
 export const canvas = document.getElementById('game') as HTMLCanvasElement;
 export const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
+themeCanvas(ctx); // the chibi look turns the screens' colours (src/core/theme.ts)
 
 /** Device pixels per logical pixel, after the last fit(). */
 export let screenScale = 1;

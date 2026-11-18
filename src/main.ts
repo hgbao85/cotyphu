@@ -2641,11 +2641,11 @@ function rulesHtml(): string {
       '<b>Dẫm lại đất của mình</b> thì được xây thêm 1 cấp: Nhà 1 → Nhà 4 → Khách sạn → Landmark của tỉnh.',
       `Giá xây mỗi cấp: nhà ${pct(tune.house_cost_pct)}, khách sạn ${pct(tune.hotel_cost_pct)}, Landmark ${pct(tune.landmark_cost_pct)} giá đất.`,
       `Tiền thuê theo giá đất: ${levels}.`,
-      `Gom đủ cả nhóm màu: tiền thuê × ${tune.full_group_mult}.`,
+      `Gom đủ cả nhóm màu (không ô nào đang cầm cố): tiền thuê × ${tune.full_group_mult}.`,
     ]),
     sec('Bến cảng, sân bay và công ty', [
-      `${ports.length} bến, giá ${money(ports[0].p!)} mỗi ô. Tiền thuê theo số bến chủ có: ${portRents}.`,
-      `${utils.length} công ty, giá ${money(utils[0].p!)} mỗi ô. Tiền thuê = tổng xúc xắc × ${money(tune.util_mult_one * tune.rent_scale)} (có 1 công ty) hoặc × ${money(tune.util_mult_two * tune.rent_scale)} (có cả 2).`,
+      `${ports.length} bến, giá ${money(ports[0].p!)} mỗi ô. Tiền thuê theo số bến chủ có, không tính bến đang cầm cố: ${portRents}.`,
+      `${utils.length} công ty, giá ${money(utils[0].p!)} mỗi ô. Tiền thuê = tổng xúc xắc × ${money(tune.util_mult_one * tune.rent_scale)} (có 1 công ty) hoặc × ${money(tune.util_mult_two * tune.rent_scale)} (có cả 2, không tính công ty đang cầm cố).`,
       'Bến và công ty không xây được.',
     ]),
     sec('Thuế và hũ tiền', [
@@ -2668,7 +2668,7 @@ function rulesHtml(): string {
     ]),
     sec('Thiếu tiền và phá sản', [
       `Bán bớt 1 cấp nhà: hoàn ${pct(tune.sell_pct)} giá xây cấp đó.`,
-      `Cầm cố đất (phải bán hết nhà trên ô trước): nhận ${pct(tune.mortgage_pct)} giá đất. Đất cầm cố không thu tiền thuê. Chuộc lại: ${pct(tune.unmortgage_pct)} giá đất.`,
+      `Cầm cố đất (phải bán hết nhà trên ô trước): nhận ${pct(tune.mortgage_pct)} giá đất. Đất cầm cố không thu tiền thuê, và không được tính để gom đủ nhóm, đủ bến hay đủ công ty. Chuộc lại: ${pct(tune.unmortgage_pct)} giá đất.`,
       'Bán và cầm cố hết mà vẫn không đủ trả: phá sản, bị loại. Đất trả về ngân hàng.',
     ]),
     sec('Kết thúc', [

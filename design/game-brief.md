@@ -55,6 +55,7 @@ After play: Làm máy Khó thật sự khó (mục tiêu 65–70% thắng máy D
 After play: Đổi tiền thuê qua R2 (rent_scale 3), thiết kế thêm landmark cho các ô chưa có → 12 mô hình mới, 22 tỉnh mỗi tỉnh một landmark riêng
 After play: Phòng online: ghế thứ 2 không chọn được Không chơi; người vào phòng bị xếp ghế 3 thay vì ghế 2 → ghế 2–4 đều chọn được Không chơi (cần ít nhất 2 người mới bắt đầu); bạn vào phòng lấy ghế sớm nhất là Máy hoặc trống
 After play: Ô thuế 10% / 2.000.000: ưu tiên nộp 10%, tối đa 2.000.000, khỏi phải chọn
+After play: Sao đang cầm cố đất mà vẫn gọi là đủ nhóm → đất cầm cố không tính để gom đủ nhóm (bến, công ty vốn đã không tính)
 
 **Pitch:** Cờ tỷ phú trên bản đồ Việt Nam cho 2–4 người, mỗi chỗ là người hoặc máy: đổ xúc xắc, mua đất từ Hà Giang tới Cà Mau, dẫm lại đất mình để xây nhà, khách sạn rồi Landmark, rút thẻ Cơ Hội và Khí Vận vui nhộn; ai trụ lại (hoặc giàu nhất sau 30 vòng) là tỷ phú.
 

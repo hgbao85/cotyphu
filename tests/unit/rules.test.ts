@@ -50,6 +50,26 @@ describe('rentOf', () => {
     expect(rentOf(s, HA_NOI, 7)).toBeGreaterThan(alone);
   });
 
+  it('leaves a mortgaged province out of the full group, so the rest lose the bonus until it is bought back', () => {
+    // Regression: a group with one mortgaged province still counted as full and charged ×full_group_mult.
+    const s = board();
+    for (const i of [HA_NOI, BAC_NINH, NAM_DINH]) s.owner[i] = 0;
+    s.mort[NAM_DINH] = true;
+    expect(ownsGroup(s, 0, TILES[HA_NOI].g as number)).toBe(false);
+    expect(rentOf(s, HA_NOI, 7)).toBe(roundTo10(price(HA_NOI) * config.rent_l0.value * config.rent_scale.value));
+    s.mort[NAM_DINH] = false;
+    expect(rentOf(s, HA_NOI, 7)).toBe(roundTo10(price(HA_NOI) * config.rent_l0.value * config.rent_scale.value * config.full_group_mult.value));
+  });
+
+  it('counts only the ports and companies that are not mortgaged', () => {
+    const s = board();
+    for (const p of PORTS) s.owner[p] = 0;
+    s.mort[PORTS[3]] = true;
+    expect(rentOf(s, PORTS[0], 7)).toBe(Math.round(config.port_rent.value * 2 ** 2 * config.rent_scale.value)); // 3 ports count
+    s.owner[ELECTRIC] = 1; s.owner[WATER] = 1; s.mort[WATER] = true;
+    expect(rentOf(s, ELECTRIC, 9)).toBe(Math.round(9 * config.util_mult_one.value * config.rent_scale.value));
+  });
+
   it('doubles port rent for each port the owner holds', () => {
     const s = board();
     PORTS.forEach((p, k) => {

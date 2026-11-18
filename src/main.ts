@@ -14,6 +14,12 @@ import { makeAnimal, drawAnimalIcon } from './animals';
 import { HALF, CORNER, BAND, BOARD_TOP, L as BOARD_SIZE, tileInfo, tileAt, tokenSpot } from './game/board';
 import * as R from './game/rules';
 import { cleanChat } from './game/chat';
+import { mat, canvasTex, woodTexture, mesh } from './three/materials';
+import { icon, star } from './draw/icons';
+import { boardTexture, pipTexture } from './three/boardTexture';
+import { makeHouse, makeHotel, makeLandmark } from './three/buildings';
+import { showRules, showHistory } from './ui/pages';
+import { showChat, setChatSender } from './ui/chatBox';
 import { money } from './game/rules';
 import type { DeckKind, GameState, KeepAct, Loose, Player, Seat, Tile } from './game/types';
 
@@ -548,6 +554,75 @@ function reset() {
   if (tune.order_roll && players.length > 1) startOrder(); else startTurn();
 }
 
+// ---- First-game tips -----------------------------------------------------------------------------------
+// A small box with one tip, the first time each moment comes on this screen (the first throw, the first
+// land to buy...). "Đã hiểu" puts it away for good, "Tắt hướng dẫn" puts them all away. Checks run without
+// them (so a same-seed replay draws the same), unless the address asks with ?tutorial=1.
+const TIPS: Record<string, string> = {
+  roll: 'Giữ nút đỏ để lắc xúc xắc, thả ra để ném. Giữ càng lâu, xúc xắc lăn càng mạnh.',
+  buy: 'Mua đất để thu tiền thuê khi người khác dẫm vào. Gom đủ cả nhóm màu thì tiền thuê nhân đôi.',
+  inspect: 'Bấm vào một ô bất kỳ trên bàn cờ để xem giá, tiền thuê, đặc sản và chủ của ô.',
+  build: 'Dẫm lại đất của mình thì được xây thêm 1 cấp: nhà, khách sạn, rồi Landmark.',
+  debt: 'Thiếu tiền: bán bớt nhà hoặc cầm cố đất ở danh sách tài sản, rồi bấm Trả nợ.',
+  jail: 'Ở tù: đổ được đôi thì ra ngay. Ở đủ 3 lượt thì lượt sau được ra.',
+};
+const tipsOn = !(params.has('seed') || CHEAP || params.get('manual') === '1' || !!window.GAME_CLOCK) || params.get('tutorial') === '1'; // as checkedRun, declared further down
+const tipsSeen = new Set<string>((() => { try { return JSON.parse(localStorage.getItem('tpdv-tips') || '[]'); } catch { return []; } })());
+let tipNow: string | null = null;
+function keepTipsSeen() { try { localStorage.setItem('tpdv-tips', JSON.stringify([...tipsSeen])); } catch { /* not kept: fine */ } }
+/** The tip this moment calls for, if this screen has not seen it. */
+function tipFor(): string | null {
+  if (!tipsOn || scene !== 'play' || !state.players || state.ordering || !humanTurn()) return null;
+  const p = curP(), pi = state.cur;
+  const want = state.phase === 'roll' && !state.shaking ? (tipsSeen.has('roll') && owned(pi).length ? 'inspect' : 'roll')
+    : state.phase === 'buy' ? 'buy' : state.phase === 'build' ? 'build' : state.phase === 'debt' ? 'debt' : state.phase === 'jail' && p.inJail ? 'jail' : null;
+  return want && !tipsSeen.has(want) ? want : null;
+}
+/** Where the tip box sits: the board's top right on a wide screen, under the toolbar on a phone. */
+function tipBox(): { x: number; y: number; w: number; h: number } {
+  return L.phone ? { x: 12, y: L.by + 44, w: W - 24, h: 104 } : { x: BW - 360, y: 64, w: 350, h: 124 };
+}
+function buildTip() {
+  tipNow = tipFor();
+  if (!tipNow) return;
+  const b = tipBox(), key = tipNow;
+  btn(b.x + b.w - 214, b.y + b.h - 40, 110, 32, 'Đã hiểu', () => { tipsSeen.add(key); keepTipsSeen(); }, 'room');
+  btn(b.x + b.w - 98, b.y + b.h - 40, 88, 32, 'Tắt', () => { for (const k of Object.keys(TIPS)) tipsSeen.add(k); keepTipsSeen(); }, 'room');
+}
+function drawTip() {
+  if (!tipNow) return;
+  const b = tipBox();
+  ctx.save(); ctx.fillStyle = 'rgba(255,248,230,0.97)'; rrect(ctx, b.x, b.y, b.w, b.h, 12); ctx.fill(); ctx.strokeStyle = '#c9a24a'; ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
+  text('Mẹo', b.x + 14, b.y + 16, 15, '#8a3a24', 'left', 'bold');
+  ctx.font = `15px ${FONT}`;
+  wrapLines(ctx, TIPS[tipNow], b.w - 28).slice(0, 3).forEach((l, j) => text(l, b.x + 14, b.y + 38 + j * 19, 15, '#2b1d12', 'left'));
+  ui.forEach(x => { if (x.label === 'Đã hiểu' || (x.label === 'Tắt' && x.role === 'room')) drawButton(x); });
+}
+
+// ---- The end-of-game summary --------------------------------------------------------------------------
+/** A few lines about the game just played: who collected most rent, the tile that hurt most, the unluckiest. */
+function summaryLines(): string[] {
+  const st = state.stats;
+  if (!st) return [];
+  const name = (seat: number) => state.players.find(p => p.id === seat)?.name ?? '';
+  const best = (a: number[]) => a.reduce((b, v, k) => (v > a[b] ? k : b), 0);
+  const out: string[] = [];
+  const g = best(st.got), pd = best(st.paid);
+  if (st.got[g] > 0) out.push(`Thu tiền thuê nhiều nhất: ${name(g)} (${money(st.got[g])})`);
+  const tiles = Object.entries(st.tile).sort((a, b) => b[1] - a[1]);
+  if (tiles.length) out.push(`Ô đáng sợ nhất: ${TILES[Number(tiles[0][0])].n} (thu ${money(tiles[0][1])})`);
+  if (st.paid[pd] > 0) out.push(`Xui nhất: ${name(pd)} (trả ${money(st.paid[pd])} tiền thuê)`);
+  return out;
+}
+function drawSummary(x: number, y: number, w: number, minH = 0) {
+  const lines = summaryLines();
+  if (!lines.length) return;
+  const h = Math.max(minH, 48 + lines.length * 30);
+  ctx.save(); ctx.fillStyle = '#2c140f'; rrect(ctx, x, y, w, h, 12); ctx.fill(); ctx.strokeStyle = '#c9a24a'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
+  text('Tổng kết ván', x + w / 2, y + 22, 18, '#f2c44a', 'center', 'bold');
+  lines.forEach((l, j) => fitText(l, x + w / 2, y + 52 + j * 30, w - 20, 16, '#fff8e6', ''));
+}
+
 // ---- Rare cards kept for later: Thẻ Miễn Thuê and Thẻ Đổ Lại -----------------------------------------
 /** In a team game, whether players a and b (indexes in state.players) are partners. */
 const sameTeam = (a: number, b: number): boolean => !!state.teams && a !== b && state.players[a].team === state.players[b].team;
@@ -561,6 +636,8 @@ function spendKeep(p: Player, act: KeepAct) {
 function payRent(i: number, rent: number, o: number) {
   const p = curP(), pi = state.cur, owner = state.players[o];
   events.push({ type: 'rent', tile: i, amt: rent, from: pi, to: o }); // for checks: which land earns what, who pays whom
+  const st = (state.stats ||= { paid: [0, 0, 0, 0], got: [0, 0, 0, 0], tile: {} }); // for the end-of-game summary, by seat
+  st.paid[p.id] += rent; st.got[owner.id] += rent; st.tile[i] = (st.tile[i] || 0) + rent;
   state.popup = { kind: 'rent', tile: i, rent, owner: o };
   charge([{ to: o, amt: rent }], `${p.name} trả ${owner.name} ${money(rent)} tiền thuê ở ${TILES[i].n}.`, () => { state.phase = 'rentShow'; state.timer = 0; });
 }
@@ -999,7 +1076,8 @@ function doBuild(i: number, free = false) {
   p.cash -= cost; state.level[i] = to;
   if (cost) floatAtRow(pi, '-' + money(cost), '#ff9a8a');
   log(`${p.name} xây ${LEVEL_NAMES[to]}${to === 6 ? ' ' + TILES[i].lm : ''} ở ${TILES[i].n}${free ? ' (miễn phí)' : ''}.`);
-  sfx.build(); events.push({ type: 'build', who: pi, tile: i, level: to });
+  if (to === MAX_LEVEL) sfx.landmark(); else sfx.build(); // a Landmark rises to a gong and drums
+  events.push({ type: 'build', who: pi, tile: i, level: to });
 }
 function skip() { state.popup = null; afterAction(); }
 function applyCard() {
@@ -1220,271 +1298,8 @@ function sizeRenderer() {
   renderer!.setSize(L.bw, L.bh, false);
 }
 afterFit(() => { if (renderer) sizeRenderer(); }); // the 3D view follows the window size
-function mat(color: THREE.ColorRepresentation, opts = {}) { return new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.55, metalness: 0.0 }, opts)); }
-function plastic(color: THREE.ColorRepresentation) { return new THREE.MeshPhongMaterial({ color, shininess: 90, specular: 0x666666 }); }
-function canvasTex(w: number, h: number, draw: (c: CanvasRenderingContext2D, w: number, h: number) => void) {
-  const c = document.createElement('canvas'); c.width = w; c.height = h;
-  draw(c.getContext('2d')!, w, h);
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
-  return t;
-}
-function woodTexture() {
-  return canvasTex(1024, 1024, (c: CanvasRenderingContext2D, w: number, h: number) => {
-    c.fillStyle = '#8a5a34'; c.fillRect(0, 0, w, h);
-    for (let y = 0; y < h; y += 2) { // grain: wavy darker and lighter lines, from a fixed pattern
-      const k = Math.sin(y * 0.05) * 0.5 + Math.sin(y * 0.013 + 1.7) * 0.5;
-      c.strokeStyle = k > 0.2 ? 'rgba(60,32,14,0.18)' : 'rgba(255,214,160,0.06)';
-      c.beginPath(); c.moveTo(0, y);
-      for (let x = 0; x <= w; x += 32) c.lineTo(x, y + Math.sin(x * 0.01 + y * 0.03) * 3);
-      c.stroke();
-    }
-    for (let p = 0; p < 7; p++) { // planks
-      c.fillStyle = 'rgba(40,20,8,0.35)'; c.fillRect(0, p * (h / 7), w, 3);
-    }
-  });
-}
-
-// Icons painted on the board and on cards: each drawn with paths, never a font glyph.
-const icon = {
-  lantern(c: CanvasRenderingContext2D, x: number, y: number, s: number) { // đèn lồng đỏ: Cơ Hội
-    c.save(); c.translate(x, y);
-    c.fillStyle = '#5a3a1a'; c.fillRect(-s * 0.04, -s * 0.62, s * 0.08, s * 0.16);
-    c.fillStyle = '#e8b33a'; rrect(c, -s * 0.24, -s * 0.48, s * 0.48, s * 0.1, s * 0.03); c.fill();
-    rrect(c, -s * 0.24, s * 0.38, s * 0.48, s * 0.1, s * 0.03); c.fill();
-    c.fillStyle = '#d42a24'; c.beginPath(); c.ellipse(0, -s * 0.0, s * 0.4, s * 0.4, 0, 0, Math.PI * 2); c.fill();
-    c.strokeStyle = '#f2c44a'; c.lineWidth = s * 0.04;
-    for (const k of [-0.22, 0, 0.22]) { c.beginPath(); c.ellipse(0, 0, Math.abs(k) * s * 1.3 + s * 0.02, s * 0.4, 0, 0, Math.PI * 2); c.stroke(); }
-    c.strokeStyle = '#e8b33a'; c.lineWidth = s * 0.03;
-    for (let k = -2; k <= 2; k++) { c.beginPath(); c.moveTo(k * s * 0.05, s * 0.48); c.lineTo(k * s * 0.07, s * 0.72); c.stroke(); }
-    c.restore();
-  },
-  envelope(c: CanvasRenderingContext2D, x: number, y: number, s: number) { // bao lì xì: Khí Vận
-    c.save(); c.translate(x, y);
-    c.fillStyle = '#c8201f'; rrect(c, -s * 0.32, -s * 0.48, s * 0.64, s * 0.96, s * 0.06); c.fill();
-    c.fillStyle = '#a3171a'; c.beginPath(); c.moveTo(-s * 0.32, -s * 0.44); c.lineTo(0, -s * 0.12); c.lineTo(s * 0.32, -s * 0.44); c.closePath(); c.fill();
-    c.strokeStyle = '#f2c44a'; c.lineWidth = s * 0.035; rrect(c, -s * 0.26, -s * 0.42, s * 0.52, s * 0.84, s * 0.04); c.stroke();
-    c.fillStyle = '#f2c44a'; c.beginPath(); c.arc(0, s * 0.12, s * 0.14, 0, Math.PI * 2); c.fill();
-    c.fillStyle = '#c8201f'; c.fillRect(-s * 0.06, s * 0.06, s * 0.12, s * 0.12);
-    c.restore();
-  },
-  coins(c: CanvasRenderingContext2D, x: number, y: number, s: number) {
-    c.save(); c.translate(x, y);
-    for (let k = 0; k < 4; k++) {
-      const yy = s * 0.3 - k * s * 0.15;
-      c.fillStyle = '#b98a1c'; c.beginPath(); c.ellipse(0, yy + s * 0.04, s * 0.32, s * 0.11, 0, 0, Math.PI * 2); c.fill();
-      c.fillStyle = '#f2c44a'; c.beginPath(); c.ellipse(0, yy, s * 0.32, s * 0.11, 0, 0, Math.PI * 2); c.fill();
-    }
-    c.strokeStyle = '#8a6410'; c.lineWidth = s * 0.03; c.strokeRect(-s * 0.08, -s * 0.2, s * 0.16, s * 0.08);
-    c.restore();
-  },
-  ship(c: CanvasRenderingContext2D, x: number, y: number, s: number) {
-    c.save(); c.translate(x, y);
-    c.fillStyle = '#2d4f7c'; c.beginPath(); c.moveTo(-s * 0.48, 0); c.lineTo(s * 0.48, 0); c.lineTo(s * 0.34, s * 0.24); c.lineTo(-s * 0.4, s * 0.24); c.closePath(); c.fill();
-    c.fillStyle = '#f4ead2'; c.fillRect(-s * 0.26, -s * 0.2, s * 0.44, s * 0.2);
-    c.fillStyle = '#d8403a'; c.fillRect(-s * 0.06, -s * 0.38, s * 0.12, s * 0.18);
-    c.strokeStyle = '#3d86c6'; c.lineWidth = s * 0.04;
-    c.beginPath(); for (let k = -0.5; k <= 0.5; k += 0.25) c.arc(k * s, s * 0.34, s * 0.12, Math.PI, 0); c.stroke();
-    c.restore();
-  },
-  train(c: CanvasRenderingContext2D, x: number, y: number, s: number) {
-    c.save(); c.translate(x, y);
-    c.fillStyle = '#2d6a4f'; rrect(c, -s * 0.42, -s * 0.28, s * 0.6, s * 0.44, s * 0.06); c.fill();
-    c.fillStyle = '#d8403a'; c.fillRect(s * 0.18, -s * 0.1, s * 0.26, s * 0.26);
-    c.fillStyle = '#333'; c.fillRect(-s * 0.3, -s * 0.44, s * 0.1, s * 0.16);
-    c.fillStyle = '#cfe8f7'; c.fillRect(-s * 0.32, -s * 0.18, s * 0.16, s * 0.14); c.fillRect(-s * 0.08, -s * 0.18, s * 0.16, s * 0.14);
-    c.fillStyle = '#222'; for (const k of [-0.3, 0, 0.3]) { c.beginPath(); c.arc(k * s, s * 0.22, s * 0.09, 0, Math.PI * 2); c.fill(); }
-    c.fillStyle = '#8a8a8a'; c.fillRect(-s * 0.5, s * 0.31, s, s * 0.04);
-    c.restore();
-  },
-  plane(c: CanvasRenderingContext2D, x: number, y: number, s: number) {
-    c.save(); c.translate(x, y); c.rotate(-0.4);
-    c.fillStyle = '#3a6ea5';
-    c.beginPath(); c.ellipse(0, 0, s * 0.46, s * 0.08, 0, 0, Math.PI * 2); c.fill();
-    c.beginPath(); c.moveTo(-s * 0.05, 0); c.lineTo(-s * 0.2, -s * 0.4); c.lineTo(s * 0.05, -s * 0.4); c.lineTo(s * 0.15, 0); c.closePath(); c.fill();
-    c.beginPath(); c.moveTo(-s * 0.05, 0); c.lineTo(-s * 0.2, s * 0.4); c.lineTo(s * 0.05, s * 0.4); c.lineTo(s * 0.15, 0); c.closePath(); c.fill();
-    c.beginPath(); c.moveTo(-s * 0.38, 0); c.lineTo(-s * 0.5, -s * 0.18); c.lineTo(-s * 0.42, -s * 0.18); c.lineTo(-s * 0.3, 0); c.closePath(); c.fill();
-    c.fillStyle = '#d8403a'; c.beginPath(); c.ellipse(s * 0.38, 0, s * 0.08, s * 0.05, 0, 0, Math.PI * 2); c.fill();
-    c.restore();
-  },
-  bulb(c: CanvasRenderingContext2D, x: number, y: number, s: number) {
-    c.save(); c.translate(x, y);
-    c.fillStyle = '#fff1a8'; c.beginPath(); c.arc(0, -s * 0.12, s * 0.3, 0, Math.PI * 2); c.fill();
-    c.strokeStyle = '#c99a10'; c.lineWidth = s * 0.04; c.stroke();
-    c.fillStyle = '#9a9a9a'; c.fillRect(-s * 0.13, s * 0.16, s * 0.26, s * 0.2);
-    c.strokeStyle = '#666'; c.lineWidth = s * 0.03; for (let k = 0; k < 3; k++) { c.beginPath(); c.moveTo(-s * 0.13, s * (0.2 + k * 0.06)); c.lineTo(s * 0.13, s * (0.22 + k * 0.06)); c.stroke(); }
-    c.strokeStyle = '#e09a10'; c.lineWidth = s * 0.03; c.beginPath(); c.moveTo(-s * 0.08, s * 0.1); c.lineTo(-s * 0.04, -s * 0.12); c.lineTo(s * 0.04, -s * 0.04); c.lineTo(s * 0.08, -s * 0.2); c.stroke();
-    c.restore();
-  },
-  drop(c: CanvasRenderingContext2D, x: number, y: number, s: number) {
-    c.save(); c.translate(x, y);
-    c.fillStyle = '#3a9bdc'; c.beginPath(); c.moveTo(0, -s * 0.46);
-    c.bezierCurveTo(s * 0.36, -s * 0.05, s * 0.34, s * 0.4, 0, s * 0.4); c.bezierCurveTo(-s * 0.34, s * 0.4, -s * 0.36, -s * 0.05, 0, -s * 0.46); c.fill();
-    c.fillStyle = 'rgba(255,255,255,0.6)'; c.beginPath(); c.ellipse(-s * 0.1, s * 0.08, s * 0.05, s * 0.12, 0.3, 0, Math.PI * 2); c.fill();
-    c.restore();
-  },
-  arrow(c: CanvasRenderingContext2D, x: number, y: number, s: number, rot: number) {
-    c.save(); c.translate(x, y); c.rotate(rot);
-    c.fillStyle = '#d8403a'; c.beginPath();
-    c.moveTo(-s * 0.5, -s * 0.12); c.lineTo(s * 0.15, -s * 0.12); c.lineTo(s * 0.15, -s * 0.3); c.lineTo(s * 0.5, 0);
-    c.lineTo(s * 0.15, s * 0.3); c.lineTo(s * 0.15, s * 0.12); c.lineTo(-s * 0.5, s * 0.12); c.closePath(); c.fill();
-    c.restore();
-  },
-  bars(c: CanvasRenderingContext2D, x: number, y: number, s: number) {
-    c.save(); c.translate(x, y);
-    c.fillStyle = '#e8d9b5'; c.fillRect(-s * 0.4, -s * 0.4, s * 0.8, s * 0.8);
-    c.strokeStyle = '#3a3a3a'; c.lineWidth = s * 0.06;
-    for (let k = -0.3; k <= 0.31; k += 0.15) { c.beginPath(); c.moveTo(k * s, -s * 0.4); c.lineTo(k * s, s * 0.4); c.stroke(); }
-    c.lineWidth = s * 0.08; c.strokeRect(-s * 0.4, -s * 0.4, s * 0.8, s * 0.8);
-    c.restore();
-  },
-  palm(c: CanvasRenderingContext2D, x: number, y: number, s: number) { // Bến Đỗ Tự Do: a coconut palm and a hammock
-    c.save(); c.translate(x, y);
-    c.strokeStyle = '#8a5a2a'; c.lineWidth = s * 0.08;
-    c.beginPath(); c.moveTo(-s * 0.3, s * 0.45); c.quadraticCurveTo(-s * 0.35, 0, -s * 0.15, -s * 0.3); c.stroke();
-    c.beginPath(); c.moveTo(s * 0.35, s * 0.45); c.quadraticCurveTo(s * 0.38, 0, s * 0.25, -s * 0.2); c.stroke();
-    c.fillStyle = '#2f8a3a';
-    for (const [px, py] of [[-0.15, -0.3], [0.25, -0.2]]) for (let a = 0; a < 5; a++) {
-      c.save(); c.translate(px * s, py * s); c.rotate(-2.6 + a * 0.9);
-      c.beginPath(); c.ellipse(s * 0.18, 0, s * 0.2, s * 0.05, 0, 0, Math.PI * 2); c.fill(); c.restore();
-    }
-    c.strokeStyle = '#d8403a'; c.lineWidth = s * 0.05; c.beginPath(); c.moveTo(-s * 0.28, s * 0.05); c.quadraticCurveTo(0, s * 0.35, s * 0.33, s * 0.08); c.stroke();
-    c.restore();
-  },
-  cap(c: CanvasRenderingContext2D, x: number, y: number, s: number) { // Đi Tù: a khaki officer's cap with a red band
-    c.save(); c.translate(x, y);
-    c.fillStyle = '#5d6b2e'; c.beginPath(); c.ellipse(0, -s * 0.08, s * 0.44, s * 0.24, 0, Math.PI, 0); c.fill();
-    c.fillStyle = '#c8201f'; c.fillRect(-s * 0.36, -s * 0.1, s * 0.72, s * 0.12);
-    c.fillStyle = '#2a2a1a'; c.beginPath(); c.ellipse(0, s * 0.04, s * 0.42, s * 0.1, 0, 0, Math.PI); c.fill();
-    c.fillStyle = '#f2c44a'; star(c, 0, -s * 0.22, s * 0.1);
-    c.restore();
-  },
-};
-function star(c: CanvasRenderingContext2D, x: number, y: number, r: number) {
-  c.beginPath();
-  for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, rr = k % 2 ? r * 0.42 : r; c.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); }
-  c.closePath(); c.fill();
-}
-const TILE_ICON: Record<string, string> = { ship: 'ship', train: 'train', plane: 'plane', bulb: 'bulb', drop: 'drop' };
-
-function boardTexture() {
-  const S = 2048, k = S / BOARD_SIZE;
-  return canvasTex(S, S, (c: CanvasRenderingContext2D) => {
-    const X = (x: number) => (x + HALF) * k, Z = (z: number) => (z + HALF) * k;
-    c.fillStyle = '#f2e6c8'; c.fillRect(0, 0, S, S);
-    // the centre: a bamboo frame, rice-field stripes, the title, and the two deck spots
-    const e = HALF - CORNER;
-    c.fillStyle = '#e9dcb6'; c.fillRect(X(-e), Z(-e), (2 * e) * k, (2 * e) * k);
-    c.save(); c.beginPath(); c.rect(X(-e), Z(-e), 2 * e * k, 2 * e * k); c.clip();
-    for (let r = -20; r < 30; r++) { c.fillStyle = r % 2 ? 'rgba(120,170,80,0.10)' : 'rgba(200,190,120,0.08)'; c.fillRect(X(-e) + r * 60, Z(-e), 30, 2 * e * k); }
-    c.restore();
-    c.strokeStyle = '#7a8a3a'; c.lineWidth = 10; c.strokeRect(X(-e) + 26, Z(-e) + 26, 2 * e * k - 52, 2 * e * k - 52);
-    c.strokeStyle = '#a9b65a'; c.lineWidth = 3;
-    for (let s = 0; s < 4; s++) for (let n = 0; n < 12; n++) { // bamboo nodes along the frame
-      const t = (n + 0.5) / 12, a = X(-e) + 26, b = 2 * e * k - 52;
-      const pts = [[a + t * b, Z(-e) + 26], [X(-e) + 26 + b, Z(-e) + 26 + t * b], [a + t * b, Z(-e) + 26 + b], [X(-e) + 26, Z(-e) + 26 + t * b]][s];
-      c.beginPath(); if (s % 2 === 0) { c.moveTo(pts[0], pts[1] - 9); c.lineTo(pts[0], pts[1] + 9); } else { c.moveTo(pts[0] - 9, pts[1]); c.lineTo(pts[0] + 9, pts[1]); } c.stroke();
-    }
-    // title band
-    c.save(); c.translate(S / 2, Z(3.0));
-    c.fillStyle = '#b3201e'; rrect(c, -560, -95, 1120, 190, 30); c.fill();
-    c.strokeStyle = '#f2c44a'; c.lineWidth = 8; rrect(c, -540, -77, 1080, 154, 22); c.stroke();
-    c.fillStyle = '#ffe9a8'; c.font = `bold 108px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillText('TỶ PHÚ ĐẤT VIỆT', 0, 6);
-    c.restore();
-    c.fillStyle = '#6a4a2a'; c.font = `italic 40px ${FONT}`; c.textAlign = 'center';
-    // deck spots
-    for (const [dx, dz, kind, label] of [[-2.3, -2.9, 'co', 'CƠ HỘI'], [2.3, -2.9, 'kv', 'KHÍ VẬN']] as [number, number, string, string][]) {
-      c.save(); c.translate(X(dx), Z(dz)); c.rotate(dx < 0 ? -0.12 : 0.12);
-      c.setLineDash([16, 10]); c.strokeStyle = '#8a6a3a'; c.lineWidth = 5; rrect(c, -150, -110, 300, 220, 18); c.stroke(); c.setLineDash([]);
-      c.fillStyle = '#6a4a2a'; c.font = `bold 40px ${FONT}`; c.textAlign = 'center'; c.fillText(label, 0, 150);
-      c.restore();
-    }
-    // tiles
-    for (let i = 0; i < 40; i++) {
-      const t = TILES[i], ti = tileInfo(i);
-      let x0, z0, w, h; // tile rect in world units
-      if (ti.side === -1) { x0 = ti.x - 0.8; z0 = ti.z - 0.8; w = 1.6; h = 1.6; }
-      else if (ti.side === 0 || ti.side === 2) { x0 = ti.x - 0.5; z0 = ti.z - 0.8; w = 1; h = 1.6; }
-      else { x0 = ti.x - 0.8; z0 = ti.z - 0.5; w = 1.6; h = 1; }
-      const px = X(x0), pz = Z(z0), pw = w * k, ph = h * k;
-      c.fillStyle = t.t === 'prop' ? '#fbf3df' : ti.side === -1 ? '#f6e3b8' : '#f4ecd6';
-      c.fillRect(px, pz, pw, ph);
-      // text area: the tile minus its inner band
-      let tx = px, tz = pz, tw = pw, th = ph;
-      if (t.t === 'prop') {
-        c.fillStyle = GROUPS[t.g!].color;
-        const b = BAND * k;
-        if (ti.side === 0) { c.fillRect(px, pz, pw, b); tz += b; th -= b; }
-        if (ti.side === 2) { c.fillRect(px, pz + ph - b, pw, b); th -= b; }
-        if (ti.side === 1) { c.fillRect(px + pw - b, pz, b, ph); tw -= b; }
-        if (ti.side === 3) { c.fillRect(px, pz, b, ph); tx += b; tw -= b; }
-        c.strokeStyle = 'rgba(0,0,0,0.25)'; c.lineWidth = 2;
-        if (ti.side === 0) { c.beginPath(); c.moveTo(px, pz + b); c.lineTo(px + pw, pz + b); c.stroke(); }
-        if (ti.side === 2) { c.beginPath(); c.moveTo(px, pz + ph - b); c.lineTo(px + pw, pz + ph - b); c.stroke(); }
-        if (ti.side === 1) { c.beginPath(); c.moveTo(px + pw - b, pz); c.lineTo(px + pw - b, pz + ph); c.stroke(); }
-        if (ti.side === 3) { c.beginPath(); c.moveTo(px + b, pz); c.lineTo(px + b, pz + ph); c.stroke(); }
-      }
-      c.strokeStyle = '#5a3d2b'; c.lineWidth = 4; c.strokeRect(px, pz, pw, ph);
-      const cx = tx + tw / 2;
-      c.fillStyle = '#2b1d12'; c.textAlign = 'center'; c.textBaseline = 'middle';
-      // Names as large as the tile allows: start big and shrink until they fit in at most 3 lines.
-      const label = t.t === 'co' || t.t === 'kv' ? t.n.toUpperCase() : (t.b || t.n);
-      const hasIcon = t.t !== 'prop';
-      const maxLines = 3, nameRoom = th * (hasIcon ? 0.56 : 0.64);
-      let nameSize = ti.side === -1 ? 50 : 54, lines;
-      for (;; nameSize -= 2) {
-        c.font = `bold ${nameSize}px ${FONT}`;
-        lines = wrapLines(c, label, tw * 0.92);
-        const fits = lines.length <= maxLines && lines.every(l => c.measureText(l).width <= tw * 0.94) && lines.length * (nameSize + 2) <= nameRoom;
-        if (fits || nameSize <= 30) break;
-      }
-      const fitFont = (txt: string, size: number, maxW: number, weight = 'bold') => { // one line, shrunk until it fits maxW
-        for (; size > 20; size -= 2) { c.font = `${weight} ${size}px ${FONT}`; if (c.measureText(txt).width <= maxW) break; }
-      };
-      if (ti.side === -1) {
-        const cz = tz + th / 2;
-        c.font = `bold 50px ${FONT}`;
-        if (t.t === 'go') { c.fillText('XUẤT PHÁT', cx, tz + 62); icon.arrow(c, cx, cz + 30, 170, Math.PI); fitFont('Nhận lương', 40, tw * 0.9); c.fillText('Nhận lương', cx, tz + th - 46); }
-        if (t.t === 'jail') { icon.bars(c, cx + 30, cz - 40, 140); c.fillText('NHÀ TÙ', cx + 30, cz + 70); fitFont('Chỉ ghé thăm', 38, tw * 0.9, ''); c.textAlign = 'left'; c.fillText('Chỉ ghé thăm', tx + 16, tz + th - 30); c.textAlign = 'center'; }
-        if (t.t === 'free') { c.fillText('BẾN ĐỖ', cx, tz + 48); c.fillText('TỰ DO', cx, tz + 100); icon.palm(c, cx, cz + 30, 130); c.fillStyle = '#b3201e'; fitFont('Nhận hũ tiền', 40, tw * 0.9); c.fillText('Nhận hũ tiền', cx, tz + th - 44); }
-        if (t.t === 'gojail') { c.fillText('ĐI TÙ', cx, tz + 58); icon.cap(c, cx, cz + 10, 180); fitFont('Vào thẳng Nhà Tù', 36, tw * 0.9, ''); c.fillText('Vào thẳng Nhà Tù', cx, tz + th - 44); }
-        continue;
-      }
-      c.font = `bold ${nameSize}px ${FONT}`;
-      const top = tz + 14 + nameSize / 2;
-      lines.forEach((ln, j) => c.fillText(ln, cx, top + j * (nameSize + 2)));
-      const priceY = tz + th - 30, nameBottom = top + (lines.length - 1) * (nameSize + 2) + nameSize / 2;
-      const twoLine = t.t === 'tax' && t.kind === 'prop', priceTop = twoLine ? priceY - 44 : priceY; // Thuế Tài Sản: "10%" over "tối đa 2 tr"
-      const iconS = Math.min(tw * 0.55, priceTop - 26 - nameBottom - 6), iconY = (nameBottom + priceTop - 22) / 2 + 2;
-      if (t.t === 'co') icon.lantern(c, cx, iconY, iconS);
-      if (t.t === 'kv') icon.envelope(c, cx, iconY, iconS);
-      if (t.t === 'tax' && iconS > 12) { icon.coins(c, cx, iconY, iconS); } // no room for the coins under two lines of words
-      if (TILE_ICON[t.icon!]) (icon as Loose)[TILE_ICON[t.icon!]](c, cx, iconY, iconS);
-      c.fillStyle = '#3a2416';
-      let price = '';
-      if (t.p) price = (t.p / 1000).toLocaleString('vi-VN', { maximumFractionDigits: 1 }) + ' tr';
-      if (t.t === 'tax' && t.kind === 'income') price = `Trả ${(tune.income_tax / 1000).toLocaleString('vi-VN')} tr`;
-      if (twoLine) { // two short lines read at a glance, where one long line shrank to a whisper
-        fitFont(`${Math.round(tune.prop_tax_pct * 100)}%`, 46, tw * 0.92); c.fillText(`${Math.round(tune.prop_tax_pct * 100)}%`, cx, priceTop);
-        price = `tối đa ${(tune.prop_tax_flat / 1000).toLocaleString('vi-VN')} tr`;
-      }
-      if (price) { fitFont(price, 40, tw * 0.92); c.fillText(price, cx, priceY); }
-    }
-    c.strokeStyle = '#3a2416'; c.lineWidth = 10; c.strokeRect(5, 5, S - 10, S - 10);
-  });
-}
-function pipTexture(n: number) {
-  return canvasTex(128, 128, (c: CanvasRenderingContext2D, w: number) => {
-    c.fillStyle = '#fbf7ee'; c.fillRect(0, 0, w, w);
-    c.strokeStyle = '#d8d0bf'; c.lineWidth = 6; c.strokeRect(3, 3, w - 6, w - 6);
-    const P3 = { 1: [[2, 2]], 2: [[1, 1], [3, 3]], 3: [[1, 1], [2, 2], [3, 3]], 4: [[1, 1], [3, 1], [1, 3], [3, 3]], 5: [[1, 1], [3, 1], [2, 2], [1, 3], [3, 3]], 6: [[1, 1], [3, 1], [1, 2], [3, 2], [1, 3], [3, 3]] }[n];
-    c.fillStyle = n === 1 ? '#c8201f' : '#1d1d1d';
-    for (const [a, b] of P3!) { c.beginPath(); c.arc(a * w / 4, b * w / 4, n === 1 ? 17 : 12, 0, Math.PI * 2); c.fill(); }
-  });
-}
 
 // ---- 3D figures: tokens, buildings, landmarks ----------------------------------------
-function mesh(geo: THREE.BufferGeometry, m: THREE.Material | THREE.Material[], x = 0, y = 0, z = 0) { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = !CHEAP; o.receiveShadow = !CHEAP; return o; }
 /** A player's piece: their zodiac animal (src/animals.ts). */
 function makeToken(animal: number, color: string) {
   const outer = new THREE.Group(), inner = makeAnimal(animal, color, !CHEAP);
@@ -1499,221 +1314,6 @@ function syncPieces() {
     const old = tok3[p.id], t = makeToken(p.token, p.color);
     t.scale.setScalar(tune.piece_scale); t.visible = false; scene3.remove(old); scene3.add(t); tok3[p.id] = t; tokKind[p.id] = p.token;
   }
-}
-function makeHouse() {
-  const g = new THREE.Group();
-  g.add(mesh(new THREE.BoxGeometry(0.17, 0.13, 0.17), mat(0xf4ead2), 0, 0.065, 0));
-  const roof = mesh(new THREE.ConeGeometry(0.15, 0.11, 4), mat(0xc0502a), 0, 0.185, 0); roof.rotation.y = Math.PI / 4; g.add(roof);
-  g.add(mesh(new THREE.BoxGeometry(0.05, 0.07, 0.01), mat(0x6a3a1a), 0, 0.035, 0.086));
-  return g;
-}
-function makeHotel() {
-  const g = new THREE.Group();
-  g.add(mesh(new THREE.BoxGeometry(0.62, 0.34, 0.26), mat(0x3d7fb8), 0, 0.17, 0));
-  g.add(mesh(new THREE.BoxGeometry(0.66, 0.04, 0.3), mat(0xf4ead2), 0, 0.36, 0));
-  for (let r = 0; r < 2; r++) for (let k = -2; k <= 2; k++) g.add(mesh(new THREE.BoxGeometry(0.07, 0.07, 0.01), mat(0xfff0b0, { emissive: 0x332200 }), k * 0.11, 0.1 + r * 0.13, 0.131));
-  g.add(mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.28, 6), mat(0x888888), 0.26, 0.52, 0));
-  g.add(mesh(new THREE.BoxGeometry(0.14, 0.08, 0.005), mat(0xd8403a), 0.33, 0.62, 0));
-  return g;
-}
-function makeLandmark(kind: string) { // ~0.9 tall, a toy model of the province's landmark
-  const g = new THREE.Group();
-  const stone = mat(0xe8dcc0), gold = mat(0xe8b33a, { metalness: 0.3, roughness: 0.4 }), red = mat(0xb3201e), roofM = mat(0x8a3a24);
-  const green = mat(0x3f8a3a), blue = mat(0x3a8fd0), white = mat(0xf7f3ea), brick = mat(0xb8602e), grey = mat(0x8a8a8a);
-  const base = mesh(new THREE.BoxGeometry(0.8, 0.05, 0.36), mat(0xd9c48a), 0, 0.025, 0); g.add(base);
-  const curvedRoof = (w: number, d: number, y: number, m?: THREE.Material) => { // a hipped roof: a 4-sided cone squashed to w x d
-    const r = new THREE.Group(), c = mesh(new THREE.ConeGeometry(0.71, 0.12, 4), m || roofM); c.rotation.y = Math.PI / 4; r.add(c);
-    r.position.set(0, y, 0); r.scale.set(w, 1, d); return r;
-  };
-  const rod = (a: number[], b: number[], r: number, m: THREE.Material) => { // a thin bar from a to b: cables, pylons
-    const A = new THREE.Vector3(a[0], a[1], a[2]), B = new THREE.Vector3(b[0], b[1], b[2]);
-    const o = mesh(new THREE.CylinderGeometry(r, r, A.distanceTo(B), 5), m);
-    o.position.copy(A).add(B).multiplyScalar(0.5); o.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), B.clone().sub(A).normalize());
-    return o;
-  };
-  if (kind === 'cotco') { // flag tower on a hill
-    g.add(mesh(new THREE.ConeGeometry(0.36, 0.2, 7), green, 0, 0.15, 0));
-    g.add(mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.38, 8), stone, 0, 0.44, 0));
-    g.add(mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.42, 6), grey, 0, 0.84, 0));
-    const flag = mesh(new THREE.BoxGeometry(0.26, 0.17, 0.008), red, 0.13, 0.96, 0); g.add(flag);
-    const st = mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.01, 5), gold, 0.13, 0.96, 0.007); st.rotation.x = Math.PI / 2; g.add(st);
-  } else if (kind === 'thac') { // waterfall over stepped cliffs
-    for (let k = 0; k < 3; k++) g.add(mesh(new THREE.BoxGeometry(0.75 - k * 0.12, 0.2, 0.3 - k * 0.04), mat(0x5a6a4a), 0, 0.12 + k * 0.2, -0.02 - k * 0.02));
-    for (let k = 0; k < 3; k++) g.add(mesh(new THREE.BoxGeometry(0.5 - k * 0.1, 0.2, 0.02), blue, 0, 0.12 + k * 0.2, 0.14 - k * 0.02));
-    g.add(mesh(new THREE.BoxGeometry(0.78, 0.03, 0.12), mat(0x9fd6f0), 0, 0.05, 0.13));
-    for (const x of [-0.3, 0.3]) g.add(mesh(new THREE.ConeGeometry(0.08, 0.22, 8), green, x, 0.72, -0.06));
-  } else if (kind === 'nui') { // a peak with snow and a little pagoda
-    g.add(mesh(new THREE.ConeGeometry(0.38, 0.75, 7), mat(0x4f7a3a), 0, 0.42, 0));
-    g.add(mesh(new THREE.ConeGeometry(0.13, 0.25, 7), white, 0, 0.67, 0));
-    g.add(mesh(new THREE.BoxGeometry(0.1, 0.08, 0.1), red, 0.24, 0.15, 0.14));
-    g.add(curvedRoof(0.16, 0.16, 0.22, roofM).translateX(0.24).translateZ(0.14));
-  } else if (kind === 'dao') { // two karst islets rising from the sea
-    g.add(mesh(new THREE.BoxGeometry(0.8, 0.03, 0.36), mat(0x3aa6c8), 0, 0.055, 0));
-    const a = mesh(new THREE.CylinderGeometry(0.08, 0.15, 0.62, 7), mat(0x6f7f5a), -0.13, 0.36, 0); a.rotation.z = 0.08; g.add(a);
-    const b = mesh(new THREE.CylinderGeometry(0.07, 0.13, 0.5, 7), mat(0x6f7f5a), 0.15, 0.3, 0.02); b.rotation.z = -0.1; g.add(b);
-    g.add(mesh(new THREE.SphereGeometry(0.09, 10, 8), green, -0.13, 0.68, 0)); g.add(mesh(new THREE.SphereGeometry(0.08, 10, 8), green, 0.17, 0.56, 0.02));
-  } else if (kind === 'thap') { // a tiered tower
-    for (let k = 0; k < 6; k++) {
-      const s = 0.3 - k * 0.04;
-      g.add(mesh(new THREE.BoxGeometry(s, 0.11, s), brick, 0, 0.1 + k * 0.13, 0));
-      g.add(mesh(new THREE.BoxGeometry(s + 0.06, 0.02, s + 0.06), stone, 0, 0.165 + k * 0.13, 0));
-    }
-    g.add(mesh(new THREE.ConeGeometry(0.05, 0.16, 8), gold, 0, 0.94, 0));
-  } else if (kind === 'chua') { // a small temple on a single pillar over a lotus pond
-    g.add(mesh(new THREE.BoxGeometry(0.62, 0.03, 0.32), mat(0x3aa6c8), 0, 0.055, 0));
-    g.add(mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.36, 10), stone, 0, 0.25, 0));
-    g.add(mesh(new THREE.BoxGeometry(0.3, 0.04, 0.3), mat(0x8a5a2a), 0, 0.44, 0));
-    g.add(mesh(new THREE.BoxGeometry(0.22, 0.16, 0.22), mat(0x9a3a1a), 0, 0.54, 0));
-    g.add(curvedRoof(0.42, 0.42, 0.7, roofM));
-    g.add(mesh(new THREE.SphereGeometry(0.03, 8, 6), gold, 0, 0.78, 0));
-    for (const [x, z] of [[-0.22, 0.08], [0.22, -0.08], [0.2, 0.1]]) g.add(mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.01, 10), green, x, 0.075, z));
-  } else if (kind === 'cong') { // a citadel gate with a pavilion
-    g.add(mesh(new THREE.BoxGeometry(0.76, 0.32, 0.3), mat(0x9a8a6a), 0, 0.21, 0));
-    g.add(mesh(new THREE.BoxGeometry(0.16, 0.2, 0.31), mat(0x2a1d12), 0, 0.15, 0));
-    g.add(mesh(new THREE.BoxGeometry(0.44, 0.14, 0.2), red, 0, 0.44, 0));
-    g.add(curvedRoof(0.56, 0.3, 0.57, mat(0xd8a020)));
-    g.add(mesh(new THREE.BoxGeometry(0.26, 0.1, 0.14), red, 0, 0.66, 0));
-    g.add(curvedRoof(0.36, 0.22, 0.76, mat(0xd8a020)));
-  } else if (kind === 'cau') { // a bridge with a golden dragon arching over it
-    g.add(mesh(new THREE.BoxGeometry(0.8, 0.03, 0.36), mat(0x3aa6c8), 0, 0.055, 0));
-    g.add(mesh(new THREE.BoxGeometry(0.82, 0.05, 0.14), stone, 0, 0.22, 0));
-    for (const x of [-0.3, 0, 0.3]) g.add(mesh(new THREE.BoxGeometry(0.05, 0.16, 0.1), stone, x, 0.12, 0));
-    for (let k = 0; k < 3; k++) { const arc = mesh(new THREE.TorusGeometry(0.13, 0.03, 8, 20, Math.PI), gold, -0.26 + k * 0.26, 0.25, 0); g.add(arc); }
-    const head = mesh(new THREE.ConeGeometry(0.05, 0.14, 8), gold, 0.42, 0.3, 0); head.rotation.z = -1.2; g.add(head);
-  } else if (kind === 'haidang') { // a striped lighthouse
-    for (let k = 0; k < 5; k++) g.add(mesh(new THREE.CylinderGeometry(0.09 - k * 0.008, 0.1 - k * 0.008, 0.14, 14), k % 2 ? red : white, 0, 0.12 + k * 0.14, 0));
-    g.add(mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.08, 12), mat(0xfff2a0, { emissive: 0xffc840, emissiveIntensity: 0.8 }), 0, 0.82, 0));
-    g.add(mesh(new THREE.ConeGeometry(0.09, 0.1, 12), red, 0, 0.91, 0));
-    g.add(mesh(new THREE.BoxGeometry(0.2, 0.1, 0.16), white, 0.24, 0.1, 0.05));
-  } else if (kind === 'thapdh') { // a market hall with a clock tower
-    g.add(mesh(new THREE.BoxGeometry(0.76, 0.24, 0.28), mat(0xf0e2b0), 0, 0.17, 0));
-    g.add(curvedRoof(0.8, 0.32, 0.33, mat(0x6a7f8a)));
-    g.add(mesh(new THREE.BoxGeometry(0.18, 0.5, 0.18), mat(0xf6ecc8), 0, 0.42, 0.02));
-    const clockFace = mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.01, 20), white, 0, 0.58, 0.115); clockFace.rotation.x = Math.PI / 2; g.add(clockFace);
-    g.add(mesh(new THREE.BoxGeometry(0.008, 0.045, 0.004), mat(0x222222), 0, 0.595, 0.123));
-    g.add(mesh(new THREE.ConeGeometry(0.13, 0.16, 4), mat(0x6a7f8a), 0, 0.75, 0.02).rotateY(Math.PI / 4));
-  } else if (kind === 'phongnha') { // a limestone mountain with a cave mouth over a river, a boat going in
-    g.add(mesh(new THREE.BoxGeometry(0.8, 0.03, 0.15), mat(0x3aa6c8), 0, 0.055, 0.1));
-    const rock = mat(0x7f8c70);
-    const m1 = mesh(new THREE.CylinderGeometry(0.13, 0.3, 0.62, 7), rock, -0.06, 0.36, -0.06); m1.scale.z = 0.62; g.add(m1);
-    const m2 = mesh(new THREE.CylinderGeometry(0.08, 0.2, 0.42, 7), rock, 0.24, 0.26, -0.07); m2.scale.z = 0.6; g.add(m2);
-    g.add(mesh(new THREE.SphereGeometry(0.13, 10, 8), green, -0.06, 0.68, -0.06)); g.add(mesh(new THREE.SphereGeometry(0.09, 10, 8), green, 0.24, 0.48, -0.07));
-    const cave = mesh(new THREE.SphereGeometry(0.1, 14, 10), mat(0x1a1410), -0.06, 0.08, 0.1); cave.scale.set(1.1, 1.2, 0.35); g.add(cave);
-    g.add(mesh(new THREE.BoxGeometry(0.13, 0.03, 0.05), mat(0x7a4a22), 0.2, 0.085, 0.11));
-    g.add(curvedRoof(0.08, 0.05, 0.12, mat(0x3a5a8a)).translateX(0.2).translateZ(0.11));
-  } else if (kind === 'honthom') { // a sandy island with palms and a cable car line out to sea
-    g.add(mesh(new THREE.BoxGeometry(0.8, 0.03, 0.36), mat(0x3ab0d0), 0, 0.055, 0));
-    const sand = mesh(new THREE.SphereGeometry(0.26, 16, 10), mat(0xf0d89a), -0.08, 0.06, 0); sand.scale.set(1.1, 0.35, 0.8); g.add(sand);
-    for (const [x, z, tilt] of [[-0.2, -0.04, 0.25], [0.02, 0.06, -0.2]]) {
-      const trunk = mesh(new THREE.CylinderGeometry(0.014, 0.02, 0.36, 6), mat(0x8a5a2a), x, 0.27, z); trunk.rotation.z = tilt; g.add(trunk);
-      const tx = x - Math.sin(tilt) * 0.18;
-      for (let k = 0; k < 5; k++) { const leaf = mesh(new THREE.ConeGeometry(0.035, 0.18, 4), green, tx + Math.cos(k * 1.26) * 0.07, 0.44, z + Math.sin(k * 1.26) * 0.07); leaf.rotation.set(Math.sin(k * 1.26) * 1.2, 0, -Math.cos(k * 1.26) * 1.2); g.add(leaf); }
-    }
-    g.add(mesh(new THREE.BoxGeometry(0.04, 0.7, 0.04), mat(0xd0d0d0), 0.32, 0.4, -0.05));
-    g.add(rod([0.32, 0.74, -0.05], [-0.38, 0.5, -0.05], 0.005, mat(0x333333)));
-    g.add(mesh(new THREE.BoxGeometry(0.08, 0.06, 0.06), red, 0.04, 0.6, -0.05));
-  } else if (kind === 'baidinh') { // a great pagoda hall with double golden roofs and a tall stupa behind
-    g.add(mesh(new THREE.BoxGeometry(0.66, 0.06, 0.3), stone, 0, 0.08, 0.02));
-    g.add(mesh(new THREE.BoxGeometry(0.5, 0.18, 0.2), mat(0x8a3020), 0.06, 0.2, 0.04));
-    g.add(curvedRoof(0.66, 0.32, 0.34, gold));
-    g.add(mesh(new THREE.BoxGeometry(0.34, 0.08, 0.14), mat(0x8a3020), 0.06, 0.44, 0.04));
-    g.add(curvedRoof(0.46, 0.24, 0.53, gold));
-    for (let k = 0; k < 6; k++) { // the stupa
-      const s = 0.12 - k * 0.012;
-      g.add(mesh(new THREE.BoxGeometry(s, 0.09, s), white, -0.3, 0.13 + k * 0.11, -0.08));
-      g.add(curvedRoof(s * 1.9, s * 1.9, 0.19 + k * 0.11, roofM).translateX(-0.3).translateZ(-0.08));
-    }
-    g.add(mesh(new THREE.ConeGeometry(0.03, 0.12, 8), gold, -0.3, 0.86, -0.08));
-  } else if (kind === 'thapdoi') { // two Cham brick towers side by side, one taller
-    for (const [x, h] of [[-0.17, 1], [0.17, 0.82]]) {
-      const champa = mat(0xa8482a);
-      g.add(mesh(new THREE.BoxGeometry(0.22, 0.3 * h, 0.22), champa, x, 0.05 + 0.15 * h, 0));
-      g.add(mesh(new THREE.BoxGeometry(0.07, 0.16 * h, 0.01), mat(0x3a1a10), x, 0.05 + 0.1 * h, 0.115));
-      for (let k = 0; k < 3; k++) {
-        const s = 0.18 - k * 0.04, y = 0.05 + 0.3 * h + k * 0.11 * h;
-        g.add(mesh(new THREE.BoxGeometry(s, 0.1 * h, s), champa, x, y + 0.05 * h, 0));
-        for (const [cx, cz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) g.add(mesh(new THREE.ConeGeometry(0.018, 0.05, 6), champa, x + cx * s / 2, y + 0.12 * h, cz * s / 2));
-      }
-      g.add(mesh(new THREE.ConeGeometry(0.05, 0.14 * h, 4), champa, x, 0.05 + 0.63 * h + 0.07 * h, 0).rotateY(Math.PI / 4));
-    }
-  } else if (kind === 'ponagar') { // a Cham tower up a hill of steps, a small one beside it
-    const hill = mesh(new THREE.CylinderGeometry(0.3, 0.38, 0.16, 10), mat(0x7a8a5a), 0, 0.13, -0.02); hill.scale.z = 0.5; g.add(hill);
-    for (let k = 0; k < 4; k++) g.add(mesh(new THREE.BoxGeometry(0.16, 0.035, 0.05), stone, 0, 0.07 + k * 0.035, 0.16 - k * 0.04));
-    const champa = mat(0xb04e2c);
-    g.add(mesh(new THREE.BoxGeometry(0.2, 0.32, 0.18), champa, 0, 0.37, -0.04));
-    g.add(mesh(new THREE.BoxGeometry(0.06, 0.15, 0.01), mat(0x3a1a10), 0, 0.29, 0.055));
-    for (let k = 0; k < 3; k++) g.add(mesh(new THREE.BoxGeometry(0.16 - k * 0.04, 0.1, 0.15 - k * 0.04), champa, 0, 0.58 + k * 0.1, -0.04));
-    g.add(mesh(new THREE.SphereGeometry(0.035, 8, 6), stone, 0, 0.88, -0.04));
-    g.add(mesh(new THREE.BoxGeometry(0.1, 0.18, 0.1), champa, 0.25, 0.3, -0.05));
-    g.add(mesh(new THREE.ConeGeometry(0.05, 0.12, 4), champa, 0.25, 0.45, -0.05).rotateY(Math.PI / 4));
-  } else if (kind === 'binhta') { // the old brick foundations, a small stupa and a linga under a banyan
-    g.add(mesh(new THREE.BoxGeometry(0.56, 0.08, 0.28), brick, -0.04, 0.09, 0));
-    g.add(mesh(new THREE.BoxGeometry(0.4, 0.08, 0.2), brick, -0.04, 0.17, 0));
-    const stupa = mesh(new THREE.SphereGeometry(0.11, 14, 10), mat(0xc0703a), -0.04, 0.25, 0); stupa.scale.y = 0.9; g.add(stupa);
-    g.add(mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.14, 10), stone, -0.04, 0.4, 0));
-    g.add(mesh(new THREE.SphereGeometry(0.025, 8, 6), stone, -0.04, 0.47, 0));
-    g.add(mesh(new THREE.CylinderGeometry(0.03, 0.045, 0.4, 7), mat(0x6a4a2a), 0.3, 0.25, -0.05));
-    for (const [dx, dy] of [[0, 0.55], [-0.08, 0.48], [0.08, 0.5]]) g.add(mesh(new THREE.SphereGeometry(0.11, 10, 8), green, 0.3 + dx, dy, -0.05));
-  } else if (kind === 'phattich') { // a temple hall with the row of stone animals before it
-    g.add(mesh(new THREE.BoxGeometry(0.7, 0.05, 0.32), stone, 0, 0.075, 0));
-    g.add(mesh(new THREE.BoxGeometry(0.46, 0.2, 0.16), mat(0x9a3a1a), 0, 0.2, -0.06));
-    for (const x of [-0.18, -0.06, 0.06, 0.18]) g.add(mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.2, 6), red, x, 0.2, 0.025));
-    g.add(curvedRoof(0.64, 0.28, 0.36, roofM));
-    g.add(mesh(new THREE.BoxGeometry(0.3, 0.02, 0.02), gold, 0, 0.43, -0.04));
-    for (let k = 0; k < 5; k++) { // the stone animals: elephants, lions, rhinos
-      const x = -0.24 + k * 0.12;
-      g.add(mesh(new THREE.BoxGeometry(0.06, 0.02, 0.05), grey, x, 0.11, 0.12));
-      const b = mesh(new THREE.SphereGeometry(0.035, 10, 8), mat(0x9a9a92), x, 0.15, 0.12); b.scale.set(1.3, 0.9, 0.8); g.add(b);
-      g.add(mesh(new THREE.SphereGeometry(0.022, 8, 6), mat(0x9a9a92), x + 0.04, 0.17, 0.12));
-    }
-  } else if (kind === 'thanhnhaho') { // a wall of great stone blocks with three arched gates
-    const rock = mat(0x8e9484);
-    g.add(mesh(new THREE.BoxGeometry(0.78, 0.4, 0.26), rock, 0, 0.25, 0));
-    for (let k = 1; k < 4; k++) g.add(mesh(new THREE.BoxGeometry(0.79, 0.008, 0.27), mat(0x6a7062), 0, 0.05 + k * 0.1, 0));
-    for (let k = 0; k < 7; k++) g.add(mesh(new THREE.BoxGeometry(0.008, 0.4, 0.27), mat(0x6a7062), -0.33 + k * 0.11, 0.25, 0));
-    for (const [x, r] of [[-0.24, 0.06], [0, 0.08], [0.24, 0.06]]) {
-      g.add(mesh(new THREE.BoxGeometry(r * 2, r * 1.6, 0.02), mat(0x1e1812), x, 0.05 + r * 0.8, 0.125));
-      const top = mesh(new THREE.CylinderGeometry(r, r, 0.02, 16, 1, false, 0, Math.PI), mat(0x1e1812), x, 0.05 + r * 1.6, 0.125); top.rotation.set(Math.PI / 2, Math.PI / 2, 0); g.add(top);
-    }
-    for (let k = 0; k < 6; k++) g.add(mesh(new THREE.BoxGeometry(0.09, 0.06, 0.24), rock, -0.33 + k * 0.132, 0.48, 0));
-  } else if (kind === 'chuacau') { // the covered bridge: pink walls, a tiled roof, the little shrine in the middle
-    g.add(mesh(new THREE.BoxGeometry(0.8, 0.03, 0.36), mat(0x3aa6c8), 0, 0.055, 0));
-    for (const x of [-0.3, 0.3]) g.add(mesh(new THREE.BoxGeometry(0.08, 0.14, 0.2), stone, x, 0.12, 0));
-    g.add(mesh(new THREE.BoxGeometry(0.72, 0.04, 0.2), mat(0x7a4a22), 0, 0.2, 0));
-    g.add(mesh(new THREE.BoxGeometry(0.66, 0.16, 0.16), mat(0xe8a0a0), 0, 0.3, 0));
-    for (let k = 0; k < 5; k++) g.add(mesh(new THREE.BoxGeometry(0.06, 0.07, 0.01), mat(0x3a2a1a), -0.24 + k * 0.12, 0.3, 0.082));
-    g.add(curvedRoof(0.8, 0.28, 0.44, mat(0x9a4a2a)));
-    g.add(mesh(new THREE.BoxGeometry(0.14, 0.12, 0.12), mat(0xe8c060), 0, 0.3, 0.13));
-    g.add(curvedRoof(0.2, 0.16, 0.4, mat(0x9a4a2a)).translateZ(0.13));
-  } else if (kind === 'caucantho') { // a cable-stayed bridge: two tall pylons, fans of cables
-    g.add(mesh(new THREE.BoxGeometry(0.8, 0.03, 0.36), mat(0x3a90b0), 0, 0.055, 0));
-    g.add(mesh(new THREE.BoxGeometry(0.84, 0.035, 0.12), white, 0, 0.24, 0));
-    const steel = mat(0xe0e0e0), cable = mat(0xf2c44a);
-    for (const px of [-0.2, 0.2]) {
-      for (const s of [-1, 1]) g.add(rod([px, 0.06, s * 0.08], [px, 0.86, 0], 0.016, steel));
-      g.add(mesh(new THREE.BoxGeometry(0.04, 0.03, 0.18), steel, px, 0.22, 0));
-      for (let k = 1; k <= 3; k++) for (const d of [-1, 1]) g.add(rod([px, 0.82 - k * 0.07, 0], [px + d * k * 0.065, 0.26, 0], 0.004, cable));
-    }
-  } else if (kind === 'vungtau') { // a white lighthouse on a green hill, the keeper's house beside it
-    const hill = mesh(new THREE.ConeGeometry(0.4, 0.3, 10), mat(0x4f8a3a), 0, 0.2, 0); hill.scale.z = 0.5; g.add(hill);
-    g.add(mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.42, 8), white, 0, 0.55, 0));
-    g.add(mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.02, 8), mat(0x333333), 0, 0.77, 0));
-    g.add(mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.07, 10), mat(0xfff2a0, { emissive: 0xffc840, emissiveIntensity: 0.8 }), 0, 0.81, 0));
-    g.add(mesh(new THREE.ConeGeometry(0.065, 0.08, 10), mat(0x333333), 0, 0.88, 0));
-    g.add(mesh(new THREE.BoxGeometry(0.14, 0.08, 0.1), white, 0.2, 0.2, 0.05));
-    g.add(curvedRoof(0.18, 0.13, 0.27, red).translateX(0.2).translateZ(0.05));
-  } else if (kind === 'gadalat') { // the station with three steep pointed roofs, and a little red engine
-    g.add(mesh(new THREE.BoxGeometry(0.72, 0.2, 0.2), mat(0xf2e6c4), 0, 0.15, -0.05));
-    for (const [x, h] of [[-0.24, 0.32], [0, 0.4], [0.24, 0.32]]) {
-      const roof = mesh(new THREE.ConeGeometry(0.15, h, 4), mat(0xb8562e), x, 0.25 + h / 2, -0.05); roof.rotation.y = Math.PI / 4; roof.scale.z = 0.75; g.add(roof);
-      g.add(mesh(new THREE.BoxGeometry(0.05, 0.08, 0.01), mat(0x5a9ad0), x, 0.36, 0.0));
-    }
-    for (let k = 0; k < 5; k++) g.add(mesh(new THREE.BoxGeometry(0.06, 0.08, 0.01), mat(0x5a9ad0), -0.26 + k * 0.13, 0.15, 0.052));
-    g.add(mesh(new THREE.BoxGeometry(0.2, 0.08, 0.08), red, 0.14, 0.1, 0.13));
-    g.add(mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.06, 8), mat(0x2a2a2a), 0.2, 0.17, 0.13));
-    g.add(mesh(new THREE.BoxGeometry(0.07, 0.07, 0.08), red, 0.07, 0.17, 0.13));
-  }
-  return g;
 }
 
 // ---- 3D scene assembly ---------------------------------------------------------------
@@ -1985,6 +1585,7 @@ function buildUI() {
     btn(r.x, r.y, r.w, r.h, `Phòng ${roomCode}`, () => { roomMenu = true; emoteMenu = false; inspect = -1; sheetOpen = false; }, 'room');
   }
   buildToolbar();
+  buildTip();
   if (state.vote) { buildVoteUI(); return; }
   if (roomMenu) { buildRoomMenu(); return; }
   if (emoteMenu) { buildEmoteMenu(); return; }
@@ -2422,7 +2023,7 @@ function drawLog() {
   ctx.restore();
 }
 function tileCard(i: number, cx: number, cy: number, extra?: (x: number, y: number, w: number, h: number) => void) { // the land card: band, name, price, rent per level, landmark
-  const t = TILES[i], w = 330, h = 360, x = cx - w / 2, y = cy - h / 2;
+  const t = TILES[i], w = 330, h = t.sp ? 382 : 360, x = cx - w / 2, y = cy - h / 2;
   ctx.save();
   ctx.fillStyle = 'rgba(0,0,0,0.4)'; rrect(ctx, x + 6, y + 8, w, h, 14); ctx.fill();
   ctx.fillStyle = '#fbf3df'; rrect(ctx, x, y, w, h, 14); ctx.fill();
@@ -2444,6 +2045,7 @@ function tileCard(i: number, cx: number, cy: number, extra?: (x: number, y: numb
       yy += 22;
     }
     text(`Gom đủ nhóm: thuê × ${tune.full_group_mult}`, cx, yy + 6, 15, '#8a3a24', 'center', 'bold'); yy += 30;
+    if (t.sp) text(`Đặc sản: ${t.sp}`, cx, yy + 4, 15, '#5a3d2b', 'center', 'italic');
   } else if (t.t === 'port') {
     [1, 2, 3, 4].forEach(n => { text(`Có ${n} bến`, x + 22, yy, 15, '#3a2416', 'left'); text(money(tune.port_rent * Math.pow(2, n - 1) * tune.rent_scale), x + w - 22, yy, 15, '#3a2416', 'right'); yy += 24; });
   } else {
@@ -2715,6 +2317,7 @@ function drawResultsPhone() {
     text(p.name + (state.teams ? ` · ${teamTag(p.team)}` : ''), 86, y - 10, 17, '#fff8e6', 'left', 'bold');
     text(r.bankrupt ? 'Phá sản' : `Tài sản ${money(r.worth)}`, 86, y + 13, 15, r.bankrupt ? '#ff9a8a' : '#e8d9b5', 'left');
   });
+  drawSummary(26, 350 + state.ranking!.length * 62, W - 52);
   if (isGuest() && !state.vote) text('Bấm Chơi lại để bỏ phiếu ván mới', W / 2, 800, 16, '#e8d9b5');
   ui.forEach(drawButton);
   drawNetBanner();
@@ -2837,29 +2440,7 @@ function sendChat(raw: string) {
   if (isGuest()) net.toHost({ k: 'act', act: 'chat', text: String(raw).slice(0, tune.chat_max_len * 2) });
   else hostChat(0, raw); // the host always sits in seat 0
 }
-// The chat box: plain HTML over the canvas, so a phone brings up its own keyboard.
-let chatPanel: HTMLDivElement | null = null;
-function showChat(on: boolean) {
-  if (!chatPanel) {
-    const d = document.createElement('div');
-    d.id = 'chat';
-    d.innerHTML = '<div class="ch-card"><input id="ch-text" autocomplete="off" placeholder="Nhắn cho cả phòng..."><button id="ch-send">Gửi</button><button id="ch-close">Đóng</button><div id="ch-count"></div></div>';
-    document.body.appendChild(d);
-    const input = d.querySelector('#ch-text') as HTMLInputElement, count = d.querySelector('#ch-count') as HTMLElement;
-    const send = () => { if (input.value.trim()) sendChat(input.value); input.value = ''; showChat(false); };
-    input.maxLength = tune.chat_max_len;
-    input.addEventListener('input', () => { count.textContent = `${[...input.value].length}/${tune.chat_max_len}`; });
-    input.addEventListener('keydown', e => { if (e.key === 'Enter') send(); if (e.key === 'Escape') showChat(false); e.stopPropagation(); });
-    (d.querySelector('#ch-send') as HTMLButtonElement).onclick = send;
-    (d.querySelector('#ch-close') as HTMLButtonElement).onclick = () => showChat(false);
-    d.addEventListener('pointerdown', e => { if (e.target === d) showChat(false); e.stopPropagation(); });
-    chatPanel = d;
-  }
-  chatPanel.style.display = on ? 'flex' : 'none';
-  if (on) { const input = chatPanel.querySelector('#ch-text') as HTMLInputElement; input.value = ''; (chatPanel.querySelector('#ch-count') as HTMLElement).textContent = `0/${tune.chat_max_len}`; input.focus(); }
-}
-const chatOpen = (): boolean => !!chatPanel && chatPanel.style.display === 'flex';
-addEventListener('keydown', e => { if (chatOpen()) e.stopImmediatePropagation(); }, true); // the game hears no keys while typing
+setChatSender(sendChat);
 function sendEmote(i: number) {
   emoteMenu = false;
   if (isGuest()) sendAct('emote', i); else hostEmote(0, i); // the host always sits in seat 0
@@ -2898,14 +2479,6 @@ function drawEmotes() {
     ctx.restore();
   }
 }
-/** The game's history, newest first: every line of the log, with its round. */
-function showHistory(list: string[]) {
-  const rows = [...list].reverse().map(l => { const m = /^V(\d+): (.*)$/.exec(l); return m ? `<li><b>Vòng ${m[1]}</b> · ${esc(m[2])}</li>` : `<li>${esc(l)}</li>`; });
-  showPage('Lịch sử ván', rows.length ? `<ul>${rows.join('')}</ul>` : '<p>Chưa có gì.</p>');
-}
-function esc(t: string): string {
-  return t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
-}
 
 // ---- Installing as an app, and keeping the screen on -------------------------------------------
 // Served over http(s), the page offers its manifest and service worker, so a phone can add it to the
@@ -2936,129 +2509,6 @@ async function keepAwake() {
 setInterval(keepAwake, 2000);
 document.addEventListener('visibilitychange', () => { keepAwake(); });
 
-// ---- The rules, for players to read ----------------------------------------------------------
-// Plain HTML over the canvas, so it scrolls on a phone. Every number comes from data/config.json and
-// the board, so the page stays true when a value is tuned.
-function rulesHtml(): string {
-  const pct = (v: number): string => `${Math.round(v * 100)}%`;
-  const lands = TILES.filter(t => t.t === 'prop').map(t => t.p!);
-  const ports = TILES.filter(t => t.t === 'port'), utils = TILES.filter(t => t.t === 'util');
-  const portRents = [1, 2, 3, 4].map(n => money(tune.port_rent * Math.pow(2, n - 1) * tune.rent_scale)).join(' / ');
-  const levels = [0, 1, 2, 3, 4, 5, 6].map(l => `${LEVEL_NAMES[l]} ${pct(rentPct(l) * tune.rent_scale)}`).join(', ');
-  const sec = (title: string, items: string[]): string => `<h3>${title}</h3><ul>${items.map(i => `<li>${i}</li>`).join('')}</ul>`;
-  return [
-    sec('Chuẩn bị', [
-      '2 đến 4 người chơi. Mỗi chỗ ngồi là Người, Máy (Dễ, Vừa, Khó) hoặc Bạn online.',
-      'Quân cờ là 12 con giáp, mỗi con một màu. Bấm vào con vật ở màn tạo ván để đổi; mỗi con chỉ một người dùng.',
-      `Kiểu ván: ${tune.max_rounds} vòng, ${tune.max_rounds_long} vòng (hết vòng thì ai giàu nhất thắng), hoặc chơi tới khi phá sản.`,
-      `Mỗi người bắt đầu với ${money(tune.start_cash)} ở ô Xuất Phát.`,
-      ...(tune.order_roll ? ['Đầu ván mỗi người tung xúc xắc một lần: <b>ai cao nhất đi trước, thấp nhất đi cuối</b>. Hòa điểm thì những người hòa tung lại.'] : []),
-    ]),
-    sec('Mỗi lượt', [
-      'Giữ nút (hoặc Space) để lắc xúc xắc, thả ra để ném.',
-      'Đổ đôi: được đổ tiếp. Đôi 3 lần liền: vào tù.',
-      `Đi qua hoặc dừng ở Xuất Phát: nhận lương ${money(tune.salary)}.`,
-    ]),
-    sec('Vòng đầu (mỗi người, tới khi qua Xuất Phát lần đầu)', [
-      'Chưa được mua đất: dẫm vào đất trống chỉ được xem.',
-      'Được miễn cả 2 ô thuế.',
-      'Tiền thuê đất người khác và tiền phạt trên thẻ vẫn phải trả.',
-    ]),
-    sec('Đất', [
-      `${lands.length} tỉnh thành, 8 nhóm màu theo miền. Giá đất từ ${money(Math.min(...lands))} tới ${money(Math.max(...lands))}.`,
-      'Dẫm vào đất trống thì được mua. Không có đấu giá, không đổi đất, không mua lại đất của người khác.',
-      '<b>Dẫm lại đất của mình</b> thì được xây thêm 1 cấp: Nhà 1 → Nhà 4 → Khách sạn → Landmark của tỉnh.',
-      `Giá xây mỗi cấp: nhà ${pct(tune.house_cost_pct)}, khách sạn ${pct(tune.hotel_cost_pct)}, Landmark ${pct(tune.landmark_cost_pct)} giá đất.`,
-      `Tiền thuê theo giá đất: ${levels}.`,
-      `Gom đủ cả nhóm màu (không ô nào đang cầm cố): tiền thuê × ${tune.full_group_mult}.`,
-    ]),
-    sec('Bến cảng, sân bay và công ty', [
-      `${ports.length} bến, giá ${money(ports[0].p!)} mỗi ô. Tiền thuê theo số bến chủ có, không tính bến đang cầm cố: ${portRents}.`,
-      `${utils.length} công ty, giá ${money(utils[0].p!)} mỗi ô. Tiền thuê = tổng xúc xắc × ${money(tune.util_mult_one * tune.rent_scale)} (có 1 công ty) hoặc × ${money(tune.util_mult_two * tune.rent_scale)} (có cả 2, không tính công ty đang cầm cố).`,
-      'Bến và công ty không xây được.',
-    ]),
-    sec('Thuế và hũ tiền', [
-      `Thuế Tài Sản: trả ${pct(tune.prop_tax_pct)} tiền mặt đang có, tối đa ${money(tune.prop_tax_flat)}.`,
-      `Thuế Thu Nhập: trả ${money(tune.income_tax)}.`,
-      'Tiền của 2 ô thuế dồn vào <b>hũ giữa bàn</b>. Dừng ở Bến Đỗ Tự Do thì lấy cả hũ.',
-    ]),
-    sec('Thẻ Cơ Hội và Khí Vận', [
-      `Cơ Hội ${CARDS.co.length} thẻ, Khí Vận ${CARDS.kv.length} thẻ. Cơ Hội thiên về di chuyển, Khí Vận thiên về tiền.`,
-      'Thẻ hiếm giữ lại dùng sau: <b>Thẻ Miễn Thuê</b> (khỏi trả tiền thuê một lần) và <b>Thẻ Đổ Lại</b> (sắp dẫm vào đất người khác thì đổ xúc xắc lại). Dùng xong thẻ về lại bộ.',
-      `Mỗi thẻ được hoặc mất tối đa ${money(tune.card_max)}. Tiền phạt trên thẻ trả cho ngân hàng.`,
-      'Rút hết bộ thì xáo lại. Thẻ Ra Tù đang có người giữ thì không bị xáo vào.',
-    ]),
-    sec('Nhà tù', [
-      'Vào tù khi: dẫm ô Đi Tù, đổ đôi 3 lần liền, hoặc rút thẻ Vào tù.',
-      'Không nộp tiền để ra tù. Mỗi lượt ở tù được lắc 1 lần, tối đa 3 lượt:',
-      '· Lắc ra đôi: ra tù, đi theo số vừa lắc, rồi được lắc tiếp.',
-      '· Dùng Thẻ Ra Tù: ra ngay ở bất kỳ lượt nào.',
-      '· Lắc trượt cả 3 lượt: tới lượt thứ 4 mới được ra.',
-      'Rút thẻ Vào tù: lần qua Xuất Phát kế tiếp mất lương. Chỉ ra tù bằng Thẻ Ra Tù mới gỡ được.',
-    ]),
-    ...(tune.event_every ? [sec('Sự kiện', [
-      `Cứ ${tune.event_every} vòng lại có một sự kiện cho cả bàn, kéo dài ${tune.event_rounds} vòng. Ví dụ:`,
-      ...EVENTS.map(e => `<b>${e.name}</b>: ${e.txt}.`),
-    ])] : []),
-    sec('Chơi 2 đội', [
-      'Chọn "Đội" ở Kiểu ván, rồi chọn đội cho từng chỗ ngồi. Cần đủ 4 người, mỗi đội đúng 2 người.',
-      'Dẫm vào đất của đồng đội thì không mất tiền thuê.',
-      'Gom đủ nhóm màu tính chung cả đội: hai người góp đủ các ô của một nhóm thì cả hai cùng được tiền thuê × ' + tune.full_group_mult + '.',
-      'Tới khi phá sản: đội nào còn người trụ lại thì thắng. Theo vòng: đội có tổng tài sản lớn hơn thắng.',
-    ]),
-    sec('Thiếu tiền và phá sản', [
-      `Bán bớt 1 cấp nhà: hoàn ${pct(tune.sell_pct)} giá xây cấp đó.`,
-      `Cầm cố đất (phải bán hết nhà trên ô trước): nhận ${pct(tune.mortgage_pct)} giá đất. Đất cầm cố không thu tiền thuê, và không được tính để gom đủ nhóm, đủ bến hay đủ công ty. Chuộc lại: ${pct(tune.unmortgage_pct)} giá đất.`,
-      'Bán và cầm cố hết mà vẫn không đủ trả: phá sản, bị loại. Đất trả về ngân hàng.',
-    ]),
-    sec('Kết thúc', [
-      'Tới khi phá sản: người cuối cùng còn trụ lại thắng.',
-      `${tune.max_rounds} hoặc ${tune.max_rounds_long} vòng: hết vòng cuối thì ai có tổng tài sản lớn nhất thắng (tiền mặt + giá đất, đất cầm cố tính nửa giá, + tiền đã xây).`,
-    ]),
-    sec('Chơi online', [
-      'Tạo phòng để nhận mã, bạn bè vào phòng bằng mã. Chủ phòng luôn ngồi ghế đầu tiên. Bạn bè tự bấm con vật của mình để chọn quân.',
-      'Trong ván, bấm mã phòng ở góc trên để rời phòng (bạn bè), giải tán phòng (chủ phòng) hoặc bỏ phiếu chơi lại.',
-      `Bỏ phiếu chơi lại: cần tất cả người chơi thật đồng ý trong ${tune.vote_time} giây.`,
-      `Nút Biểu cảm: gửi câu có sẵn, hoặc Nhắn tin để gõ một câu (tối đa ${tune.chat_max_len} ký tự, cách nhau ít nhất ${tune.chat_gap} giây). Tin hiện trên quân của bạn và trong Lịch sử ván.`,
-      'Rớt mạng: máy đi thay lúc vắng. Mở lại trang, bấm "Vào lại phòng" (trong 30 phút) để về đúng ghế. Người đã rời vào lại cùng tên thì lấy lại ghế.',
-      'Chủ phòng tải lại trang: bấm "Vào lại phòng" là ván chơi tiếp.',
-    ]),
-    sec('Mẹo', [
-      'Bấm vào một ô bất kỳ trên bàn cờ để xem thông tin ô đó.',
-      'Nhấn M (hoặc nút loa) để tắt hay bật tiếng.',
-      'Nút Lịch sử: xem lại mọi diễn biến của ván, theo vòng.',
-      'Chơi online: nút Biểu cảm gửi một câu nhanh, hiện trên quân của bạn cho cả phòng thấy.',
-    ]),
-  ].join('');
-}
-let rulesPanel: HTMLDivElement | null = null;
-/** Opens or closes the rules page. */
-function showRules(on: boolean) {
-  if (on) showPage('Luật chơi', rulesHtml()); else hidePage();
-}
-/** Opens the reading page over the game with a title and its HTML. */
-function showPage(title: string, html: string) {
-  pagePanel();
-  (rulesPanel!.querySelector('h2') as HTMLElement).textContent = title;
-  (rulesPanel!.querySelector('.ru-body') as HTMLElement).innerHTML = html;
-  rulesPanel!.style.display = 'flex';
-  (rulesPanel!.querySelector('.ru-body') as HTMLElement).scrollTop = 0;
-}
-function hidePage() { if (rulesPanel) rulesPanel.style.display = 'none'; }
-function pagePanel() {
-  if (!rulesPanel) {
-    const d = document.createElement('div');
-    d.id = 'rules';
-    d.innerHTML = '<div class="ru-card"><h2>Luật chơi</h2><div class="ru-body"></div><button class="ru-close">Đóng</button></div>';
-    document.body.appendChild(d);
-    (d.querySelector('.ru-close') as HTMLButtonElement).onclick = () => showRules(false);
-    d.addEventListener('pointerdown', e => { if (e.target === d) showRules(false); e.stopPropagation(); }); // a tap outside closes it
-    d.addEventListener('keydown', e => e.stopPropagation());
-    rulesPanel = d;
-  }
-}
-const rulesOpen = (): boolean => !!rulesPanel && rulesPanel.style.display === 'flex';
-addEventListener('keydown', e => { if (!rulesOpen()) return; if (e.code === 'Escape' || e.code === 'Enter') showRules(false); e.stopImmediatePropagation(); }, true); // the game hears no keys while the rules are open
 /** Where the rules button sits: the title's corner, the panel's top, or the phone's header. */
 function rulesSpot(): { x: number; y: number; w: number; h: number } {
   if (scene === 'title') return L.phone ? { x: W - 92, y: 6, w: 80, h: 30 } : { x: PX + PW - 104, y: 28, w: 84, h: 32 };
@@ -3158,6 +2608,7 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
       drawInspect();
       drawNetBanner();
       drawEvent();
+      drawTip();
       drawEmotes();
       drawEmoteMenu();
       drawRoomMenu();
@@ -3198,6 +2649,7 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
       });
       ui.forEach(drawButton);
       drawPanel();
+      drawSummary(PX + 14, 372, PW - 28, H - 16 - 372); // covers the panel's land list, which means little once the game is over
       drawVote();
     },
   },
@@ -3280,7 +2732,7 @@ install({
     if (o.seed !== undefined) checkSeed = o.seed;
     scene = 'title'; clearVis();
   },
-  get view() { return { inspect, picker: picker ? picker.items.map((it, k) => ({ label: it.label, enabled: it.enabled !== false, ...picker!.rects[k] })) : null }; },
+  get view() { return { inspect, tip: tipNow, picker: picker ? picker.items.map((it, k) => ({ label: it.label, enabled: it.enabled !== false, ...picker!.rects[k] })) : null }; },
   get online() {
     return { role: net.getRole(), code: roomCode, mySeat, seats: isGuest() ? lobby?.seats ?? null : setup.seats, animals: isGuest() ? lobby?.animals ?? null : setup.animals, mode: isGuest() ? lobby?.mode ?? null : setup.mode, rounds: isGuest() ? lobby?.rounds ?? null : setup.rounds, teams: isGuest() ? !!lobby?.teams : setup.teams };
   },

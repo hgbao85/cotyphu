@@ -72,6 +72,11 @@ export const sfx = {
     const vol = (w: OscillatorType) => (w === 'sine' ? 0.22 : w === 'triangle' ? 0.2 : 0.07);
     for (const [f, d, w, at] of calls[a] || []) tone(f, d, w, vol(w), at);
   },
+  /** A Landmark rises: three beats of a low drum (tùng tùng tùng), then a gong (chiêng) that rings out. */
+  landmark() {
+    for (const at of [0, 0.18, 0.36]) { tone(72, 0.22, 'sine', 0.45, at); tone(140, 0.06, 'triangle', 0.12, at); }
+    tone(98, 2.2, 'sine', 0.32, 0.55); tone(196, 1.6, 'sine', 0.14, 0.55); tone(247, 1.3, 'sine', 0.08, 0.55); tone(392, 0.9, 'triangle', 0.05, 0.55);
+  },
   emote() { tone(880, 0.06, 'sine', 0.18); tone(1320, 0.08, 'sine', 0.14, 0.06); },
 };
 

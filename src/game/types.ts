@@ -22,6 +22,8 @@ export interface Tile {
   /** The landmark's name and its 3D model kind (province tiles). */
   lm?: string;
   lk?: string;
+  /** A province's đặc sản, the dish it is known for, shown on its card. */
+  sp?: string;
   /** The tile's icon (ports and utilities). */
   icon?: string;
   /** A tax tile's kind. */
@@ -106,6 +108,8 @@ export interface GameState {
   maxRounds?: number;
   /** A 2-against-2 game: partners pay each other no rent and win together. */
   teams?: boolean;
+  /** Rent paid and received by seat, and rent collected by tile: the end-of-game summary. */
+  stats?: { paid: number[]; got: number[]; tile: Record<number, number> };
   /** The round event in play: which one (EVENTS), its last round, and seconds since it began (for its banner). */
   event?: { i: number; until: number; t: number };
   /** Every log line of the game with its round, "V3: ...", for the history page (kept on the host). */

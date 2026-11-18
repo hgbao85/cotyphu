@@ -285,3 +285,46 @@ test('two teams: teammates pay each other no rent, the game ends when one team i
   expect(r.games.some(gm => gm.teammateLines > 0)).toBe(true);
   expect(errors).toEqual([]);
 });
+
+test('the end-of-game summary adds up the rent that was paid, tile by tile and player by player', async ({ page }) => {
+  test.setTimeout(120000);
+  const errors: string[] = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await page.goto(build('manual=1&render=cheap'));
+  await expect.poll(() => page.evaluate(() => typeof window.game?.step)).toBe('function');
+  const r = await page.evaluate(() => {
+    const g = window.game!;
+    g.configure({ seats: [{ kind: 'ai', lv: 1 }, { kind: 'ai', lv: 1 }, { kind: 'ai', lv: 1 }, { kind: 'off' }], mode: 'rounds', rounds: 30, seed: 5 });
+    g.press('Enter'); g.step(1, false);
+    let rent = 0;
+    for (let n = 0; g.scene === 'play' && n < 1000000; n += 600) { g.step(600, false); for (const e of g.events as { type: string; amt?: number }[]) if (e.type === 'rent') rent += e.amt!; (g.events as unknown[]).length = 0; }
+    const st = (g.state as { stats?: { paid: number[]; got: number[]; tile: Record<string, number> } }).stats!;
+    const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);
+    return { scene: g.scene, rent, paid: sum(st.paid), got: sum(st.got), tile: sum(Object.values(st.tile)) };
+  });
+  expect(r.scene).toBe('results');
+  expect(r.rent).toBeGreaterThan(0);
+  expect([r.paid, r.got, r.tile]).toEqual([r.rent, r.rent, r.rent]);
+  expect(errors).toEqual([]);
+});
+
+test('a first-game tip shows at the first throw, goes for good with Đã hiểu, and stays gone after a reload', async ({ page }) => {
+  // Checks run without tips; ?tutorial=1 asks for them.
+  const errors = await open(page, 'manual=1&seed=7&tutorial=1');
+  const tip = () => page.evaluate(() => (window.game!.view as { tip: string | null }).tip);
+  const start = () => page.evaluate(() => {
+    const g = window.game!;
+    g.configure!({ seats: [{ kind: 'human' }, { kind: 'ai', lv: 1 }, { kind: 'off' }, { kind: 'off' }], tune: { order_roll: 0 } });
+    g.press('Enter'); g.step(3);
+  });
+  await start();
+  expect(await tip()).toBe('roll');
+  await tapAt(page, 731, 164);                                  // "Đã hiểu"
+  expect(await tip()).toBe(null);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('tpdv-tips') || '[]'))).toContain('roll');
+  await page.reload();
+  await expect.poll(() => page.evaluate(() => typeof window.game?.step)).toBe('function');
+  await start();
+  expect(await tip()).toBe(null);
+  expect(errors).toEqual([]);
+});

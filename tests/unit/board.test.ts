@@ -34,3 +34,11 @@ describe('board layout', () => {
     }
   });
 });
+
+describe('provinces', () => {
+  it('each has a landmark of its own and a đặc sản to show on its card', () => {
+    const props = TILES.filter(t => t.t === 'prop');
+    expect(new Set(props.map(t => t.lk)).size).toBe(props.length);
+    for (const t of props) expect(t.sp && t.sp.length > 1).toBe(true);
+  });
+});

@@ -33,9 +33,11 @@ export function rentOf(s: GameState, i: number, diceSum: number): number {
   const t = TILES[i], o = s.owner[i];
   if (o < 0 || s.mort[i]) return 0;
   if (t.t === 'prop') {
-    let r = (t.p as number) * rentPct(s.level[i]) * tune.rent_scale;
-    if (ownsGroup(s, o, t.g as number)) r *= tune.full_group_mult;
-    return Math.round(r / 10) * 10;
+    // exact to the thousand đồng (money is in thousands), the same number the tile card shows; a full
+    // group pays exactly that times full_group_mult
+    let r = Math.round((t.p as number) * rentPct(s.level[i]) * tune.rent_scale);
+    if (ownsGroup(s, o, t.g as number)) r = Math.round(r * tune.full_group_mult);
+    return r;
   }
   if (t.t === 'port') {
     const n = TILES.filter((u, j) => u.t === 'port' && s.owner[j] === o && !s.mort[j]).length;
@@ -49,16 +51,16 @@ export function rentOf(s: GameState, i: number, diceSum: number): number {
 export function buildCost(i: number, toLevel: number): number {
   const p = TILES[i].p as number;
   const pct = toLevel <= 4 ? tune.house_cost_pct : toLevel === 5 ? tune.hotel_cost_pct : tune.landmark_cost_pct;
-  return Math.round(p * pct / 10) * 10;
+  return Math.round(p * pct); // exact to the thousand đồng (money is in thousands)
 }
 
 /**
  * The Thuế Tài Sản bill for a player holding `cash`: prop_tax_pct of the cash in hand (not of land),
- * rounded to 10, capped at prop_tax_flat. No cash (or debt) pays nothing.
+ * exact to the thousand đồng, capped at prop_tax_flat. No cash (or debt) pays nothing.
  * Design record: design/game-brief.md (After play: Ô thuế 10% / 2.000.000).
  */
 export function propertyTax(cash: number): number {
-  const pct = Math.round(Math.max(0, cash) * tune.prop_tax_pct / 10) * 10;
+  const pct = Math.round(Math.max(0, cash) * tune.prop_tax_pct); // exact to the thousand đồng
   return Math.min(pct, tune.prop_tax_flat);
 }
 

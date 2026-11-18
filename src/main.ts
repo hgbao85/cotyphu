@@ -2165,7 +2165,7 @@ function tileCard(i: number, cx: number, cy: number, extra?: (x: number, y: numb
   text(`Giá đất: ${money(t.p!)}`, cx, yy, 18, '#2b1d12', 'center', 'bold'); yy += 30;
   if (t.t === 'prop') {
     for (let l = 0; l <= MAX_LEVEL; l++) {
-      const r = Math.round(t.p! * rentPct(l) * tune.rent_scale / 10) * 10;
+      const r = Math.round(t.p! * rentPct(l) * tune.rent_scale); // the same exact sum rentOf charges
       const here = state.owner[i] >= 0 && state.level[i] === l;
       if (here) { ctx.fillStyle = 'rgba(242,196,74,0.35)'; ctx.fillRect(x + 16, yy - 11, w - 32, 22); }
       text(LEVEL_NAMES[l] + (l === 6 ? `: ${t.lm}` : ''), x + 22, yy, 15, '#3a2416', 'left');

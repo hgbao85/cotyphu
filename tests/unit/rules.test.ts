@@ -29,13 +29,14 @@ function board(): GameState {
 
 const price = (i: number): number => TILES[i].p as number;
 const roundTo10 = (v: number): number => Math.round(v / 10) * 10;
+const toThousand = (v: number): number => Math.round(v); // rent is exact to the thousand đồng (money is in thousands)
 
 describe('rentOf', () => {
   it('charges the empty-land rate on a lone province, nothing when unowned or mortgaged', () => {
     const s = board();
     expect(rentOf(s, HA_NOI, 7)).toBe(0);
     s.owner[HA_NOI] = 0;
-    expect(rentOf(s, HA_NOI, 7)).toBe(roundTo10(price(HA_NOI) * config.rent_l0.value * config.rent_scale.value));
+    expect(rentOf(s, HA_NOI, 7)).toBe(toThousand(price(HA_NOI) * config.rent_l0.value * config.rent_scale.value));
     s.mort[HA_NOI] = true;
     expect(rentOf(s, HA_NOI, 7)).toBe(0);
   });
@@ -46,8 +47,28 @@ describe('rentOf', () => {
     const alone = rentOf(s, HA_NOI, 7);
     s.owner[BAC_NINH] = 0; s.owner[NAM_DINH] = 0;
     expect(ownsGroup(s, 0, TILES[HA_NOI].g as number)).toBe(true);
-    expect(rentOf(s, HA_NOI, 7)).toBe(roundTo10(price(HA_NOI) * config.rent_l5.value * config.rent_scale.value * config.full_group_mult.value));
+    expect(rentOf(s, HA_NOI, 7)).toBe(toThousand(price(HA_NOI) * config.rent_l5.value * config.rent_scale.value) * config.full_group_mult.value);
     expect(rentOf(s, HA_NOI, 7)).toBeGreaterThan(alone);
+  });
+
+  it('charges rent exact to the thousand đồng, with no rounding to ten thousand', () => {
+    // Asked for: Hà Nội's empty land at 7% × rent_scale is 336.000 đ, not 340.000 đ.
+    const s = board();
+    s.owner[HA_NOI] = 0;
+    expect(rentOf(s, HA_NOI, 7)).toBe(toThousand(price(HA_NOI) * config.rent_l0.value * config.rent_scale.value));
+    expect(rentOf(s, HA_NOI, 7) % 10).not.toBe(0); // 336, not a round 340
+  });
+
+  it('charges a full group exactly full_group_mult times the rent the tile card shows, at every level', () => {
+    // Regression: the bonus was applied before rounding, so Hà Nội showed 340.000 đ but a full group took
+    // 670.000 đ, not 680.000 đ. The card and the rent now use the same exact number.
+    const s = board();
+    for (const i of [HA_NOI, BAC_NINH, NAM_DINH]) s.owner[i] = 0;
+    for (const i of [HA_NOI, NAM_DINH]) for (let lvl = 0; lvl <= 6; lvl++) {
+      s.level[i] = lvl;
+      const card = toThousand(price(i) * config['rent_l' + lvl as 'rent_l0'].value * config.rent_scale.value);
+      expect(rentOf(s, i, 7)).toBe(card * config.full_group_mult.value);
+    }
   });
 
   it('leaves a mortgaged province out of the full group, so the rest lose the bonus until it is bought back', () => {
@@ -56,9 +77,9 @@ describe('rentOf', () => {
     for (const i of [HA_NOI, BAC_NINH, NAM_DINH]) s.owner[i] = 0;
     s.mort[NAM_DINH] = true;
     expect(ownsGroup(s, 0, TILES[HA_NOI].g as number)).toBe(false);
-    expect(rentOf(s, HA_NOI, 7)).toBe(roundTo10(price(HA_NOI) * config.rent_l0.value * config.rent_scale.value));
+    expect(rentOf(s, HA_NOI, 7)).toBe(toThousand(price(HA_NOI) * config.rent_l0.value * config.rent_scale.value));
     s.mort[NAM_DINH] = false;
-    expect(rentOf(s, HA_NOI, 7)).toBe(roundTo10(price(HA_NOI) * config.rent_l0.value * config.rent_scale.value * config.full_group_mult.value));
+    expect(rentOf(s, HA_NOI, 7)).toBe(toThousand(price(HA_NOI) * config.rent_l0.value * config.rent_scale.value) * config.full_group_mult.value);
   });
 
   it('counts only the ports and companies that are not mortgaged', () => {
@@ -89,9 +110,9 @@ describe('rentOf', () => {
 
 describe('buildCost and netWorth', () => {
   it('prices each level as its share of the land price', () => {
-    expect(buildCost(HA_NOI, 1)).toBe(roundTo10(price(HA_NOI) * config.house_cost_pct.value));
-    expect(buildCost(HA_NOI, 5)).toBe(roundTo10(price(HA_NOI) * config.hotel_cost_pct.value));
-    expect(buildCost(HA_NOI, 6)).toBe(roundTo10(price(HA_NOI) * config.landmark_cost_pct.value));
+    expect(buildCost(HA_NOI, 1)).toBe(toThousand(price(HA_NOI) * config.house_cost_pct.value));
+    expect(buildCost(HA_NOI, 5)).toBe(toThousand(price(HA_NOI) * config.hotel_cost_pct.value));
+    expect(buildCost(HA_NOI, 6)).toBe(toThousand(price(HA_NOI) * config.landmark_cost_pct.value));
   });
 
   it('counts cash, land (half when mortgaged) and what was spent building', () => {
@@ -104,11 +125,17 @@ describe('buildCost and netWorth', () => {
 });
 
 describe('propertyTax', () => {
+  it('takes the share of cash exact to the thousand đồng, with no rounding to ten thousand', () => {
+    // Asked for: 10% of 5.763.000 đ is 576.000 đ (once rounded to 580.000 đ). The cash is chosen so the
+    // two roundings differ; the cap is far above it.
+    expect(propertyTax(5763)).toBe(toThousand(5763 * config.prop_tax_pct.value));
+  });
+
   const pct = config.prop_tax_pct.value, cap = config.prop_tax_flat.value;
 
   it('charges prop_tax_pct of the cash when that is under the cap', () => {
     const cash = roundTo10(cap / pct / 2);           // well below the point where the cap bites
-    expect(propertyTax(cash)).toBe(roundTo10(cash * pct));
+    expect(propertyTax(cash)).toBe(toThousand(cash * pct));
     expect(propertyTax(cash)).toBeLessThan(cap);
   });
 

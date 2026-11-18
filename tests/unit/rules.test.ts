@@ -204,3 +204,20 @@ describe('round events', () => {
     }
   });
 });
+
+describe('full group in a team game', () => {
+  it("counts a partner's provinces toward the group, so both get the bonus; an opponent's do not count", () => {
+    // Asked for: in a 2-team game the colour group is the team's together.
+    const s = board();
+    s.owner[HA_NOI] = 0; s.owner[BAC_NINH] = 1; s.owner[NAM_DINH] = 1;
+    const alone = toThousand(price(HA_NOI) * config.rent_l0.value * config.rent_scale.value);
+    expect(rentOf(s, HA_NOI, 7)).toBe(alone);                      // a plain game: two owners, no full group
+    s.teams = true; s.players[0].team = 0; s.players[1].team = 0;  // partners
+    expect(ownsGroup(s, 0, TILES[HA_NOI].g as number)).toBe(true);
+    expect(rentOf(s, HA_NOI, 7)).toBe(alone * config.full_group_mult.value);
+    s.players[1].team = 1;                                         // opponents
+    expect(ownsGroup(s, 0, TILES[HA_NOI].g as number)).toBe(false);
+    s.players[1].team = 0; s.mort[NAM_DINH] = true;                // a partner's mortgaged province breaks it too
+    expect(ownsGroup(s, 0, TILES[HA_NOI].g as number)).toBe(false);
+  });
+});

@@ -80,7 +80,10 @@ test('a friend joins a room, picks an animal, throws for the order, sends an emo
 
   // The friend taps their own animal: the host's setup changes, and nobody shares an animal.
   const before = (await online(host.page)).animals![FRIEND_SEAT];
-  await tap(friend.page, AT.friendAnimal);
+  await tap(friend.page, AT.friendAnimal);                    // the list of animals opens; take the first free one
+  const items = await friend.page.evaluate(() => (window.game!.view as { picker: { label: string; enabled: boolean; x: number; y: number; w: number; h: number }[] | null }).picker);
+  const free = items!.find(it => it.enabled && it.label !== ['Chuột', 'Trâu', 'Hổ', 'Mèo', 'Rồng', 'Rắn', 'Ngựa', 'Dê', 'Khỉ', 'Gà', 'Chó', 'Heo'][before])!;
+  await tap(friend.page, [free.x + free.w / 2, free.y + free.h / 2]);
   await expect.poll(async () => (await online(host.page)).animals![FRIEND_SEAT]).not.toBe(before);
   const animals = (await online(host.page)).animals!;
   expect(new Set(animals).size).toBe(animals.length);

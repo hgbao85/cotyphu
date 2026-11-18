@@ -18,9 +18,11 @@ export function owned(s: GameState, pi: number): number[] {
 }
 
 /** True when player pi owns every province in colour group g and none of them is mortgaged: a mortgaged
- * province earns nothing, so the group loses its bonus until it is bought back (like ports and companies). */
+ * province earns nothing, so the group loses its bonus until it is bought back (like ports and companies).
+ * In a team game the group is the team's: a partner's provinces count. */
 export function ownsGroup(s: GameState, pi: number, g: number): boolean {
-  return TILES.every((t, i) => t.t !== 'prop' || t.g !== g || (s.owner[i] === pi && !s.mort[i]));
+  const ours = (o: number): boolean => o === pi || (!!s.teams && o >= 0 && s.players[o]?.team !== undefined && s.players[o].team === s.players[pi]?.team);
+  return TILES.every((t, i) => t.t !== 'prop' || t.g !== g || (ours(s.owner[i]) && !s.mort[i]));
 }
 
 /** The rent at a building level, as a fraction of the land price (config rent_l0..rent_l6). */

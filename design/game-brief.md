@@ -69,6 +69,8 @@ After play: Làm 2 mục gợi ý → lưu ván chơi một máy (tải lại tr
 After play: Thêm chat → Biểu cảm → Nhắn tin: gõ câu tối đa 100 ký tự, không lọc từ (Tăng lên 100 ký tự, không lọc từ), chống spam bằng 3 giây giữa hai tin
 After play: Thêm thẻ giữ lại để dùng sau → Thẻ Miễn Thuê (Khí Vận), Thẻ Đổ Lại (Cơ Hội)
 After play: Cho phép chat ký tự lặp như "aaaaaa" → giữ nguyên như đã gõ
+After play: Chơi đồng đội 2 đấu 2 → Kiểu ván "2 đội · tới khi phá sản" / "2 đội · 30 vòng"; ghế 1 và 3 là Đội 1, ghế 2 và 4 là Đội 2; đất đồng đội không mất tiền thuê; đội còn trụ lại (hoặc tổng tài sản lớn hơn) thắng; cần đủ 4 người
+After play: Tự chọn ai cùng đội, gom đủ nhóm màu tính chung cả đội; màn tạo ván chọn bằng danh sách (Đơn/Đội, 30 vòng/50 vòng/tới khi phá sản, con vật, loại người chơi, đội từng ghế)
 
 **Pitch:** Cờ tỷ phú trên bản đồ Việt Nam cho 2–4 người, mỗi chỗ là người hoặc máy: đổ xúc xắc, mua đất từ Hà Giang tới Cà Mau, dẫm lại đất mình để xây nhà, khách sạn rồi Landmark, rút thẻ Cơ Hội và Khí Vận vui nhộn; ai trụ lại (hoặc giàu nhất sau 30 vòng) là tỷ phú.
 
@@ -117,6 +119,8 @@ Màn tạo ván: chọn 2–4 chỗ ngồi, mỗi chỗ Người hoặc Máy (D�
 - [x] Sự kiện theo vòng: 10 sự kiện mang màu Việt Nam, cứ 5 vòng một lần, kéo dài 1 vòng
 - [x] Chat bằng chữ khi chơi online (tối đa 100 ký tự), hiện thành bong bóng trên quân và trong Lịch sử ván
 - [x] Thẻ hiếm giữ lại: Thẻ Miễn Thuê (khỏi trả tiền thuê một lần), Thẻ Đổ Lại (sắp dẫm đất người khác thì đổ lại)
+- [x] Chơi 2 đội (2 đấu 2): tự chọn đội, đồng đội không trả tiền thuê cho nhau, nhóm màu tính chung cả đội, cả đội cùng thắng
+- [x] Màn tạo ván chọn bằng danh sách thả xuống
 - [x] Vào lại phòng: nút Vào lại phòng (30 phút), chủ phòng tải lại vẫn giữ ván, người đã rời vào lại cùng tên lấy lại ghế
 - [x] Màn tạo ván: 2–4 chỗ ngồi, mỗi chỗ Người hoặc Máy (Dễ/Vừa/Khó), kiểu ván Phá sản hoặc 30 vòng
 - [x] Bàn 40 ô: 22 tỉnh thành chia 8 nhóm theo miền, 4 bến cảng/sân bay, 2 công ty (Điện, Nước), Cơ Hội ×3, Khí Vận ×3, Thuế ×2, Xuất Phát, Nhà Tù, Đi Tù, Bến Đỗ Tự Do

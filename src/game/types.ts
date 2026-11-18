@@ -75,6 +75,8 @@ export interface Player {
   jailTries: number;
   /** Thẻ Ra Tù held, by the deck each came from. */
   freeCards: DeckKind[];
+  /** In a team game, the player's team: 0 (seats 1 and 3) or 1 (seats 2 and 4). */
+  team?: number;
   /** Rare cards kept for later, with the deck each goes back to when used. */
   keep?: { act: KeepAct; deck: DeckKind }[];
   bankrupt: boolean;
@@ -102,6 +104,8 @@ export interface GameState {
   mode: 'bankrupt' | 'rounds';
   /** A limited game's last round (30 or 50); absent in games saved before there was a choice. */
   maxRounds?: number;
+  /** A 2-against-2 game: partners pay each other no rent and win together. */
+  teams?: boolean;
   /** The round event in play: which one (EVENTS), its last round, and seconds since it began (for its banner). */
   event?: { i: number; until: number; t: number };
   /** Every log line of the game with its round, "V3: ...", for the history page (kept on the host). */

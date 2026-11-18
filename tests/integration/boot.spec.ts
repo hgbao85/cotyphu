@@ -9,6 +9,24 @@ import { CARDS } from '../../src/game/data';
 const config = JSON.parse(readFileSync('data/config.json', 'utf8'));
 const build = (query: string): string => `${pathToFileURL(resolve('dist-single/index.html')).href}?${query}`;
 
+/** Taps a point of the wide 1280x720 layout. */
+async function tapAt(page: Page, x: number, y: number) {
+  const b = (await page.locator('#game').boundingBox())!;
+  await page.mouse.click(b.x + x * b.width / 1280, b.y + y * b.height / 720);
+  await page.evaluate(() => window.game!.step(2));
+}
+/** Opens the dropdown at (x, y) and picks the item with this label (window.game.view.picker). */
+async function pick(page: Page, x: number, y: number, label: string) {
+  await tapAt(page, x, y);
+  const items = await page.evaluate(() => (window.game!.view as { picker: { label: string; x: number; y: number; w: number; h: number }[] | null }).picker);
+  const it = items?.find(i => i.label === label);
+  if (!it) throw new Error(`no "${label}" in the list: ${JSON.stringify(items?.map(i => i.label))}`);
+  await tapAt(page, it.x + it.w / 2, it.y + it.h / 2);
+}
+const SEAT_X = 580, seatY = (i: number): number => 250 + i * 62 + 25;   // a seat's kind, wide title
+const KIND_Y = 250 + 4 * 62 + 10 + 25, SINGLE_X = 503, LENGTH_X = 657; // single/team and the length
+const TEAM_X = 373;                                                      // a seat's team
+
 /** Opens the build and collects every page error and console error. */
 async function open(page: Page, query: string): Promise<string[]> {
   const errors: string[] = [];
@@ -83,13 +101,9 @@ test('the second seat can be set to not playing, and a game will not start with 
   // Regression: seats 1 and 2 never offered "Không chơi", so a host online could not leave seat 2 empty.
   const errors = await open(page, 'manual=1&seed=7');
   const seatKind = (i: number) => page.evaluate(k => (window.game!.online as { seats: { kind: string }[] }).seats[k].kind, i);
-  /** Taps a seat's button on the wide title screen until it shows the kind wanted. */
+  /** Picks a seat's kind from its list on the wide title screen. */
   async function setSeat(i: number, kind: string) {
-    const box = (await page.locator('#game').boundingBox())!;
-    for (let k = 0; k < 8 && (await seatKind(i)) !== kind; k++) {
-      await page.mouse.click(box.x + 580 * box.width / 1280, box.y + (250 + i * 62 + 25) * box.height / 720);
-      await page.evaluate(() => window.game!.step(2));
-    }
+    await pick(page, SEAT_X, seatY(i), kind === 'off' ? 'Không chơi' : 'Máy · Vừa');
     return seatKind(i);
   }
   expect(await setSeat(1, 'off')).toBe('off');
@@ -126,21 +140,41 @@ test('a tap anywhere closes an open tile card, and never opens another tile', as
   expect(errors).toEqual([]);
 });
 
-test('the kind of game cycles through 30 rounds, 50 rounds and until bankrupt, and a 50-round game ends after round 50', async ({ page }) => {
-  // Asked for: a longer limited game, 50 rounds, beside 30 rounds and until bankrupt.
+test('the kind of game is picked from two lists, single or teams and how long, and a 50-round game ends after round 50', async ({ page }) => {
+  // Asked for: dropdowns on the setup screen, Đơn/Đội and 30 vòng/50 vòng/tới khi phá sản.
   const errors = await open(page, 'manual=1&seed=7');
-  const box = (await page.locator('#game').boundingBox())!;
-  const kind = () => page.evaluate(() => { const o = window.game!.online as { mode: string; rounds: number }; return o.mode === 'rounds' ? `${o.rounds}` : o.mode; });
-  const tapMode = async () => {
-    await page.mouse.click(box.x + 580 * box.width / 1280, box.y + (250 + 4 * 62 + 10 + 25) * box.height / 720);
-    await page.evaluate(() => window.game!.step(2));
-  };
-  const seen = [await kind()];
-  for (let k = 0; k < 3; k++) { await tapMode(); seen.push(await kind()); }
-  expect(seen).toEqual(['bankrupt', '30', '50', 'bankrupt']);
-  await tapMode(); await tapMode();                           // 50 rounds
+  const kind = () => page.evaluate(() => { const o = window.game!.online as { mode: string; rounds: number; teams: boolean }; return (o.teams ? 'teams ' : '') + (o.mode === 'rounds' ? `${o.rounds}` : o.mode); });
+  expect(await kind()).toBe('bankrupt');
+  await pick(page, LENGTH_X, KIND_Y, '30 vòng');
+  expect(await kind()).toBe('30');
+  await pick(page, SINGLE_X, KIND_Y, 'Đội (2 đấu 2)');
+  expect(await kind()).toBe('teams 30');
+  await pick(page, SINGLE_X, KIND_Y, 'Đơn');
+  await pick(page, LENGTH_X, KIND_Y, '50 vòng');
+  expect(await kind()).toBe('50');
+  await tapAt(page, LENGTH_X, KIND_Y);                         // a tap outside an open list closes it, changing nothing
+  await tapAt(page, 100, 100);
+  expect(await page.evaluate(() => (window.game!.view as { picker: unknown }).picker)).toBe(null);
+  expect(await kind()).toBe('50');
   await page.evaluate(() => { window.game!.press('Enter'); window.game!.step(5); });
   expect(await page.evaluate(() => (window.game!.state as { maxRounds?: number }).maxRounds)).toBe(50);
+  expect(errors).toEqual([]);
+});
+
+test("the host picks who plays with whom, and uneven teams do not start", async ({ page }) => {
+  // Asked for: choose the teams; a full colour group counts the whole team.
+  const errors = await open(page, 'manual=1&seed=7');
+  await page.evaluate(() => window.game!.configure!({ seats: [{ kind: 'human' }, { kind: 'ai', lv: 1 }, { kind: 'ai', lv: 1 }, { kind: 'ai', lv: 1 }] }));
+  await page.evaluate(() => window.game!.step(2));
+  await pick(page, SINGLE_X, KIND_Y, 'Đội (2 đấu 2)');
+  await pick(page, TEAM_X, seatY(1), 'Đội 1');                 // seats 1, 2 and 3 in team 1: uneven
+  await page.evaluate(() => { window.game!.press('Enter'); window.game!.step(2); });
+  expect(await page.evaluate(() => window.game!.scene)).toBe('title');
+  await pick(page, TEAM_X, seatY(2), 'Đội 2');                 // seats 1+2 against 3+4
+  await page.evaluate(() => { window.game!.press('Enter'); window.game!.step(3); });
+  expect(await page.evaluate(() => window.game!.scene)).toBe('play');
+  const teams = await page.evaluate(() => (window.game!.state as { players: { id: number; team?: number }[] }).players.map(p => [p.id, p.team]));
+  expect(Object.fromEntries(teams)).toEqual({ 0: 0, 1: 0, 2: 1, 3: 1 });
   expect(errors).toEqual([]);
 });
 
@@ -205,5 +239,49 @@ test('the computers draw and use Thẻ Miễn Thuê and Thẻ Đổ Lại in lon
   expect(lines.some(l => l.includes('rút thẻ Cơ Hội: Thẻ Đổ Lại'))).toBe(true);
   expect(lines.some(l => l.includes('dùng Thẻ Miễn Thuê'))).toBe(true);
   expect(lines.some(l => l.includes('dùng Thẻ Đổ Lại'))).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('two teams: teammates pay each other no rent, the game ends when one team is left, and it needs four players', async ({ page }) => {
+  // Asked for: 2 against 2. Seats 1 and 3 are one team, seats 2 and 4 the other.
+  test.setTimeout(120000);
+  const errors: string[] = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await page.goto(build('manual=1&render=cheap'));
+  await expect.poll(() => page.evaluate(() => typeof window.game?.step)).toBe('function');
+  const ai = { kind: 'ai', lv: 1 };
+  const r = await page.evaluate(seats => {
+    const g = window.game!;
+    type P = { id: number; team?: number; bankrupt: boolean };
+    type S = { players: P[]; history?: string[]; ranking: { i: number }[]; teams?: boolean };
+    // three seats: a team game does not start
+    g.configure({ seats: [seats[0], seats[0], seats[0], { kind: 'off' }], mode: 'bankrupt', teams: true, seed: 3 });
+    g.press('Enter'); g.step(2, false);
+    const threeStarts = g.scene !== 'title';
+    const games: { teams: (number | undefined)[]; left: number[]; winnerTeam?: number; rentBetween: number; teammateLines: number }[] = [];
+    for (let seed = 1; seed <= 4; seed++) {
+      g.configure({ seats, mode: 'bankrupt', teams: true, seed });
+      g.press('Enter'); g.step(1, false);
+      const events: { type: string; from?: number; to?: number }[] = [];
+      for (let n = 0; g.scene === 'play' && n < 2000000; n += 600) { g.step(600, false); events.push(...(g.events as typeof events)); (g.events as unknown[]).length = 0; }
+      const s = g.state as S;
+      const teamOf = (k: number) => s.players[k].team;
+      games.push({
+        teams: s.players.map(p => p.team), left: s.players.filter(p => !p.bankrupt).map(p => p.team!),
+        winnerTeam: g.scene === 'results' ? s.players[s.ranking[0].i].team : undefined,
+        rentBetween: events.filter(e => e.type === 'rent' && teamOf(e.from!) === teamOf(e.to!)).length,
+        teammateLines: (s.history || []).filter(l => l.includes('đất đồng đội')).length,
+      });
+    }
+    return { threeStarts, games };
+  }, [ai, ai, ai, ai]);
+  expect(r.threeStarts).toBe(false);
+  for (const gm of r.games) {
+    expect([...gm.teams].sort()).toEqual([0, 0, 1, 1]);
+    expect(gm.rentBetween).toBe(0);
+    if (gm.winnerTeam !== undefined) expect(new Set(gm.left)).toEqual(new Set([gm.winnerTeam]));
+  }
+  expect(r.games.some(gm => gm.winnerTeam !== undefined)).toBe(true);
+  expect(r.games.some(gm => gm.teammateLines > 0)).toBe(true);
   expect(errors).toEqual([]);
 });

@@ -167,13 +167,14 @@ function sendYou(id: number) {
 /** Host: the seats before a game, for the friends' waiting screen. */
 function sendLobby() {
   if (!isHost()) return;
-  net.toAll({ k: 'lobby', code: roomCode, mode: setup.mode, rounds: setup.rounds, hostName: myName, seats: setup.seats.map(s => ({ ...s })), animals: [...setup.animals] });
+  net.toAll({ k: 'lobby', code: roomCode, mode: setup.mode, rounds: setup.rounds, teams: setup.teams, teamOf: [...setup.teamOf], hostName: myName, seats: setup.seats.map(s => ({ ...s })), animals: [...setup.animals] });
   for (const id of peers.keys()) sendYou(id);
 }
 
 /** Host: a friend pressed a button. Only their own turn's buttons count, checked as for a press here. */
 function onGuestAct(from: number, a: Loose) {
   if (scene === 'title' && a.act === 'animal') { const i = setup.seats.findIndex(st => st.kind === 'remote' && st.peer === from); if (i > 0) nextAnimal(i); return; }
+  if (scene === 'title' && a.act === 'animalSet') { const i = setup.seats.findIndex(st => st.kind === 'remote' && st.peer === from); if (i > 0) setAnimal(i, a.i); return; }
   if ((scene === 'play' || scene === 'results') && state.players && state.players.some(q => q.peer === from)) {
     if (a.act === 'voteStart') { hostStartVote('p' + from); return; }
     if (a.act === 'vote:yes' || a.act === 'vote:no') { hostCastVote('p' + from, a.act === 'vote:yes'); return; }
@@ -367,6 +368,7 @@ function resumeLocalGame() {
   setup = g.setup;
   if (!Array.isArray(setup.animals) || setup.animals.length !== 4) setup.animals = [...DEFAULT_ANIMALS];
   if (!setup.rounds) setup.rounds = tune.max_rounds;
+  setup.teams = !!setup.teams; if (!Array.isArray(setup.teamOf)) setup.teamOf = [0, 1, 0, 1];
   state = g.state; state.vote = undefined; state.shaking = undefined;
   clearVis(); scene = 'play';
   log(`Chơi tiếp ván trước, vòng ${state.round}.`);
@@ -480,13 +482,24 @@ function drawVote() {
 
 
 // ---- Rules --------------------------------------------------------------------------
-let setup: { seats: Seat[]; mode: 'bankrupt' | 'rounds'; rounds: number; animals: number[] } = { seats: [{ kind: 'human' }, { kind: 'ai', lv: 1 }, { kind: 'ai', lv: 0 }, { kind: 'off' }], mode: 'bankrupt', rounds: tune.max_rounds, animals: [...DEFAULT_ANIMALS] };
+let setup: { seats: Seat[]; mode: 'bankrupt' | 'rounds'; rounds: number; teams: boolean; teamOf: number[]; animals: number[] } = { seats: [{ kind: 'human' }, { kind: 'ai', lv: 1 }, { kind: 'ai', lv: 0 }, { kind: 'off' }], mode: 'bankrupt', rounds: tune.max_rounds, teams: false, teamOf: [0, 1, 0, 1], animals: [...DEFAULT_ANIMALS] };
 /** The kinds of game on the setup button, in turn: a short limited game, a long one, until one is left. */
-const GAME_KINDS = (): { mode: 'bankrupt' | 'rounds'; rounds: number }[] => [{ mode: 'rounds', rounds: tune.max_rounds }, { mode: 'rounds', rounds: tune.max_rounds_long }, { mode: 'bankrupt', rounds: tune.max_rounds }];
 /** This game's round limit: what the host chose, or the short one for a game saved before there was a choice. */
 const maxRounds = (): number => state.maxRounds ?? tune.max_rounds;
 /** The setup button's words for a kind of game. */
-function kindLabel(mode: string, rounds: number, long: boolean): string { return mode === 'rounds' ? (long ? `${rounds} vòng, giàu nhất thắng` : `${rounds} vòng`) : 'Tới khi phá sản'; }
+function kindLabel(mode: string, rounds: number, long: boolean, teams = false): string {
+  const k = mode === 'rounds' ? (long && !teams ? `${rounds} vòng, giàu nhất thắng` : `${rounds} vòng`) : (teams ? 'tới khi phá sản' : 'Tới khi phá sản');
+  return teams ? `2 đội · ${k}` : k;
+}
+/** A seat's team in a team game: what the host chose (seats 1 and 3 against 2 and 4 to begin with). */
+const teamOfSeat = (i: number): number => (isGuest() ? lobby?.teamOf?.[i] : setup.teamOf?.[i]) ?? i % 2;
+const teamTag = (team: number | undefined): string => (team === undefined ? '' : `Đội ${team + 1}`);
+/** Gives seat i animal a, when it is a real animal no other seat has. */
+function setAnimal(i: number, a: unknown) {
+  if (typeof a !== 'number' || !Number.isInteger(a) || a < 0 || a >= ANIMALS.length) return;
+  if (setup.animals.some((x, k) => k !== i && x === a)) return;
+  setup.animals[i] = a; sendLobby();
+}
 /** Gives seat i the next zodiac animal that no other seat has. */
 function nextAnimal(i: number) {
   const taken = setup.animals.filter((_, k) => k !== i);
@@ -520,20 +533,24 @@ function reset() {
       id: i, kind, lv: kind === 'remote' ? 1 : kind === 'ai' && s.kind === 'remote' ? 1 : s.lv || 0, color: ANIMALS[a].color, token: a, name,
       cash: tune.start_cash, pos: 0, laps: 0, inJail: false, jailTries: 0, freeCards: [], bankrupt: false, doubles: 0,
       ...(kind === 'remote' ? { peer: s.peer } : {}),
+      ...(setup.teams ? { team: setup.teamOf[i] } : {}),
     });
   });
   state = {
-    t: 0, score: 0, gained: '', players, cur: 0, round: 1, mode: setup.mode, maxRounds: setup.rounds,
+    t: 0, score: 0, gained: '', players, cur: 0, round: 1, mode: setup.mode, maxRounds: setup.rounds, teams: setup.teams || undefined,
     owner: Array(40).fill(-1), level: Array(40).fill(0), mort: Array(40).fill(false),
     phase: 'roll', timer: 0, dice: [3, 4], diceT: 9, rolledDouble: false, moveLeft: 0, moveDir: 1, hopT: 0,
     popup: null, debt: null, pick: 0, log: [], floaters: [], decks: { co: shuffled(CARDS.co.length), kv: shuffled(CARDS.kv.length) }, used: { co: [], kv: [] },
     flash: { tile: -1, t: 0 }, ranking: null, turns: 0, pot: tune.pot_start,
   };
-  log(`Ván mới: ${players.length} người chơi, ${setup.mode === 'rounds' ? `${setup.rounds} vòng` : 'chơi tới khi phá sản'}.`);
+  log(`Ván mới: ${players.length} người chơi, ${setup.teams ? '2 đội, ' : ''}${setup.mode === 'rounds' ? `${setup.rounds} vòng` : 'chơi tới khi phá sản'}.`);
+  if (setup.teams) log(`Đội 1: ${players.filter(p => p.team === 0).map(p => p.name).join(' và ')}. Đội 2: ${players.filter(p => p.team === 1).map(p => p.name).join(' và ')}. Đất đồng đội không mất tiền thuê.`);
   if (tune.order_roll && players.length > 1) startOrder(); else startTurn();
 }
 
 // ---- Rare cards kept for later: Thẻ Miễn Thuê and Thẻ Đổ Lại -----------------------------------------
+/** In a team game, whether players a and b (indexes in state.players) are partners. */
+const sameTeam = (a: number, b: number): boolean => !!state.teams && a !== b && state.players[a].team === state.players[b].team;
 const hasKeep = (p: Player, act: KeepAct): boolean => !!p.keep && p.keep.some(k => k.act === act);
 /** Takes a kept card from a player's hand and puts it back under its deck. */
 function spendKeep(p: Player, act: KeepAct) {
@@ -557,7 +574,7 @@ function useNoRent() {
 /** Where a throw of n from p's place would land, and whether that is someone else's rent to pay. */
 function landingRent(pi: number, n: number): { tile: number; rent: number } {
   const p = state.players[pi], tile = (p.pos + n) % 40, o = state.owner[tile];
-  return { tile, rent: o >= 0 && o !== pi && !state.mort[tile] ? rentOf(tile, n) : 0 };
+  return { tile, rent: o >= 0 && o !== pi && !state.mort[tile] && !sameTeam(pi, o) ? rentOf(tile, n) : 0 };
 }
 /** Thẻ Đổ Lại: the throw is taken back and thrown again. */
 function useReroll() {
@@ -792,14 +809,18 @@ function goBankrupt(pi: number, creditors: Loose[]) {
   log(`${p.name} PHÁ SẢN! Đất trả về ngân hàng.`);
   sfx.broke();
   events.push({ type: 'bankrupt', who: pi });
-  if (activePlayers().length <= 1) endGame('Chỉ còn một người trụ lại!');
+  if (state.teams) { const left = new Set(activePlayers().map(q => q.team)); if (left.size <= 1) endGame(`Chỉ còn ${teamTag([...left][0])} trụ lại!`); }
+  else if (activePlayers().length <= 1) endGame('Chỉ còn một người trụ lại!');
 }
 function endGame(reason: string) {
-  const ranking = state.players.map((p, i) => ({ i, worth: p.bankrupt ? 0 : netWorth(p), bankrupt: p.bankrupt }))
-    .sort((a, b) => (Number(a.bankrupt) - Number(b.bankrupt)) || b.worth - a.worth);
+  const worthOf = (p: Player): number => (p.bankrupt ? 0 : netWorth(p));
+  // a team game ranks the team first (both its players together), then each player
+  const teamWorth = (t: number | undefined): number => state.players.filter(q => q.team === t).reduce((a, q) => a + worthOf(q), 0);
+  const ranking = state.players.map((p, i) => ({ i, worth: worthOf(p), bankrupt: p.bankrupt, team: p.team }))
+    .sort((a, b) => (state.teams ? teamWorth(b.team) - teamWorth(a.team) : 0) || (Number(a.bankrupt) - Number(b.bankrupt)) || b.worth - a.worth);
   state.ranking = ranking; state.phase = 'over';
   const w = state.players[ranking[0].i];
-  state.gained = `${w.name} là Tỷ Phú Đất Việt!`;
+  state.gained = state.teams ? `${teamTag(w.team)} thắng: ${state.players.filter(q => q.team === w.team).map(q => q.name).join(' và ')}!` : `${w.name} là Tỷ Phú Đất Việt!`;
   state.score = Math.round(ranking[0].worth);
   state.reason = reason;
   log(state.gained);
@@ -923,6 +944,7 @@ function resolveLanding() {
       log(`${p.name} về thăm ${t.n} của mình.`); afterAction(); return;
     }
     if (state.mort[i]) { log(`${t.n} đang cầm cố: không mất tiền thuê.`); afterAction(); return; }
+    if (sameTeam(pi, o)) { log(`${t.n} là đất đồng đội ${state.players[o].name}: không mất tiền thuê.`); afterAction(); return; }
     const rent = rentOf(i, p.lastRoll || 7);
     if (rent > 0 && hasKeep(p, 'norent')) { // Thẻ Miễn Thuê in hand: the player chooses
       state.popup = { kind: 'rentChoice', tile: i, rent, owner: o }; state.phase = 'rentChoice'; state.timer = 0; return;
@@ -2054,11 +2076,16 @@ function seatLabel(s: Seat, i = -1): string {
 }
 /** Starts the game from the title screen, when at least two seats play. */
 function startGame() {
+  picker = null;
   if (setup.seats.filter(s => s.kind !== 'off').length < 2) { netError = 'Cần ít nhất 2 người chơi để bắt đầu.'; sfx.click(); return; }
-  if (netError.startsWith('Cần ít nhất 2')) netError = '';
+  if (setup.teams && setup.seats.some(s => s.kind === 'off')) { netError = 'Chơi 2 đội cần đủ 4 người.'; sfx.click(); return; }
+  if (setup.teams && setup.teamOf.filter(t => t === 0).length !== 2) { netError = 'Chơi 2 đội: mỗi đội cần đúng 2 người.'; sfx.click(); return; }
+  if (netError.startsWith('Cần ít nhất 2') || netError.startsWith('Chơi 2 đội')) netError = '';
   if (!isHost()) forgetLocalGame(); // a new game on this screen replaces the one left unfinished; an online game does not
   reset(); clearVis(); scene = 'play';
 }
+/** Whether the title screen shows a team game: the host's choice, or what the host sent a friend. */
+const titleTeams = (): boolean => (isGuest() ? !!lobby?.teams : setup.teams);
 /** A seat's animal on the title screen: the host's choice, or what the host sent a friend. */
 function seatAnimal(i: number): number {
   return isGuest() ? (lobby?.animals?.[i] ?? DEFAULT_ANIMALS[i]) : setup.animals[i];
@@ -2089,39 +2116,115 @@ function drawSeatAnimal(i: number, x: number, y: number, r: number, s: Seat) {
 }
 function buildTitleUI() {
   const T = titleSpots();
-  (isGuest() ? (lobby ? lobby.seats as Seat[] : []) : setup.seats).forEach((s, i) => { // tap an animal to change it
+  (isGuest() ? (lobby ? lobby.seats as Seat[] : []) : setup.seats).forEach((s, i) => { // tap an animal: the list of animals
     if (!canPickAnimal(i, s) || s.kind === 'off') return;
-    const c = animalSpot(i);
-    btn(c.x - c.r - 4, c.y - c.r - 4, c.r * 2 + 8, c.r * 2 + 8, '', () => { if (isGuest()) sendAct('animal'); else { nextAnimal(i); rawSfx.animal(setup.animals[i]); } }, 'hidden');
+    const c = animalSpot(i), anchor = { x: c.x - c.r - 4, y: c.y - c.r - 4, w: c.r * 2 + 8, h: c.r * 2 + 8 };
+    btn(anchor.x, anchor.y, anchor.w, anchor.h, '', () => openAnimalPicker(i, anchor), 'hidden');
   });
   { const r = rulesSpot(); btn(r.x, r.y, r.w, r.h, 'Luật chơi', () => showRules(true), 'room'); }
   const b4 = (r: number[], label: string, fn: () => void, role: string, color: string) => btn(r[0], r[1], r[2], r[3], label, fn, role, true, color);
-  if (isGuest()) { b4(T.leave, 'Rời phòng', leaveRoom, 'secondary', '#6a4a2a'); return; }
+  if (isGuest()) { b4(T.leave, 'Rời phòng', leaveRoom, 'secondary', '#6a4a2a'); buildPicker(); return; }
   setup.seats.forEach((s, i) => {
     // online, the host plays seat 0, and a friend who is in the room keeps their seat
     const locked = isHost() && (i === 0 || (s.kind === 'remote' && peerOnline(s.peer)));
-    btn(T.seatX, T.y0 + i * T.step, T.seatW, T.seatH, seatLabel(s, i), () => {
-      const base = isHost() ? ['human', 'remote', 'ai0', 'ai1', 'ai2'] : ['human', 'ai0', 'ai1', 'ai2'];
-      const order = i === 0 ? base : [...base, 'off']; // only the first seat always plays; starting needs two (startGame)
-      const curKey = s.kind === 'ai' ? 'ai' + s.lv : s.kind;
-      const nk = order[(order.indexOf(curKey) + 1) % order.length];
-      setup.seats[i] = nk.startsWith('ai') ? { kind: 'ai', lv: Number(nk[2]) } : { kind: nk as Seat['kind'] };
-      if (netError.startsWith('Cần ít nhất 2')) netError = ''; // the seats changed: the "two players" note goes
-      sendLobby();
-    }, 'seat', !locked);
+    const at = { x: T.seatX, y: T.y0 + i * T.step, w: T.seatW, h: T.seatH };
+    btn(at.x, at.y, at.w, at.h, seatLabel(s, i) + (locked ? '' : ' ▾'), () => openSeatPicker(i, at), 'seat', !locked);
+    if (setup.teams) { // the seat's team, between its animal and its kind
+      const tp = teamSpot(i);
+      btn(tp.x, tp.y, tp.w, tp.h, `${teamTag(setup.teamOf[i])} ▾`, () => openPicker(tp, [0, 1].map(t => ({ label: teamTag(t), value: t })), setup.teamOf[i], v => { setup.teamOf[i] = v as number; clearSetupNote(); sendLobby(); }), 'room');
+    }
   });
-  btn(T.seatX, T.y0 + 4 * T.step + T.modeDy, T.seatW, T.seatH, kindLabel(setup.mode, setup.rounds, !L.phone), () => {
-    const kinds = GAME_KINDS(), k = kinds.findIndex(x => x.mode === setup.mode && (x.mode === 'bankrupt' || x.rounds === setup.rounds));
-    const next = kinds[(k + 1) % kinds.length];
-    setup.mode = next.mode; setup.rounds = next.rounds; sendLobby();
-  }, 'seat');
+  // the kind of game: two lists side by side, single or teams, and how long
+  const kindY = T.y0 + 4 * T.step + T.modeDy, half = (T.seatW - 8) / 2;
+  const single = { x: T.seatX, y: kindY, w: half, h: T.seatH }, length = { x: T.seatX + half + 8, y: kindY, w: half, h: T.seatH };
+  btn(single.x, single.y, single.w, single.h, `${setup.teams ? 'Đội' : 'Đơn'} ▾`, () => openPicker(single, [{ label: 'Đơn', value: 0 }, { label: 'Đội (2 đấu 2)', value: 1 }], setup.teams ? 1 : 0, v => { setup.teams = v === 1; clearSetupNote(); sendLobby(); }), 'seat');
+  const lengths = [{ label: `${tune.max_rounds} vòng`, value: 'r' + tune.max_rounds }, { label: `${tune.max_rounds_long} vòng`, value: 'r' + tune.max_rounds_long }, { label: 'Tới khi phá sản', value: 'bankrupt' }];
+  const curLen = setup.mode === 'bankrupt' ? 'bankrupt' : 'r' + setup.rounds;
+  btn(length.x, length.y, length.w, length.h, `${setup.mode === 'bankrupt' ? 'Phá sản' : `${setup.rounds} vòng`} ▾`, () => openPicker(length, lengths, curLen, v => {
+    if (v === 'bankrupt') setup.mode = 'bankrupt'; else { setup.mode = 'rounds'; setup.rounds = Number(String(v).slice(1)); }
+    sendLobby();
+  }), 'seat');
   b4(T.start, L.phone ? 'Bắt đầu' : 'Bắt đầu (Enter)', startGame, 'primary', '#c8201f');
   if (isHost()) b4(T.online, `Giải tán phòng ${roomCode}`, leaveRoom, '', '#6a4a2a');
   else b4(T.online, 'Chơi online', () => showOnlinePanel(true), '', '#2b6cd6');
   const last = !isHost() && !isGuest() ? lastRoom() : null, kept = !isHost() && !isGuest() ? localGame() : null;
   if (kept) b4(T.rejoin, `Chơi tiếp ván trước (vòng ${kept.round})`, resumeLocalGame, '', '#2f8a3a');
   if (last) b4(kept ? T.rejoin2 : T.rejoin, `Vào lại phòng ${last.code}`, rejoinRoom, '', '#2f8a3a');
+  buildPicker();
 }
+// ---- Dropdowns on the setup screen ----------------------------------------------------------------
+// A tap on a choice opens its list just under it (above when there is no room); a tap on an item picks
+// it, a tap anywhere else closes the list. Items the player cannot take (an animal another seat has) show
+// dimmed. Drawn on the canvas like everything else, so it looks the same on a phone.
+type PickItem = { label: string; value: number | string; enabled?: boolean; animal?: number };
+let picker: { x: number; y: number; w: number; cols: number; itemH: number; items: PickItem[]; current: number | string; onPick: (v: number | string) => void; rects: { x: number; y: number; w: number; h: number }[] } | null = null;
+/** Opens a list under the anchor button. */
+function openPicker(anchor: { x: number; y: number; w: number; h: number }, items: PickItem[], current: number | string, onPick: (v: number | string) => void, cols = 1) {
+  const itemH = 44, rows = Math.ceil(items.length / cols), h = rows * itemH + 10;
+  const w = Math.min(W - 16, Math.max(anchor.w, cols > 1 ? cols * 140 + 10 : 160));
+  const x = Math.max(8, Math.min(anchor.x, W - 8 - w));
+  let y = anchor.y + anchor.h + 4;
+  if (y + h > H - 8) y = Math.max(8, anchor.y - 4 - h);
+  const cw = (w - 10) / cols;
+  const rects = items.map((_, k) => ({ x: x + 5 + (k % cols) * cw, y: y + 5 + Math.floor(k / cols) * itemH, w: cw, h: itemH }));
+  picker = { x, y, w, cols, itemH, items, current, onPick, rects };
+  sfx.click();
+}
+/** The list's taps, in front of every other button: its items, then the rest of the screen to close it. */
+function buildPicker() {
+  if (!picker) return;
+  const pk = picker, saved = ui; ui = [];
+  pk.items.forEach((it, k) => { const r = pk.rects[k]; btn(r.x, r.y, r.w, r.h, '', () => { picker = null; pk.onPick(it.value); }, 'hidden', it.enabled !== false); });
+  btn(pk.x, pk.y, pk.w, pk.rects.length ? pk.rects[pk.rects.length - 1].y + pk.itemH + 5 - pk.y : 0, '', () => { /* the list's own frame */ }, 'hidden');
+  btn(0, 0, W, H, '', () => { picker = null; }, 'hidden');
+  ui = [...ui, ...saved];
+}
+function drawPicker() {
+  if (!picker) return;
+  const pk = picker, last = pk.rects[pk.rects.length - 1], h = last.y + pk.itemH + 5 - pk.y;
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.35)'; rrect(ctx, pk.x + 4, pk.y + 6, pk.w, h, 12); ctx.fill();
+  ctx.fillStyle = '#2c140f'; rrect(ctx, pk.x, pk.y, pk.w, h, 12); ctx.fill(); ctx.strokeStyle = '#c9a24a'; ctx.lineWidth = 2; ctx.stroke();
+  pk.items.forEach((it, k) => {
+    const r = pk.rects[k], on = it.value === pk.current, ok = it.enabled !== false;
+    const hover = pointer.x >= r.x && pointer.x <= r.x + r.w && pointer.y >= r.y && pointer.y <= r.y + r.h;
+    if (on || (hover && ok)) { ctx.fillStyle = on ? '#5a2a1c' : 'rgba(255,255,255,0.08)'; rrect(ctx, r.x + 2, r.y + 2, r.w - 4, r.h - 4, 8); ctx.fill(); }
+    ctx.globalAlpha = ok ? 1 : 0.35;
+    if (it.animal !== undefined) {
+      ctx.fillStyle = '#f4ead2'; ctx.beginPath(); ctx.arc(r.x + 22, r.y + r.h / 2, 17, 0, 7); ctx.fill();
+      drawTokenIcon(it.animal, r.x + 22, r.y + r.h / 2 + 1, 28, ANIMALS[it.animal].color);
+      text(it.label, r.x + 46, r.y + r.h / 2, 16, on ? '#f2c44a' : '#fff8e6', 'left', 'bold');
+    } else text(it.label, r.x + 14, r.y + r.h / 2, 17, on ? '#f2c44a' : '#fff8e6', 'left', 'bold');
+    ctx.globalAlpha = 1;
+  });
+  ctx.restore();
+}
+/** The list of what a seat can be: a person, a friend online (a host), a computer, or empty (not seat 1). */
+function openSeatPicker(i: number, at: { x: number; y: number; w: number; h: number }) {
+  const s = setup.seats[i], cur = s.kind === 'ai' ? 'ai' + s.lv : s.kind;
+  const items: PickItem[] = [{ label: 'Người chơi', value: 'human' }];
+  if (isHost()) items.push({ label: 'Chờ bạn online', value: 'remote' });
+  AI_LEVELS.forEach((n, lv) => items.push({ label: `Máy · ${n}`, value: 'ai' + lv }));
+  if (i > 0) items.push({ label: 'Không chơi', value: 'off' });
+  openPicker(at, items, cur, v => {
+    const k = String(v);
+    setup.seats[i] = k.startsWith('ai') ? { kind: 'ai', lv: Number(k[2]) } : { kind: k as Seat['kind'] };
+    clearSetupNote(); sendLobby();
+  });
+}
+/** The list of the twelve animals; the ones other seats have are dimmed. */
+function openAnimalPicker(i: number, at: { x: number; y: number; w: number; h: number }) {
+  const mine = seatAnimal(i), taken = new Set([0, 1, 2, 3].filter(k => k !== i).map(seatAnimal));
+  const items: PickItem[] = ANIMALS.map((an, a) => ({ label: an.name, value: a, animal: a, enabled: !taken.has(a) }));
+  openPicker(at, items, mine, v => { if (isGuest()) sendAct('animalSet', v as number); else { setAnimal(i, v); rawSfx.animal(v as number); } }, L.phone ? 2 : 3);
+}
+/** Where a seat's team choice sits: between its animal's name and its kind. */
+function teamSpot(i: number): { x: number; y: number; w: number; h: number } {
+  const T = titleSpots(), y = T.y0 + i * T.step + (T.seatH - 34) / 2;
+  return L.phone ? { x: T.seatX - 96, y, w: 88, h: 34 } : { x: T.seatX - 104, y, w: 94, h: 34 };
+}
+/** The seats changed: the note about too few players (or uneven teams) goes. */
+function clearSetupNote() { if (netError.startsWith('Cần ít nhất 2') || netError.startsWith('Chơi 2 đội')) netError = ''; }
 /** One centred line of text, its font made smaller (down to 10 px) until it fits maxW. */
 function fitText(s: string, x: number, y: number, maxW: number, size: number, color: string, weight = 'bold') {
   let sz = size;
@@ -2184,6 +2287,7 @@ function handleInput() {
   clicks.length = 0;
   if (inspect >= 0 && (pressed('Space') || pressed('Enter') || pressed('Escape') || pressed('KeyN'))) { inspect = -1; return; }
   if (wheel && scene === 'play') { propScroll = Math.max(0, propScroll + wheel); wheel = 0; }
+  if (picker && (pressed('Space') || pressed('Enter') || pressed('Escape'))) { picker = null; return; } // a list open: the keys close it
   if (pressed('Space') || pressed('Enter')) { const b = ui.find(b => b.role === 'primary' && b.enabled); if (b) { pressBtn(b); return; } }
   if (pressed('KeyN') || pressed('Escape')) { const b = ui.find(b => (b.role === 'secondary' || b.role === 'menuSecondary') && b.enabled); if (b) { pressBtn(b); return; } }
   if (scene === 'play' && state.phase === 'pick' && humanTurn()) {
@@ -2255,7 +2359,7 @@ function drawPanel() {
     ctx.fillStyle = '#f4ead2'; ctx.beginPath(); ctx.arc(PX + 52, y + 32, 22, 0, 7); ctx.fill();
     drawTokenIcon(p.token, PX + 52, y + 34, 38, p.color);
     text(p.name, PX + 84, y + 18, 18, '#fff8e6', 'left', 'bold');
-    const sub = (isAI(p) ? `Máy ${AI_LEVELS[p.lv]}` : p.kind === 'remote' ? (p.offline ? 'Online · mất kết nối' : 'Online') : 'Người chơi') + ` · ${owned(pi).length} ô` + (firstLap(p) && !p.bankrupt ? ' · vòng đầu' : '') + (p.inJail ? ' · trong tù' : '') + (p.noSalary ? ' · mất lương' : '') + (p.freeCards.length ? ' · có thẻ ra tù' : '') + (hasKeep(p, 'norent') ? ' · thẻ miễn thuê' : '') + (hasKeep(p, 'reroll') ? ' · thẻ đổ lại' : '') + (p.bankrupt ? ' · phá sản' : '');
+    const sub = (state.teams ? `${teamTag(p.team)} · ` : '') + (isAI(p) ? `Máy ${AI_LEVELS[p.lv]}` : p.kind === 'remote' ? (p.offline ? 'Online · mất kết nối' : 'Online') : 'Người chơi') + ` · ${owned(pi).length} ô` + (firstLap(p) && !p.bankrupt ? ' · vòng đầu' : '') + (p.inJail ? ' · trong tù' : '') + (p.noSalary ? ' · mất lương' : '') + (p.freeCards.length ? ' · có thẻ ra tù' : '') + (hasKeep(p, 'norent') ? ' · thẻ miễn thuê' : '') + (hasKeep(p, 'reroll') ? ' · thẻ đổ lại' : '') + (p.bankrupt ? ' · phá sản' : '');
     text(sub, PX + 84, y + 45, 15, '#d9c8a6', 'left');
     text(money(p.cash), PX + PW - 26, y + 18, 18, p.cash < 0 ? '#ff8a7a' : '#f2c44a', 'right', 'bold');
     ctx.restore();
@@ -2494,7 +2598,7 @@ function drawPhoneChrome() {
     ctx.save(); ctx.globalAlpha = p.bankrupt ? 0.45 : 1;
     text(name, c.x + 56, c.y + 18, 16, '#fff8e6', 'left', 'bold');
     text(money(p.cash), c.x + 56, c.y + 40, 16, p.cash < 0 ? '#ff8a7a' : '#f2c44a', 'left', 'bold');
-    const tag = p.bankrupt ? 'phá sản' : p.inJail ? 'trong tù' : p.kind === 'remote' && p.offline ? 'mất mạng' : `${owned(pi).length} ô`;
+    const tag = (state.teams ? `Đ${(p.team ?? 0) + 1} · ` : '') + (p.bankrupt ? 'phá sản' : p.inJail ? 'trong tù' : p.kind === 'remote' && p.offline ? 'mất mạng' : `${owned(pi).length} ô`);
     text(tag, c.x + c.w - 8, c.y + 18, 13, '#d9c8a6', 'right');
     ctx.restore();
   });
@@ -2557,7 +2661,7 @@ function drawTitlePhone() {
   text(TITLE.toUpperCase(), W / 2, 58, 34, '#f2c44a', 'center', 'bold');
   text('Cờ tỷ phú trên bản đồ Việt Nam · 2 đến 4 người', W / 2, 96, 15, '#e8d9b5');
   const hint = isGuest() ? (lobby ? `Phòng ${roomCode} · chờ ${lobby.hostName || 'chủ phòng'} bắt đầu ván` : `Đang vào phòng ${roomCode}...`)
-    : isHost() ? `Gửi mã ${roomCode} cho bạn bè: họ sẽ vào chỗ "Chờ bạn online"` : 'Bấm chỗ ngồi để đổi người chơi, bấm con vật để đổi quân';
+    : isHost() ? `Gửi mã ${roomCode} cho bạn bè: họ sẽ vào chỗ "Chờ bạn online"` : 'Bấm vào chỗ ngồi, con vật hay kiểu ván để chọn từ danh sách';
   ctx.font = `15px ${FONT}`;
   wrapLines(ctx, hint, W - 40).slice(0, 2).forEach((l, j) => text(l, W / 2, 130 + j * 20, 15, isGuest() || isHost() ? '#f2c44a' : '#cbb994'));
   const seatsShown: Seat[] = isGuest() ? (lobby ? lobby.seats : []) : setup.seats;
@@ -2565,6 +2669,7 @@ function drawTitlePhone() {
     const y = T.y0 + i * T.step, cy = y + T.seatH / 2;
     drawSeatAnimal(i, 34, cy, 24, s);
     text(ANIMALS[seatAnimal(i)].name, 66, cy, 17, s.kind === 'off' ? '#7a6a5a' : '#fff8e6', 'left', 'bold');
+    if (isGuest() && titleTeams()) text(teamTag(teamOfSeat(i)), T.seatX - 52, cy, 15, '#f2c44a', 'center', 'bold');
     if (isGuest()) {
       ctx.save(); ctx.fillStyle = i === mySeat ? '#5a2a1c' : '#2c140f'; rrect(ctx, T.seatX, y, T.seatW, T.seatH, 12); ctx.fill();
       ctx.strokeStyle = i === mySeat ? '#f2c44a' : '#6a4a2a'; ctx.lineWidth = i === mySeat ? 3 : 1; ctx.stroke(); ctx.restore();
@@ -2573,7 +2678,7 @@ function drawTitlePhone() {
   });
   const modeY = T.y0 + 4 * T.step + T.modeDy + T.seatH / 2;
   text('Kiểu ván', 64, modeY, 16, '#fff8e6', 'left', 'bold');
-  if (isGuest() && lobby) text(kindLabel(lobby.mode, lobby.rounds ?? tune.max_rounds, false), T.seatX + T.seatW / 2, modeY, 15, '#fff8e6', 'center', 'bold');
+  if (isGuest() && lobby) text(kindLabel(lobby.mode, lobby.rounds ?? tune.max_rounds, false, !!lobby.teams), T.seatX + T.seatW / 2, modeY, 15, '#fff8e6', 'center', 'bold');
   ui.forEach(drawButton);
   if (roomCode) {
     ctx.save(); ctx.fillStyle = '#5a2a1c'; rrect(ctx, 60, 712, W - 120, 96, 14); ctx.fill(); ctx.strokeStyle = '#f2c44a'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
@@ -2583,6 +2688,7 @@ function drawTitlePhone() {
   const tips = ['Giữ nút để lắc xúc xắc, thả ra để ném.', 'Chạm vào một ô trên bàn cờ để xem thông tin.', 'Dẫm lại đất của mình: xây thêm 1 cấp.'];
   tips.forEach((t, j) => text(t, W / 2, 846 + j * 26, 14, '#cbb994'));
   drawNetBanner();
+  drawPicker();
 }
 /** Phone: the end of the game, one column. */
 function drawResultsPhone() {
@@ -2606,7 +2712,7 @@ function drawResultsPhone() {
     ctx.fillStyle = j === 0 ? '#5a2a1c' : '#2c140f'; rrect(ctx, 26, y - 26, W - 52, 54, 8); ctx.fill();
     text(`${j + 1}.`, 48, y, 20, '#f2c44a', 'center', 'bold');
     ctx.fillStyle = p.color; ctx.fillRect(66, y - 12, 10, 24);
-    text(p.name, 86, y - 10, 17, '#fff8e6', 'left', 'bold');
+    text(p.name + (state.teams ? ` · ${teamTag(p.team)}` : ''), 86, y - 10, 17, '#fff8e6', 'left', 'bold');
     text(r.bankrupt ? 'Phá sản' : `Tài sản ${money(r.worth)}`, 86, y + 13, 15, r.bankrupt ? '#ff9a8a' : '#e8d9b5', 'left');
   });
   if (isGuest() && !state.vote) text('Bấm Chơi lại để bỏ phiếu ván mới', W / 2, 800, 16, '#e8d9b5');
@@ -2686,7 +2792,8 @@ function applyMood(inner: THREE.Object3D | undefined, p: Player) {
     } else if (m.kind === 'hop') y = Math.sin(Math.PI * u) * 0.12;
     else { roll = Math.sin(u * 42) * 0.2 * (1 - u); sy *= 0.94; }
   }
-  if (scene === 'results' && state.ranking && state.players[state.ranking[0].i] === p) { // the winner dances
+  const champ = state.ranking ? state.players[state.ranking[0].i] : undefined;
+  if (scene === 'results' && champ && (champ === p || (state.teams && champ.team === p.team))) { // the winner (a whole team) dances
     y = Math.abs(Math.sin(animT * 3.6)) * 0.22; spin = Math.sin(animT * 1.8) * 0.9; tilt = 0;
   }
   inner.position.y = y; inner.rotation.set(roll, spin, tilt); inner.scale.set(sx, sy, sx);
@@ -2893,6 +3000,12 @@ function rulesHtml(): string {
       `Cứ ${tune.event_every} vòng lại có một sự kiện cho cả bàn, kéo dài ${tune.event_rounds} vòng. Ví dụ:`,
       ...EVENTS.map(e => `<b>${e.name}</b>: ${e.txt}.`),
     ])] : []),
+    sec('Chơi 2 đội', [
+      'Chọn "Đội" ở Kiểu ván, rồi chọn đội cho từng chỗ ngồi. Cần đủ 4 người, mỗi đội đúng 2 người.',
+      'Dẫm vào đất của đồng đội thì không mất tiền thuê.',
+      'Gom đủ nhóm màu tính chung cả đội: hai người góp đủ các ô của một nhóm thì cả hai cùng được tiền thuê × ' + tune.full_group_mult + '.',
+      'Tới khi phá sản: đội nào còn người trụ lại thì thắng. Theo vòng: đội có tổng tài sản lớn hơn thắng.',
+    ]),
     sec('Thiếu tiền và phá sản', [
       `Bán bớt 1 cấp nhà: hoàn ${pct(tune.sell_pct)} giá xây cấp đó.`,
       `Cầm cố đất (phải bán hết nhà trên ô trước): nhận ${pct(tune.mortgage_pct)} giá đất. Đất cầm cố không thu tiền thuê, và không được tính để gom đủ nhóm, đủ bến hay đủ công ty. Chuộc lại: ${pct(tune.unmortgage_pct)} giá đất.`,
@@ -2976,7 +3089,7 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
       text(TITLE.toUpperCase(), BW / 2, 100, 50, '#f2c44a', 'center', 'bold');
       text('Cờ tỷ phú trên bản đồ Việt Nam · 2 đến 4 người', BW / 2, 150, 19, '#e8d9b5');
       const hint = isGuest() ? (lobby ? `Phòng ${roomCode} · chờ ${lobby.hostName || 'chủ phòng'} bắt đầu ván` : `Đang vào phòng ${roomCode}...`)
-        : isHost() ? `Gửi mã phòng ${roomCode} cho bạn bè: họ sẽ vào chỗ "Chờ bạn online"` : 'Bấm chỗ ngồi để đổi người chơi, bấm con vật để đổi quân';
+        : isHost() ? `Gửi mã phòng ${roomCode} cho bạn bè: họ sẽ vào chỗ "Chờ bạn online"` : 'Bấm vào chỗ ngồi, con vật hay kiểu ván để chọn từ danh sách';
       text(hint, BW / 2, 200, 16, isGuest() || isHost() ? '#f2c44a' : '#cbb994');
       const seatsShown: Seat[] = isGuest() ? (lobby ? lobby.seats : []) : setup.seats;
       if (isGuest()) seatsShown.forEach((s, i) => { // a guest sees the seats, not their buttons
@@ -2985,11 +3098,12 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
         ctx.strokeStyle = i === mySeat ? '#f2c44a' : '#6a4a2a'; ctx.lineWidth = i === mySeat ? 3 : 1; ctx.stroke(); ctx.restore();
         text(seatLabel(s, i) + (i === mySeat ? ' (bạn)' : ''), BW / 2 + 130, y + 26, 18, '#fff8e6', 'center', 'bold');
       });
-      if (isGuest() && lobby) text(kindLabel(lobby.mode, lobby.rounds ?? tune.max_rounds, true), BW / 2 + 130, 250 + 4 * 62 + 35, 18, '#fff8e6', 'center', 'bold');
+      if (isGuest() && lobby) text(kindLabel(lobby.mode, lobby.rounds ?? tune.max_rounds, true, !!lobby.teams), BW / 2 + 130, 250 + 4 * 62 + 35, 18, '#fff8e6', 'center', 'bold');
       seatsShown.forEach((s, i) => {
         const y = 250 + i * 62 + 25;
         drawSeatAnimal(i, BW / 2 - 300 + 40, y, 26, s);
         text(ANIMALS[seatAnimal(i)].name, BW / 2 - 300 + 78, y, 20, s.kind === 'off' ? '#7a6a5a' : '#fff8e6', 'left', 'bold');
+        if (isGuest() && titleTeams()) text(teamTag(teamOfSeat(i)), BW / 2 - 77, y, 18, '#f2c44a', 'center', 'bold');
       });
       text('Kiểu ván', BW / 2 - 300 + 76, 250 + 4 * 62 + 35, 20, '#fff8e6', 'left', 'bold');
       ui.forEach(drawButton);
@@ -3006,6 +3120,7 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
         text(roomCode, PX + PW / 2, 655, 44, '#f2c44a', 'center', 'bold');
       }
       ui.forEach(b => { if (b.role === 'room') drawButton(b); }); // the rules button sits on the panel
+      drawPicker();
     },
   },
   play: {
@@ -3078,7 +3193,7 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
         ctx.fillStyle = j === 0 ? '#5a2a1c' : '#2c140f'; rrect(ctx, BW / 2 - 260, y - 20, 520, 42, 8); ctx.fill();
         text(`${j + 1}.`, BW / 2 - 236, y, 20, '#f2c44a', 'center', 'bold');
         ctx.fillStyle = p.color; ctx.fillRect(BW / 2 - 214, y - 10, 12, 20);
-        text(p.name, BW / 2 - 194, y, 19, '#fff8e6', 'left', 'bold');
+        text(p.name + (state.teams ? ` · ${teamTag(p.team)}` : ''), BW / 2 - 194, y, 19, '#fff8e6', 'left', 'bold');
         text(r.bankrupt ? 'Phá sản' : `Tài sản ${money(r.worth)}`, BW / 2 + 246, y, 18, r.bankrupt ? '#ff9a8a' : '#e8d9b5', 'right');
       });
       ui.forEach(drawButton);
@@ -3154,17 +3269,20 @@ install({
   get events() { return events; },
   /** For checks and the balance tools: the seats, the kind of game, the seed and tuning values for the next game, and
    * back to the title screen, where Enter starts it. */
-  configure(o: { seats?: Seat[]; mode?: 'bankrupt' | 'rounds'; rounds?: number; seed?: number; tune?: Record<string, number> }) {
+  configure(o: { seats?: Seat[]; mode?: 'bankrupt' | 'rounds'; rounds?: number; teams?: boolean; teamOf?: number[]; seed?: number; tune?: Record<string, number> }) {
     for (const [k, v] of Object.entries(o.tune || {})) if (CONFIG[k] && typeof v === 'number') CONFIG[k].value = v; // try other values
     if (o.seats) setup.seats = o.seats.map(x => ({ ...x }));
     if (o.mode) setup.mode = o.mode;
     if (o.rounds) setup.rounds = o.rounds;
+    if (o.teams !== undefined) setup.teams = o.teams;
+    if (o.teamOf) setup.teamOf = [...o.teamOf];
+    picker = null;
     if (o.seed !== undefined) checkSeed = o.seed;
     scene = 'title'; clearVis();
   },
-  get view() { return { inspect }; },
+  get view() { return { inspect, picker: picker ? picker.items.map((it, k) => ({ label: it.label, enabled: it.enabled !== false, ...picker!.rects[k] })) : null }; },
   get online() {
-    return { role: net.getRole(), code: roomCode, mySeat, seats: isGuest() ? lobby?.seats ?? null : setup.seats, animals: isGuest() ? lobby?.animals ?? null : setup.animals, mode: isGuest() ? lobby?.mode ?? null : setup.mode, rounds: isGuest() ? lobby?.rounds ?? null : setup.rounds };
+    return { role: net.getRole(), code: roomCode, mySeat, seats: isGuest() ? lobby?.seats ?? null : setup.seats, animals: isGuest() ? lobby?.animals ?? null : setup.animals, mode: isGuest() ? lobby?.mode ?? null : setup.mode, rounds: isGuest() ? lobby?.rounds ?? null : setup.rounds, teams: isGuest() ? !!lobby?.teams : setup.teams };
   },
   step(n = 1, draw = true, alpha = 1) {
     for (let i = 0; i < n; i++) step();

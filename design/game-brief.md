@@ -66,6 +66,9 @@ After play: Thêm lựa chọn độ dài ván (20 vòng thì lại nhanh quá) 
 After play: Nhãn "10%, tối đa 2 tr" trên ô Thuế Tài Sản hơi nhỏ → hai dòng: "10%" to, "tối đa 2 tr" bên dưới
 After play: Thay đổi vị trí các ô Cơ Hội, Khí Vận, thuế → như bàn tỷ phú gốc: Khí Vận 2, 17, 33; Cơ Hội 7, 22, 36; Thuế Tài Sản 4; Thuế Thu Nhập giữ 38
 After play: Làm 2 mục gợi ý → lưu ván chơi một máy (tải lại trang thì Chơi tiếp ván trước); sự kiện theo vòng (cứ 5 vòng một sự kiện cho cả bàn: Tết lương × 2, Bão miền Trung, lễ hội tỉnh, mùa du lịch, kích cầu xây dựng, giảm thuế…)
+After play: Thêm chat → Biểu cảm → Nhắn tin: gõ câu tối đa 100 ký tự, không lọc từ (Tăng lên 100 ký tự, không lọc từ), chống spam bằng 3 giây giữa hai tin
+After play: Thêm thẻ giữ lại để dùng sau → Thẻ Miễn Thuê (Khí Vận), Thẻ Đổ Lại (Cơ Hội)
+After play: Cho phép chat ký tự lặp như "aaaaaa" → giữ nguyên như đã gõ
 
 **Pitch:** Cờ tỷ phú trên bản đồ Việt Nam cho 2–4 người, mỗi chỗ là người hoặc máy: đổ xúc xắc, mua đất từ Hà Giang tới Cà Mau, dẫm lại đất mình để xây nhà, khách sạn rồi Landmark, rút thẻ Cơ Hội và Khí Vận vui nhộn; ai trụ lại (hoặc giàu nhất sau 30 vòng) là tỷ phú.
 
@@ -112,6 +115,8 @@ Màn tạo ván: chọn 2–4 chỗ ngồi, mỗi chỗ Người hoặc Máy (D�
 - [x] Mỗi tỉnh một Landmark 3D riêng (22 mô hình): thêm Phong Nha, Hòn Thơm, Bái Đính, Tháp Đôi, Ponagar, Bình Tả, Phật Tích, Thành nhà Hồ, Chùa Cầu, Cầu Cần Thơ, Hải đăng Vũng Tàu, Ga Đà Lạt
 - [x] Lưu ván chơi một máy: tải lại trang hay đóng tab vẫn chơi tiếp được
 - [x] Sự kiện theo vòng: 10 sự kiện mang màu Việt Nam, cứ 5 vòng một lần, kéo dài 1 vòng
+- [x] Chat bằng chữ khi chơi online (tối đa 100 ký tự), hiện thành bong bóng trên quân và trong Lịch sử ván
+- [x] Thẻ hiếm giữ lại: Thẻ Miễn Thuê (khỏi trả tiền thuê một lần), Thẻ Đổ Lại (sắp dẫm đất người khác thì đổ lại)
 - [x] Vào lại phòng: nút Vào lại phòng (30 phút), chủ phòng tải lại vẫn giữ ván, người đã rời vào lại cùng tên lấy lại ghế
 - [x] Màn tạo ván: 2–4 chỗ ngồi, mỗi chỗ Người hoặc Máy (Dễ/Vừa/Khó), kiểu ván Phá sản hoặc 30 vòng
 - [x] Bàn 40 ô: 22 tỉnh thành chia 8 nhóm theo miền, 4 bến cảng/sân bay, 2 công ty (Điện, Nước), Cơ Hội ×3, Khí Vận ×3, Thuế ×2, Xuất Phát, Nhà Tù, Đi Tù, Bến Đỗ Tự Do

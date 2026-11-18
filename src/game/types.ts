@@ -33,7 +33,9 @@ export interface Group {
   color: string;
 }
 
-export type CardAct = 'move' | 'nearport' | 'back' | 'jail' | 'free' | 'money' | 'repair' | 'freebuild' | 'payeach' | 'collect' | 'fly';
+export type CardAct = 'move' | 'nearport' | 'back' | 'jail' | 'free' | 'money' | 'repair' | 'freebuild' | 'payeach' | 'collect' | 'fly' | 'norent' | 'reroll';
+/** A rare card a player keeps for later: Thẻ Miễn Thuê (skip one rent) or Thẻ Đổ Lại (throw again). */
+export type KeepAct = 'norent' | 'reroll';
 
 export interface Card {
   txt: string;
@@ -73,6 +75,8 @@ export interface Player {
   jailTries: number;
   /** Thẻ Ra Tù held, by the deck each came from. */
   freeCards: DeckKind[];
+  /** Rare cards kept for later, with the deck each goes back to when used. */
+  keep?: { act: KeepAct; deck: DeckKind }[];
   bankrupt: boolean;
   doubles: number;
   /** A jail card docks the next salary until a Thẻ Ra Tù clears it. */
@@ -102,8 +106,8 @@ export interface GameState {
   event?: { i: number; until: number; t: number };
   /** Every log line of the game with its round, "V3: ...", for the history page (kept on the host). */
   history?: string[];
-  /** Quick emotes showing over the pieces online: seat, which one, its age in seconds, a unique id. */
-  emotes?: { seat: number; i: number; t: number; id: string }[];
+  /** Bubbles over the pieces online: seat, which emote (or a typed line in text, i -1), its age in seconds, a unique id. */
+  emotes?: { seat: number; i: number; t: number; id: string; text?: string }[];
   /** Per tile: the owner's player index or -1, the building level 0-6, mortgaged or not. */
   owner: number[];
   level: number[];

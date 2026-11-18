@@ -4,6 +4,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { CARDS } from '../../src/game/data';
 
 const config = JSON.parse(readFileSync('data/config.json', 'utf8'));
 const build = (query: string): string => `${pathToFileURL(resolve('dist-single/index.html')).href}?${query}`;
@@ -155,7 +156,9 @@ test('a game on one screen comes back after a reload, where it was left', async 
     (g.state as { round: number }).round = 7;                 // a round to read back on the button
     g.step(120, false);                                       // long enough for the game to be kept
   });
-  const before = await page.evaluate(() => JSON.parse(JSON.stringify(window.game!.state)) as S);
+  // what was kept: the game goes on a little after the last keep, and the reload brings back the kept one
+  const before = await page.evaluate(() => JSON.parse(localStorage.getItem('tpdv-local-game') || 'null').state as S);
+  expect(before.round).toBe(7);
   await page.reload();
   await expect.poll(() => page.evaluate(() => typeof window.game?.step)).toBe('function');
   expect(await page.evaluate(() => window.game!.scene)).toBe('title');
@@ -165,6 +168,42 @@ test('a game on one screen comes back after a reload, where it was left', async 
   expect(await page.evaluate(() => window.game!.scene)).toBe('play');
   const after = await page.evaluate(() => window.game!.state as S);
   expect(after.round).toBe(before.round);
-  expect(after.players.map(p => [p.name, p.cash, p.pos])).toEqual(before.players.map(p => [p.name, p.cash, p.pos]));
+  expect(after.players.map(p => [p.name, p.cash])).toEqual(before.players.map(p => [p.name, p.cash]));
+  // a piece kept mid-move goes on hopping once the game is back: at most one tile further
+  after.players.forEach((p, k) => expect([before.players[k].pos, (before.players[k].pos + 1) % 40]).toContain(p.pos));
+  expect(errors).toEqual([]);
+});
+
+test('a new game deals every card of both decks, the rare kept cards too', async ({ page }) => {
+  // Regression: the decks were dealt as 16 cards, so a 17th card (Thẻ Đổ Lại, Thẻ Miễn Thuê) never came up.
+  const errors = await open(page, 'manual=1&seed=7');
+  const decks = await page.evaluate(() => { const g = window.game!; g.press('Enter'); g.step(2); return (g.state as { decks: { co: number[]; kv: number[] } }).decks; });
+  const sizes = { co: CARDS.co.length, kv: CARDS.kv.length };
+  expect([...decks.co].sort((a, b) => a - b)).toEqual([...Array(sizes.co).keys()]);
+  expect([...decks.kv].sort((a, b) => a - b)).toEqual([...Array(sizes.kv).keys()]);
+  expect(errors).toEqual([]);
+});
+
+test('the computers draw and use Thẻ Miễn Thuê and Thẻ Đổ Lại in long games', async ({ page }) => {
+  // The rare kept cards end up used: rent skipped once, a throw taken back. Self-play, no drawing.
+  test.setTimeout(120000);
+  const errors: string[] = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await page.goto(build('manual=1&render=cheap'));
+  await expect.poll(() => page.evaluate(() => typeof window.game?.step)).toBe('function');
+  const lines = await page.evaluate(() => {
+    const g = window.game!, out: string[] = [];
+    for (let seed = 1; seed <= 12; seed++) {
+      g.configure({ seats: [{ kind: 'ai', lv: 1 }, { kind: 'ai', lv: 1 }, { kind: 'ai', lv: 1 }, { kind: 'ai', lv: 1 }], mode: 'rounds', rounds: 50, seed });
+      g.press('Enter'); g.step(1, false);
+      for (let n = 0; g.scene === 'play' && n < 600000; n += 600) g.step(600, false);
+      out.push(...((g.state as { history?: string[] }).history || []));
+    }
+    return out;
+  });
+  expect(lines.some(l => l.includes('rút thẻ Khí Vận: Thẻ Miễn Thuê'))).toBe(true);
+  expect(lines.some(l => l.includes('rút thẻ Cơ Hội: Thẻ Đổ Lại'))).toBe(true);
+  expect(lines.some(l => l.includes('dùng Thẻ Miễn Thuê'))).toBe(true);
+  expect(lines.some(l => l.includes('dùng Thẻ Đổ Lại'))).toBe(true);
   expect(errors).toEqual([]);
 });

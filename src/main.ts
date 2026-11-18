@@ -13,8 +13,9 @@ import { GROUPS, TILES, OWNABLE, LEVEL_NAMES, LEVEL_SHORT, MAX_LEVEL, PLAYER_COL
 import { makeAnimal, drawAnimalIcon } from './animals';
 import { HALF, CORNER, BAND, BOARD_TOP, L as BOARD_SIZE, tileInfo, tileAt, tokenSpot } from './game/board';
 import * as R from './game/rules';
+import { cleanChat } from './game/chat';
 import { money } from './game/rules';
-import type { DeckKind, GameState, Loose, Player, Seat, Tile } from './game/types';
+import type { DeckKind, GameState, KeepAct, Loose, Player, Seat, Tile } from './game/types';
 
 if (import.meta.env.DEV) await import('./dev/tune'); // the tweak panel, on the dev server only
 
@@ -178,6 +179,7 @@ function onGuestAct(from: number, a: Loose) {
     if (a.act === 'vote:yes' || a.act === 'vote:no') { hostCastVote('p' + from, a.act === 'vote:yes'); return; }
   }
   if (scene === 'play' && state.players && a.act === 'emote') { const q = state.players.find(x => x.peer === from); if (q) hostEmote(q.id, a.i); return; }
+  if (scene === 'play' && state.players && a.act === 'chat') { const q = state.players.find(x => x.peer === from); if (q) hostChat(q.id, a.text); return; }
   if (a.act === 'history' && state.players) { net.toOne(from, { k: 'history', list: state.history || [] }); return; }
   if (scene !== 'play' || !state.players) return;
   const p = curP();
@@ -219,7 +221,7 @@ function onHostMsg(d: Loose) {
 function netStep() {
   if (isHost() && (scene === 'play' || scene === 'results')) {
     voteStep(STEP);
-    if (state.emotes) { for (const e of state.emotes) e.t += STEP; state.emotes = state.emotes.filter(e => e.t < tune.emote_time); }
+    if (state.emotes) { for (const e of state.emotes) e.t += STEP; state.emotes = state.emotes.filter(e => e.t < bubbleLife(e)); }
     keepHostGame();
     for (const p of state.players) if (p.kind === 'remote') p.offline = !peerOnline(p.peer);
     if (++sendEvery >= 3 || pendingSfx.length) { // about 20 times a second, at once when a sound plays
@@ -524,12 +526,51 @@ function reset() {
     t: 0, score: 0, gained: '', players, cur: 0, round: 1, mode: setup.mode, maxRounds: setup.rounds,
     owner: Array(40).fill(-1), level: Array(40).fill(0), mort: Array(40).fill(false),
     phase: 'roll', timer: 0, dice: [3, 4], diceT: 9, rolledDouble: false, moveLeft: 0, moveDir: 1, hopT: 0,
-    popup: null, debt: null, pick: 0, log: [], floaters: [], decks: { co: shuffled(16), kv: shuffled(16) }, used: { co: [], kv: [] },
+    popup: null, debt: null, pick: 0, log: [], floaters: [], decks: { co: shuffled(CARDS.co.length), kv: shuffled(CARDS.kv.length) }, used: { co: [], kv: [] },
     flash: { tile: -1, t: 0 }, ranking: null, turns: 0, pot: tune.pot_start,
   };
   log(`Ván mới: ${players.length} người chơi, ${setup.mode === 'rounds' ? `${setup.rounds} vòng` : 'chơi tới khi phá sản'}.`);
   if (tune.order_roll && players.length > 1) startOrder(); else startTurn();
 }
+
+// ---- Rare cards kept for later: Thẻ Miễn Thuê and Thẻ Đổ Lại -----------------------------------------
+const hasKeep = (p: Player, act: KeepAct): boolean => !!p.keep && p.keep.some(k => k.act === act);
+/** Takes a kept card from a player's hand and puts it back under its deck. */
+function spendKeep(p: Player, act: KeepAct) {
+  const k = p.keep!.findIndex(x => x.act === act), card = p.keep!.splice(k, 1)[0];
+  state.used[card.deck].push(CARDS[card.deck].findIndex(c => c.act === act));
+}
+/** The rent of tile i, paid to its owner. */
+function payRent(i: number, rent: number, o: number) {
+  const p = curP(), pi = state.cur, owner = state.players[o];
+  events.push({ type: 'rent', tile: i, amt: rent, from: pi, to: o }); // for checks: which land earns what, who pays whom
+  state.popup = { kind: 'rent', tile: i, rent, owner: o };
+  charge([{ to: o, amt: rent }], `${p.name} trả ${owner.name} ${money(rent)} tiền thuê ở ${TILES[i].n}.`, () => { state.phase = 'rentShow'; state.timer = 0; });
+}
+/** Thẻ Miễn Thuê: this rent is not paid. */
+function useNoRent() {
+  const p = curP(), pop = state.popup;
+  spendKeep(p, 'norent');
+  log(`${p.name} dùng Thẻ Miễn Thuê: không trả ${money(pop.rent)} ở ${TILES[pop.tile].n}.`);
+  sfx.card(); state.popup = null; afterAction();
+}
+/** Where a throw of n from p's place would land, and whether that is someone else's rent to pay. */
+function landingRent(pi: number, n: number): { tile: number; rent: number } {
+  const p = state.players[pi], tile = (p.pos + n) % 40, o = state.owner[tile];
+  return { tile, rent: o >= 0 && o !== pi && !state.mort[tile] ? rentOf(tile, n) : 0 };
+}
+/** Thẻ Đổ Lại: the throw is taken back and thrown again. */
+function useReroll() {
+  const p = curP(), [a, b] = state.dice;
+  spendKeep(p, 'reroll');
+  if (a === b) p.doubles = Math.max(0, p.doubles - 1); // the double taken back does not count
+  state.rolledDouble = false; state.popup = null; state.diceShow = undefined;
+  log(`${p.name} dùng Thẻ Đổ Lại: đổ xúc xắc lại.`);
+  sfx.card(); state.phase = 'roll'; state.timer = 0;
+  if (isAI(p)) aiTurnStart(p);
+}
+/** The computer uses a kept card when the rent hurts: at least ai_keep_rent_share of its cash, or ai_keep_rent_min. */
+const aiUsesKeep = (p: Player, rent: number): boolean => rent >= Math.min(tune.ai_keep_rent_min, Math.max(0, p.cash) * tune.ai_keep_rent_share) || rent > p.cash;
 
 // ---- Round events ----------------------------------------------------------------------------------
 // Every event_every rounds one event (EVENTS in game/data.ts) is drawn for the whole table and lasts
@@ -747,7 +788,7 @@ function goBankrupt(pi: number, creditors: Loose[]) {
   }
   p.cash = 0; p.bankrupt = true;
   for (const i of owned(pi)) { state.owner[i] = -1; state.level[i] = 0; state.mort[i] = false; }
-  p.freeCards = [];
+  p.freeCards = []; p.keep = [];
   log(`${p.name} PHÁ SẢN! Đất trả về ngân hàng.`);
   sfx.broke();
   events.push({ type: 'bankrupt', who: pi });
@@ -839,6 +880,10 @@ function afterDice() {
     state.rolledDouble = true;
   } else state.rolledDouble = false;
   log(`${p.name} đổ ${a} + ${b} = ${a + b}${dbl ? ' (đôi!)' : ''}.`);
+  if (hasKeep(p, 'reroll')) { // Thẻ Đổ Lại in hand and the throw lands on someone else's land: the player chooses
+    const land = landingRent(state.cur, a + b);
+    if (land.rent > 0) { state.popup = { kind: 'reroll', tile: land.tile, rent: land.rent, n: a + b }; state.phase = 'rerollChoice'; state.timer = 0; return; }
+  }
   beginMove(a + b);
 }
 function beginMove(n: number, dir = 1, fast = false) {
@@ -879,17 +924,17 @@ function resolveLanding() {
     }
     if (state.mort[i]) { log(`${t.n} đang cầm cố: không mất tiền thuê.`); afterAction(); return; }
     const rent = rentOf(i, p.lastRoll || 7);
-    events.push({ type: 'rent', tile: i, amt: rent, from: pi, to: o }); // for checks: which land earns what, who pays whom
-    const owner = state.players[o];
-    state.popup = { kind: 'rent', tile: i, rent, owner: o };
-    charge([{ to: o, amt: rent }], `${p.name} trả ${owner.name} ${money(rent)} tiền thuê ở ${t.n}.`, () => { state.phase = 'rentShow'; state.timer = 0; });
+    if (rent > 0 && hasKeep(p, 'norent')) { // Thẻ Miễn Thuê in hand: the player chooses
+      state.popup = { kind: 'rentChoice', tile: i, rent, owner: o }; state.phase = 'rentChoice'; state.timer = 0; return;
+    }
+    payRent(i, rent, o);
     return;
   }
   if (t.t === 'co' || t.t === 'kv') {
     if (!state.decks[t.t].length) reshuffle(t.t);
     const ci = state.decks[t.t].shift();
     const card = CARDS[t.t][ci!];
-    if (card.act !== 'free') state.used[t.t].push(ci!); // a kept Thẻ Ra Tù stays out until it is used
+    if (card.act !== 'free' && card.act !== 'norent' && card.act !== 'reroll') state.used[t.t].push(ci!); // a kept card stays out until it is used
     state.popup = { kind: 'card', deck: t.t, ci, card };
     state.phase = 'card'; state.timer = 0; sfx.card();
     log(`${p.name} rút thẻ ${t.n}: ${card.txt}`);
@@ -951,6 +996,7 @@ function applyCard() {
     case 'jail': // a jail card also docks the next salary, unless they later leave jail with a Thẻ Ra Tù
       sendToJail(pi); p.noSalary = true; log(`${p.name} sẽ mất lương lần qua Xuất Phát tới.`); toEnd(); return;
     case 'free': p.freeCards.push(deckKind); afterAction(); return;
+    case 'norent': case 'reroll': (p.keep ||= []).push({ act: c.act, deck: deckKind }); afterAction(); return;
     case 'repair': charge([{ to: -1, amt: Math.min(tune.card_max, c.v * levelsOf(pi)) }], '', afterAction); return;
     case 'payeach': charge(state.players.map((q, j) => ({ to: j, amt: (j !== pi && !q.bankrupt) ? c.v : 0 })).filter(x => x.amt > 0), '', afterAction); return;
     case 'collect':
@@ -1124,6 +1170,8 @@ function aiAct() { // one decision for the computer player, after its think dela
     case 'build': if (aiWantsBuild(pi, state.popup.tile)) doBuild(state.popup.tile); state.popup = null; afterAction(); return;
     case 'card': applyCard(); return;
     case 'rentShow': state.popup = null; afterAction(); return;
+    case 'rentChoice': if (aiUsesKeep(p, state.popup.rent)) useNoRent(); else { const pop = state.popup; payRent(pop.tile, pop.rent, pop.owner); } return;
+    case 'rerollChoice': if (aiUsesKeep(p, state.popup.rent)) useReroll(); else { const n = state.popup.n; state.popup = null; beginMove(n); } return;
     case 'pick': flyTo(state.pick); return;
     case 'debt':
       if (raiseCash(pi, state.debt.total)) payDebt(); else declareBankrupt();
@@ -1948,6 +1996,18 @@ function buildTurnUI() {
     }
     case 'card': btn(ax - 110, by, 220, 54, 'Đồng ý', applyCard, 'primary', true, '#c8201f', 'cardOk'); break;
     case 'rentShow': btn(ax - 110, by, 220, 54, 'Tiếp tục', () => { state.popup = null; afterAction(); }, 'primary', true, undefined, 'continue'); break;
+    case 'rentChoice': {
+      const pop = state.popup;
+      btn(ax - 230, by, 220, 54, 'Dùng Thẻ Miễn Thuê', useNoRent, 'primary', true, '#2f8a3a', 'noRent');
+      btn(ax + 10, by, 220, 54, `Trả ${money(pop.rent)}`, () => payRent(pop.tile, pop.rent, pop.owner), 'secondary', true, undefined, 'payRent');
+      break;
+    }
+    case 'rerollChoice': {
+      const n = state.popup.n;
+      btn(ax - 230, by, 220, 54, 'Dùng Thẻ Đổ Lại', useReroll, 'primary', true, '#2f8a3a', 'reroll');
+      btn(ax + 10, by, 220, 54, 'Đi tiếp', () => { state.popup = null; beginMove(n); }, 'secondary', true, undefined, 'goOn');
+      break;
+    }
     case 'pick': btn(ax - 110, by, 220, 54, `Bay tới ${TILES[state.pick].n}`, () => flyTo(state.pick), 'primary', true, '#2f8a3a', 'fly'); break;
     case 'debt': {
       const d = state.debt;
@@ -2195,7 +2255,7 @@ function drawPanel() {
     ctx.fillStyle = '#f4ead2'; ctx.beginPath(); ctx.arc(PX + 52, y + 32, 22, 0, 7); ctx.fill();
     drawTokenIcon(p.token, PX + 52, y + 34, 38, p.color);
     text(p.name, PX + 84, y + 18, 18, '#fff8e6', 'left', 'bold');
-    const sub = (isAI(p) ? `Máy ${AI_LEVELS[p.lv]}` : p.kind === 'remote' ? (p.offline ? 'Online · mất kết nối' : 'Online') : 'Người chơi') + ` · ${owned(pi).length} ô` + (firstLap(p) && !p.bankrupt ? ' · vòng đầu' : '') + (p.inJail ? ' · trong tù' : '') + (p.noSalary ? ' · mất lương' : '') + (p.freeCards.length ? ' · có thẻ ra tù' : '') + (p.bankrupt ? ' · phá sản' : '');
+    const sub = (isAI(p) ? `Máy ${AI_LEVELS[p.lv]}` : p.kind === 'remote' ? (p.offline ? 'Online · mất kết nối' : 'Online') : 'Người chơi') + ` · ${owned(pi).length} ô` + (firstLap(p) && !p.bankrupt ? ' · vòng đầu' : '') + (p.inJail ? ' · trong tù' : '') + (p.noSalary ? ' · mất lương' : '') + (p.freeCards.length ? ' · có thẻ ra tù' : '') + (hasKeep(p, 'norent') ? ' · thẻ miễn thuê' : '') + (hasKeep(p, 'reroll') ? ' · thẻ đổ lại' : '') + (p.bankrupt ? ' · phá sản' : '');
     text(sub, PX + 84, y + 45, 15, '#d9c8a6', 'left');
     text(money(p.cash), PX + PW - 26, y + 18, 18, p.cash < 0 ? '#ff8a7a' : '#f2c44a', 'right', 'bold');
     ctx.restore();
@@ -2312,6 +2372,12 @@ function drawPopup() {
   if (!pop && state.phase !== 'pick' && state.phase !== 'debt') return;
   if (state.phase === 'pick') { messageBox([human ? 'Vé máy bay: bấm một ô trên bàn cờ (hoặc dùng phím mũi tên) để bay tới.' : `${p.name} đang chọn nơi bay tới...`], cx, my(545), 600); return; }
   if (state.phase === 'debt') { const d = state.debt; messageBox([`${p.name} cần trả ${money(d.total)}, đang có ${money(p.cash)}.`, `Bán bớt nhà hoặc cầm cố đất ${L.phone ? 'ở nút Tài sản' : 'ở danh sách bên phải'}, rồi bấm Trả nợ.`], cx, L.phone ? L.msgY - 24 : 520, 620); return; }
+  if (pop.kind === 'rentChoice' || pop.kind === 'reroll') {
+    tileCard(pop.tile, cx, cy - 10);
+    messageBox([pop.kind === 'rentChoice' ? `${p.name} phải trả ${money(pop.rent)}. Dùng Thẻ Miễn Thuê?` : `Sắp dẫm vào ${TILES[pop.tile].n}: trả ${money(pop.rent)}. Dùng Thẻ Đổ Lại?`], cx, my(548), 600);
+    if (!human) messageBox([`${p.name} đang suy nghĩ...`], cx, my(600), 420);
+    return;
+  }
   if (pop.kind === 'notax') { messageBox([`Vòng đầu tiên (chưa qua Xuất Phát): miễn ${TILES[pop.tile].n}!`], cx, L.phone ? L.popCy : 330, 560); return; }
   if (pop.kind === 'buy' || pop.kind === 'build' || pop.kind === 'rent' || pop.kind === 'nobuy') {
     tileCard(pop.tile, cx, cy - 10);
@@ -2645,6 +2711,48 @@ function hostEmote(seat: number, i: unknown) {
   emoteLast[seat] = state.t;
   (state.emotes ||= []).push({ seat, i, t: 0, id: `${seat}:${state.t.toFixed(2)}` });
 }
+/** How long a bubble stays: a typed line longer than a ready-made emote. */
+const bubbleLife = (e: { text?: string }): number => (e.text ? tune.chat_time : tune.emote_time);
+const chatLast: number[] = []; // host: when each seat last chatted
+const chatPrev: string[] = []; // host: each seat's last line, so the same line is not sent twice in a row
+/** Host: a player's typed line, cleaned (src/game/chat.ts) and shown over their piece and in the log. */
+function hostChat(seat: number, raw: unknown) {
+  const text = cleanChat(raw, tune.chat_max_len), p = state.players.find(q => q.id === seat);
+  if (!text || !p) return;
+  if (state.t - (chatLast[seat] ?? -99) < tune.chat_gap) return;   // too soon after the last one
+  if (text === chatPrev[seat] && state.t - (chatLast[seat] ?? -99) < 30) return; // the same line again
+  chatLast[seat] = state.t; chatPrev[seat] = text;
+  (state.emotes ||= []).push({ seat, i: -1, text, t: 0, id: `c${seat}:${state.t.toFixed(2)}` });
+  log(`${p.name}: ${text}`);
+}
+/** This screen's player sends a line: the host shows it, a friend sends it to the host. */
+function sendChat(raw: string) {
+  if (isGuest()) net.toHost({ k: 'act', act: 'chat', text: String(raw).slice(0, tune.chat_max_len * 2) });
+  else hostChat(0, raw); // the host always sits in seat 0
+}
+// The chat box: plain HTML over the canvas, so a phone brings up its own keyboard.
+let chatPanel: HTMLDivElement | null = null;
+function showChat(on: boolean) {
+  if (!chatPanel) {
+    const d = document.createElement('div');
+    d.id = 'chat';
+    d.innerHTML = '<div class="ch-card"><input id="ch-text" autocomplete="off" placeholder="Nhắn cho cả phòng..."><button id="ch-send">Gửi</button><button id="ch-close">Đóng</button><div id="ch-count"></div></div>';
+    document.body.appendChild(d);
+    const input = d.querySelector('#ch-text') as HTMLInputElement, count = d.querySelector('#ch-count') as HTMLElement;
+    const send = () => { if (input.value.trim()) sendChat(input.value); input.value = ''; showChat(false); };
+    input.maxLength = tune.chat_max_len;
+    input.addEventListener('input', () => { count.textContent = `${[...input.value].length}/${tune.chat_max_len}`; });
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') send(); if (e.key === 'Escape') showChat(false); e.stopPropagation(); });
+    (d.querySelector('#ch-send') as HTMLButtonElement).onclick = send;
+    (d.querySelector('#ch-close') as HTMLButtonElement).onclick = () => showChat(false);
+    d.addEventListener('pointerdown', e => { if (e.target === d) showChat(false); e.stopPropagation(); });
+    chatPanel = d;
+  }
+  chatPanel.style.display = on ? 'flex' : 'none';
+  if (on) { const input = chatPanel.querySelector('#ch-text') as HTMLInputElement; input.value = ''; (chatPanel.querySelector('#ch-count') as HTMLElement).textContent = `0/${tune.chat_max_len}`; input.focus(); }
+}
+const chatOpen = (): boolean => !!chatPanel && chatPanel.style.display === 'flex';
+addEventListener('keydown', e => { if (chatOpen()) e.stopImmediatePropagation(); }, true); // the game hears no keys while typing
 function sendEmote(i: number) {
   emoteMenu = false;
   if (isGuest()) sendAct('emote', i); else hostEmote(0, i); // the host always sits in seat 0
@@ -2653,7 +2761,8 @@ function buildEmoteMenu() {
   const bw = L.phone ? 200 : 180, bh = 48, cols = L.phone ? 2 : 4, x0 = L.cx - (cols * bw + (cols - 1) * 10) / 2, y0 = L.phone ? 400 : 270;
   EMOTES.forEach((e, k) => btn(x0 + (k % cols) * (bw + 10), y0 + Math.floor(k / cols) * (bh + 10), bw, bh, e, () => sendEmote(k), 'menu', true, '#8a5a2a'));
   const rows = Math.ceil(EMOTES.length / cols);
-  btn(L.cx - 80, y0 + rows * (bh + 10) + 6, 160, 46, 'Đóng', () => { emoteMenu = false; }, 'menuSecondary', true, '#6a4a2a');
+  btn(L.cx - 170, y0 + rows * (bh + 10) + 6, 160, 46, 'Nhắn tin…', () => { emoteMenu = false; showChat(true); }, 'menu', true, '#2b6cd6');
+  btn(L.cx + 10, y0 + rows * (bh + 10) + 6, 160, 46, 'Đóng', () => { emoteMenu = false; }, 'menuSecondary', true, '#6a4a2a');
 }
 function drawEmoteMenu() {
   if (!emoteMenu || !roomCode) return;
@@ -2667,16 +2776,18 @@ function drawEmotes() {
     const v = tokVis[e.seat], p = state.players[e.seat];
     if (!v || !p) continue;
     if (!emoteSeen.has(e.id)) { if (emoteSeen.size > 200) emoteSeen.clear(); emoteSeen.add(e.id); rawSfx.emote(); }
-    const s = project(v.x, BOARD_TOP + v.y + 1.1, v.z), msg = EMOTES[e.i] || '', fs = L.phone ? 17 : 18;
-    const pop = Math.min(1, e.t / 0.15), fade = Math.max(0, Math.min(1, (tune.emote_time - e.t) / 0.4));
+    const s = project(v.x, BOARD_TOP + v.y + 1.1, v.z), msg = e.text ?? (EMOTES[e.i] || ''), fs = e.text ? (L.phone ? 15 : 16) : (L.phone ? 17 : 18);
+    const pop = Math.min(1, e.t / 0.15), fade = Math.max(0, Math.min(1, (bubbleLife(e) - e.t) / 0.4));
     ctx.save(); ctx.globalAlpha = fade;
     ctx.font = `bold ${fs}px "Segoe UI", Arial, sans-serif`;
-    const w = ctx.measureText(msg).width + 24, h = 34, x = Math.max(6, Math.min(W - 6 - w, s.x - w / 2)), y = s.y - h - 10 - (1 - pop) * 8;
+    let lines = wrapLines(ctx, msg, L.phone ? 260 : 300);
+    if (lines.length > 3) { lines = lines.slice(0, 3); lines[2] = lines[2].replace(/.{0,2}$/u, '…'); }
+    const w = Math.max(...lines.map(l => ctx.measureText(l).width)) + 24, h = 14 + lines.length * (fs + 4), x = Math.max(6, Math.min(W - 6 - w, s.x - w / 2)), y = s.y - h - 10 - (1 - pop) * 8;
     ctx.fillStyle = '#fff8e6'; ctx.strokeStyle = p.color; ctx.lineWidth = 3;
     rrect(ctx, x, y, w, h, 14); ctx.fill(); ctx.stroke();
     const tx = Math.max(x + 16, Math.min(x + w - 16, s.x));
     ctx.beginPath(); ctx.moveTo(tx - 8, y + h - 1); ctx.lineTo(tx + 8, y + h - 1); ctx.lineTo(s.x, y + h + 10); ctx.closePath(); ctx.fill();
-    text(msg, x + w / 2, y + h / 2 + 1, fs, '#2a1a10', 'center', 'bold');
+    lines.forEach((l, j) => text(l, x + w / 2, y + 7 + (fs + 4) * (j + 0.5) + 1, fs, '#2a1a10', 'center', 'bold'));
     ctx.restore();
   }
 }
@@ -2765,7 +2876,8 @@ function rulesHtml(): string {
       'Tiền của 2 ô thuế dồn vào <b>hũ giữa bàn</b>. Dừng ở Bến Đỗ Tự Do thì lấy cả hũ.',
     ]),
     sec('Thẻ Cơ Hội và Khí Vận', [
-      'Mỗi loại 16 thẻ. Cơ Hội thiên về di chuyển, Khí Vận thiên về tiền.',
+      `Cơ Hội ${CARDS.co.length} thẻ, Khí Vận ${CARDS.kv.length} thẻ. Cơ Hội thiên về di chuyển, Khí Vận thiên về tiền.`,
+      'Thẻ hiếm giữ lại dùng sau: <b>Thẻ Miễn Thuê</b> (khỏi trả tiền thuê một lần) và <b>Thẻ Đổ Lại</b> (sắp dẫm vào đất người khác thì đổ xúc xắc lại). Dùng xong thẻ về lại bộ.',
       `Mỗi thẻ được hoặc mất tối đa ${money(tune.card_max)}. Tiền phạt trên thẻ trả cho ngân hàng.`,
       'Rút hết bộ thì xáo lại. Thẻ Ra Tù đang có người giữ thì không bị xáo vào.',
     ]),
@@ -2794,6 +2906,7 @@ function rulesHtml(): string {
       'Tạo phòng để nhận mã, bạn bè vào phòng bằng mã. Chủ phòng luôn ngồi ghế đầu tiên. Bạn bè tự bấm con vật của mình để chọn quân.',
       'Trong ván, bấm mã phòng ở góc trên để rời phòng (bạn bè), giải tán phòng (chủ phòng) hoặc bỏ phiếu chơi lại.',
       `Bỏ phiếu chơi lại: cần tất cả người chơi thật đồng ý trong ${tune.vote_time} giây.`,
+      `Nút Biểu cảm: gửi câu có sẵn, hoặc Nhắn tin để gõ một câu (tối đa ${tune.chat_max_len} ký tự, cách nhau ít nhất ${tune.chat_gap} giây). Tin hiện trên quân của bạn và trong Lịch sử ván.`,
       'Rớt mạng: máy đi thay lúc vắng. Mở lại trang, bấm "Vào lại phòng" (trong 30 phút) để về đúng ghế. Người đã rời vào lại cùng tên thì lấy lại ghế.',
       'Chủ phòng tải lại trang: bấm "Vào lại phòng" là ván chơi tiếp.',
     ]),

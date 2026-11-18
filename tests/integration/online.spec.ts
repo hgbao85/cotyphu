@@ -16,13 +16,14 @@ const AT = {
   friendAnimal: [190, 337],                 // seat 2's animal on the title screen
   history: [54, 693], emotes: [152, 693],   // the toolbar under the board
   emotePayUp: [355, 294],                   // "Trả tiền đi!", the second emote
+  chat: [360, 415],                         // "Nhắn tin…", beside Đóng under the emotes
 };
 const EMOTE_PAY_UP = 1;
 const FRIEND_SEAT = 1; // a friend takes the first seat after the host's, here a computer's (regression: they used to skip to the free fourth seat)
 
 type Online = { role: string; code: string; mySeat: number; seats: { kind: string; name?: string }[] | null; animals: number[] | null };
 type P = { id: number; kind: string; name: string; token: number; orderRoll?: number; offline?: boolean };
-type S = { ordering?: boolean; phase: string; cur: number; players: P[]; emotes?: { seat: number; i: number }[] };
+type S = { ordering?: boolean; phase: string; cur: number; players: P[]; emotes?: { seat: number; i: number; text?: string }[] };
 
 let server: ChildProcess;
 test.beforeAll(async () => {
@@ -109,11 +110,28 @@ test('a friend joins a room, picks an animal, throws for the order, sends an emo
   await tap(friend.page, AT.emotePayUp);
   await expect.poll(async () => (await state(host.page)).emotes?.some(e => e.seat === FRIEND_SEAT && e.i === EMOTE_PAY_UP), { timeout: 5000 }).toBe(true);
 
+  // The friend types a line: the host shows it over the friend's piece and writes it in the log; a second
+  // line straight after is too soon (chat_gap) and is dropped.
+  const line = 'Ai mua Hà Nội thì nhớ xây nhà nha, đừng để trống mãi như vậy chứ các bạn ơi';
+  await tap(friend.page, AT.emotes);
+  await tap(friend.page, AT.chat);
+  await expect(friend.page.locator('#ch-text')).toBeVisible();
+  await friend.page.fill('#ch-text', line);
+  await friend.page.click('#ch-send');
+  await expect.poll(async () => (await state(host.page)).emotes?.some(e => e.seat === FRIEND_SEAT && e.text === line), { timeout: 5000 }).toBe(true);
+  await tap(friend.page, AT.emotes);
+  await tap(friend.page, AT.chat);
+  await friend.page.fill('#ch-text', 'tin thứ hai gửi quá nhanh');
+  await friend.page.click('#ch-send');
+  await host.page.waitForTimeout(800);
+  expect((await state(host.page)).emotes?.some(e => e.text === 'tin thứ hai gửi quá nhanh')).toBe(false);
+
   // The friend opens the history: the host sends it, and it tells of the throws.
   await tap(friend.page, AT.history);
   await expect(friend.page.locator('#rules')).toBeVisible();
   await expect(friend.page.locator('#rules h2')).toHaveText('Lịch sử ván');
   await expect(friend.page.locator('#rules .ru-body')).toContainText('tung được');
+  await expect(friend.page.locator('#rules .ru-body')).toContainText(`Ban: ${line}`);
   await friend.page.click('#rules .ru-close');
 
   // The friend's page reloads (a dropped phone): the host marks them away; "Vào lại phòng" brings them

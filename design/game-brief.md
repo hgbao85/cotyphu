@@ -59,8 +59,10 @@ After play: Sao đang cầm cố đất mà vẫn gọi là đủ nhóm → đ�
 After play: Giá thu đủ nhóm lệch với bảng giá (Hà Nội 340.000 × 2 mà thu 670.000) → làm tròn trước rồi mới nhân đôi
 After play: Tại sao không nhân số nào để khỏi phải làm tròn → bỏ làm tròn tiền thuê: chính xác tới nghìn đồng (Hà Nội đất trống 336.000 đ, đủ nhóm 672.000 đ)
 After play: Bỏ hết làm tròn → giá xây và Thuế Tài Sản cũng chính xác tới nghìn đồng (10% của 5.763.000 đ là 576.000 đ)
+After play: Điện thoại: nút Luật che chữ Vòng; dòng "Đang đứng ở đây" che nút Biểu cảm → Vòng nằm giữa hai nút và tự thu nhỏ; dòng đứng ở đây dời xuống dưới hàng nút
+After play: Đang xem thông tin ô này mà nhấn vào ô khác vẫn được → thẻ ô đang mở chặn bàn cờ phía sau; chỉ Đóng (hoặc Esc, Enter, Space) mới đóng
 
-**Pitch:** Cờ tỷ phú trên bản đồ Việt Nam cho 2–4 người, mỗi chỗ là người hoặc máy: đổ xúc xắc, mua đất từ Hà Giang tới Cà Mau, dẫm lại đất mình để xây nhà, khách sạn rồi Landmark, rút thẻ Cơ Hội và Khí Vận vui nhộn; ai trụ lại (hoặc giàu nhất sau 30 vòng) là tỷ phú.
+**Pitch:** Cờ tỷ phú trên bản đồ Việt Nam cho 2–4 người, mỗi chỗ là người hoặc máy: đổ xúc xắc, mua đất, dẫm lại đất mình để xây nhà, khách sạn rồi Landmark, rút thẻ Cơ Hội và Khí Vận vui nhộn; ai trụ lại (hoặc giàu nhất sau 30 vòng) là tỷ phú.
 
 **Genre:** board game, property trading with dice (cờ tỷ phú)
 

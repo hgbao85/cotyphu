@@ -28,6 +28,8 @@ export interface GameHook {
   readonly events?: unknown[];
   /** Sets up the next game for a check (seats, kind of game, seed) and returns to the title screen. */
   configure?(o: unknown): void;
+  /** What is open on screen, read-only: the tile whose card is showing (-1 for none). */
+  readonly view?: unknown;
   /** Online play, read-only: the room code, this screen's role and seat, the seats and their animals. */
   readonly online?: unknown;
 }

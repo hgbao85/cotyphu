@@ -1232,7 +1232,6 @@ function boardTexture() {
     c.fillText('TỶ PHÚ ĐẤT VIỆT', 0, 6);
     c.restore();
     c.fillStyle = '#6a4a2a'; c.font = `italic 40px ${FONT}`; c.textAlign = 'center';
-    c.fillText('Từ Hà Giang tới Cà Mau', S / 2, Z(3.95));
     // deck spots
     for (const [dx, dz, kind, label] of [[-2.3, -2.9, 'co', 'CƠ HỘI'], [2.3, -2.9, 'kv', 'KHÍ VẬN']] as [number, number, string, string][]) {
       c.save(); c.translate(X(dx), Z(dz)); c.rotate(dx < 0 ? -0.12 : 0.12);
@@ -1963,6 +1962,14 @@ function buildTitleUI() {
   const last = !isHost() && !isGuest() ? lastRoom() : null;
   if (last) b4(T.rejoin, `Vào lại phòng ${last.code}`, rejoinRoom, '', '#2f8a3a');
 }
+/** One centred line of text, its font made smaller (down to 10 px) until it fits maxW. */
+function fitText(s: string, x: number, y: number, maxW: number, size: number, color: string, weight = 'bold') {
+  let sz = size;
+  ctx.save(); ctx.font = `${weight} ${sz}px ${FONT}`;
+  while (sz > 10 && ctx.measureText(s).width > maxW) { sz--; ctx.font = `${weight} ${sz}px ${FONT}`; }
+  ctx.restore();
+  text(s, x, y, sz, color, 'center', weight);
+}
 /** A line about the connection, over the board, when something is wrong with it. */
 function drawNetBanner() {
   let msg = '';
@@ -2008,10 +2015,10 @@ function handleInput() {
     if (scene === 'play' && state.phase === 'pick' && humanTurn() && inBoard(c.x, c.y)) {
       const pt = boardPointAt(c.x, c.y);
       if (pt) { const i = tileAt(pt.x, pt.z); if (i >= 0) { if (i === state.pick) pressAct('fly', () => flyTo(i)); else pickTile(i); } }
-    } else if (scene === 'play' && inBoard(c.x, c.y)) { // anywhere else on the board: open that tile's card, or close it
+    } else if (scene === 'play' && inBoard(c.x, c.y) && inspect < 0) { // anywhere else on the board: open that tile's card
+      // an open card covers the board: taps behind it do nothing; Đóng (or Esc, Enter, Space) closes it
       const pt = boardPointAt(c.x, c.y), i = pt ? tileAt(pt.x, pt.z) : -1;
-      inspect = i >= 0 && i !== inspect ? i : -1;
-      if (i >= 0) sfx.card();
+      if (i >= 0) { inspect = i; sfx.card(); }
     }
   }
   clicks.length = 0;
@@ -2260,7 +2267,8 @@ function drawInspect() {
     ctx.restore();
   }
   const here = state.players.filter(p => !p.bankrupt && p.pos === i).map(p => p.name);
-  if (here.length) text(`Đang đứng ở đây: ${here.join(', ')}`, L.cx, L.phone ? L.by + 20 : 140, 16, '#fff8e6', 'center', 'bold');
+  // a phone puts it between the toolbar and the card, a wide screen above the card; long lists shrink to fit
+  if (here.length) fitText(`Đang đứng ở đây: ${here.join(', ')}`, L.cx, L.phone ? L.by + 60 : 140, W - 24, 16, '#fff8e6');
   drawingInspect = true; ui.forEach(b => { if (b.role === 'close') drawButton(b); }); drawingInspect = false;
 }
 function drawFloaters() {
@@ -2292,7 +2300,10 @@ function drawPhoneChrome() {
   lacquer(0, 0, W, L.by);
   text('TỶ PHÚ ĐẤT VIỆT', 12, L.by / 2, 17, '#f2c44a', 'left', 'bold');
   const roundTxt = state.mode === 'rounds' ? `Vòng ${Math.min(state.round, tune.max_rounds)}/${tune.max_rounds}` : `Vòng ${state.round}`;
-  if (roomCode) text(roundTxt, W - 176, L.by / 2, 15, '#e8d9b5', 'right'); else text(roundTxt, W - 64, L.by / 2, 15, '#e8d9b5', 'right');
+  if (roomCode) { // in the gap between the rules pill and the room pill, smaller if it does not fit
+    const r = rulesSpot(), left = r.x + r.w + 6, right = roomPill().x - 6;
+    fitText(roundTxt, (left + right) / 2, L.by / 2, right - left, 15, '#e8d9b5', '');
+  } else text(roundTxt, W - 64, L.by / 2, 15, '#e8d9b5', 'right');
   const top = L.by + L.bh;
   lacquer(0, top, W, H - top);
   const last = state.log[state.log.length - 1] || '';
@@ -2930,6 +2941,7 @@ install({
     if (o.seed !== undefined) checkSeed = o.seed;
     scene = 'title'; clearVis();
   },
+  get view() { return { inspect }; },
   get online() {
     return { role: net.getRole(), code: roomCode, mySeat, seats: isGuest() ? lobby?.seats ?? null : setup.seats, animals: isGuest() ? lobby?.animals ?? null : setup.animals };
   },

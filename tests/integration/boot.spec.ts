@@ -100,3 +100,22 @@ test('the second seat can be set to not playing, and a game will not start with 
   expect(await page.evaluate(() => window.game!.scene)).toBe('play');
   expect(errors).toEqual([]);
 });
+
+test('a tile card that is open keeps the board behind it from opening another tile', async ({ page }) => {
+  // Regression: with Hà Nội's card open, a tap on another tile switched the card to that tile.
+  const errors = await open(page, 'manual=1&seed=7');
+  const box = (await page.locator('#game').boundingBox())!;
+  const tap = (x: number, y: number) => page.mouse.click(box.x + x * box.width / 1280, box.y + y * box.height / 720);
+  const inspect = () => page.evaluate(() => (window.game!.view as { inspect: number }).inspect);
+  await page.evaluate(() => { window.game!.press('Enter'); window.game!.step(5); });
+  await tap(135, 360);                                       // Hà Nội, on the left edge of the board
+  await page.evaluate(() => window.game!.step(2));
+  const first = await inspect();
+  expect(first).toBeGreaterThanOrEqual(0);
+  await tap(385, 600);                                       // Hạ Long, on the bottom edge, outside the card
+  await page.evaluate(() => window.game!.step(2));
+  expect(await inspect()).toBe(first);
+  await page.evaluate(() => { window.game!.press('Escape'); window.game!.step(2); });
+  expect(await inspect()).toBe(-1);
+  expect(errors).toEqual([]);
+});

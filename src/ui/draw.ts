@@ -12,7 +12,7 @@ import { state, scene } from '../core/store';
 
 import { icon, star } from '../draw/icons';
 
-import { money } from '../game/rules';
+import { buyHint, money, rentHint } from '../game/rules';
 import type { Loose, Tile } from '../game/types';
 
 import { owned, rentOf, shakePower, teamTag, maxRounds, hasKeep, rentPct, drawOrder, ownsGroup, curP, isAI, firstLap } from '../game/turn';
@@ -223,7 +223,12 @@ export function drawPopup() {
   if (state.phase === 'end' && human) messageBox([`${p.name}: hết lượt. Quản lý tài sản ${L.phone ? 'ở nút Tài sản' : 'ở bên phải'} nếu cần.`], cx, my(318), 640);
   if (!pop && state.phase !== 'pick' && state.phase !== 'debt') return;
   if (state.phase === 'pick') { messageBox([human ? 'Vé máy bay: bấm một ô trên bàn cờ (hoặc dùng phím mũi tên) để bay tới.' : `${p.name} đang chọn nơi bay tới...`], cx, my(545), 600); return; }
-  if (state.phase === 'debt') { const d = state.debt; messageBox([`${p.name} cần trả ${money(d.total)}, đang có ${money(p.cash)}.`, `Bán bớt nhà hoặc cầm cố đất ${L.phone ? 'ở nút Tài sản' : 'ở danh sách bên phải'}, rồi bấm Trả nợ.`], cx, L.phone ? L.msgY - 24 : 520, 620); return; }
+  if (state.phase === 'debt') {
+    const d = state.debt; // a phone gets two short lines, clear of the players' cards above
+    if (L.phone) messageBox([`Cần trả ${money(d.total)}, đang có ${money(p.cash)}.`, 'Bán bớt hoặc cầm cố ở nút Tài sản.'], cx, my(0), 620);
+    else messageBox([`${p.name} cần trả ${money(d.total)}, đang có ${money(p.cash)}.`, 'Bán bớt nhà hoặc cầm cố đất ở danh sách bên phải, rồi bấm Trả nợ.'], cx, 520, 620);
+    return;
+  }
   if (pop.kind === 'rentChoice' || pop.kind === 'reroll') {
     tileCard(pop.tile, cx, cy - 10);
     messageBox([pop.kind === 'rentChoice' ? `${p.name} phải trả ${money(pop.rent)}. Dùng Thẻ Miễn Thuê?` : `Sắp dẫm vào ${TILES[pop.tile].n}: trả ${money(pop.rent)}. Dùng Thẻ Đổ Lại?`], cx, my(548), 600);
@@ -233,7 +238,8 @@ export function drawPopup() {
   if (pop.kind === 'notax') { messageBox([`Vòng đầu tiên (chưa qua Xuất Phát): miễn ${TILES[pop.tile].n}!`], cx, L.phone ? L.popCy : 330, 560); return; }
   if (pop.kind === 'buy' || pop.kind === 'build' || pop.kind === 'rent' || pop.kind === 'nobuy') {
     tileCard(pop.tile, cx, cy - 10);
-    if (pop.kind === 'rent') messageBox([`${p.name} trả ${state.players[pop.owner].name} ${money(pop.rent)}`], cx, my(548), 520);
+    if (pop.kind === 'rent') { const why = rentHint(state, pop.tile); messageBox([`${p.name} trả ${state.players[pop.owner].name} ${money(pop.rent)}`, ...(why ? [why] : [])], cx, my(why ? 552 : 548), 560); } // two lines: clear of the card's foot
+    if (pop.kind === 'buy' && human) messageBox([buyHint(state, state.cur, pop.tile)], cx, my(548), 600); // what buying it does for them
     if (pop.kind === 'build') messageBox([`Đất của bạn! Xây thêm 1 cấp?`], cx, my(548), 420);
     if (pop.kind === 'nobuy') messageBox([`Vòng đầu tiên (chưa qua Xuất Phát): chưa được mua, chỉ ghé xem.`], cx, my(548), 600);
     if (!human && pop.kind !== 'rent' && pop.kind !== 'nobuy') messageBox([`${p.name} đang suy nghĩ...`], cx, my(548), 420);

@@ -17,13 +17,14 @@ import { makeHouse, makeHotel, makeLandmark } from '../three/buildings';
 
 import type { Loose } from '../game/types';
 
-import { shakePower, curP } from '../game/turn';
+import { shakePower, curP, ownsGroup } from '../game/turn';
 
 import { rawSfx, isGuest } from '../net/room';
 
 import { L, hoverTile } from '../main';
 import { applyMood } from './moods';
 import { CHEAP } from '../core/env';
+import { sfx } from '../audio';
 
 // ---- 3D: renderer, table, board ------------------------------------------------------
 export let renderer: THREE.WebGLRenderer | null = null, scene3: THREE.Scene, camera: THREE.PerspectiveCamera, figScene: THREE.Scene, figCamera: THREE.PerspectiveCamera;
@@ -106,6 +107,14 @@ export function build3D() {
     const horiz = ti.side === 0 || ti.side === 2;
     const m = mesh(new THREE.BoxGeometry(horiz ? 0.84 : 0.14, 0.05, horiz ? 0.14 : 0.84), mat(0xffffff), ti.x + ti.ox * 0.68, BOARD_TOP + 0.025, ti.z + ti.oz * 0.68);
     m.visible = false; scene3.add(m); ownerMarks[i] = m;
+    if (TILES[i].t === 'prop') { // the ×2 coin just inside the tile's colour band, on the field, shown while the owner holds the whole group
+      const c = new THREE.Sprite(new THREE.SpriteMaterial({ map: coinTex(), sizeAttenuation: false, transparent: true, depthTest: false, depthWrite: false }) /* whole, never cut by the board it stands on */);
+      // next to a corner, two sides' coins would touch: move it along the side, away from the corner
+      const k = i % 10, mid = tileInfo(i - k + 5), away = k === 1 || k === 9 ? COIN_CORNER : 0;
+      const dx = Math.sign(mid.x - ti.x) * (horiz ? away : 0), dz = Math.sign(mid.z - ti.z) * (horiz ? 0 : away);
+      c.position.set(ti.x - ti.ox * (0.8 + COIN_IN) + dx, BOARD_TOP + COIN_LIFT, ti.z - ti.oz * (0.8 + COIN_IN) + dz); c.renderOrder = 2;
+      c.visible = false; scene3.add(c); coins[i] = c;
+    }
   }
   // tokens
   for (let k = 0; k < 4; k++) { const a = DEFAULT_ANIMALS[k]; const t = makeToken(a, ANIMALS[a].color); t.scale.setScalar(tune.piece_scale); t.visible = false; scene3.add(t); tok3[k] = t; tokKind[k] = a; }
@@ -164,8 +173,55 @@ function buildFigures() { // the figures scene: every token, building and landma
 }
 export let figItems: { x: number; z: number; name: string }[] = [];
 
+// ---- The full-group coin ----------------------------------------------------------------
+// A gold coin with the rent multiplier sits on the field just inside each province's colour band while
+// its owner (or team) holds the whole group: clear of the tile's name, price and houses. A sprite: it
+// faces the player and keeps one size on the screen on every side of the board, near or far. When a group fills up its
+// coins pop in one after another with the gong; one lost (a mortgage, a sale) they drop away.
+const coins: THREE.Sprite[] = [];
+/** The coin's size as a share of the board view's height (×2·tan(fov/2): a sprite's unattenuated scale). */
+const COIN_SIZE = 0.042, COIN_IN = 0.2, COIN_CORNER = 0.22, COIN_LIFT = 0.06, COIN_POP = 0.45, COIN_STAGGER = 0.12;
+const coinScale = (): number => COIN_SIZE * 2 * Math.tan((camera.fov * Math.PI) / 360);
+let coinTexCache: THREE.Texture | null = null;
+/** The coin: gold with a brown rim and the multiplier, the same on every band colour. */
+function coinTex(): THREE.Texture {
+  return coinTexCache ||= canvasTex(128, 128, (c, w) => {
+    const r = w / 2, g = c.createRadialGradient(r * 0.75, r * 0.7, r * 0.1, r, r, r);
+    g.addColorStop(0, '#fff2b0'); g.addColorStop(0.55, '#f2c44a'); g.addColorStop(1, '#b8861e');
+    c.fillStyle = '#5a2a1c'; c.beginPath(); c.arc(r, r, r - 2, 0, 7); c.fill();
+    c.fillStyle = g; c.beginPath(); c.arc(r, r, r - 10, 0, 7); c.fill();
+    c.strokeStyle = 'rgba(120,70,20,0.6)'; c.lineWidth = 3; c.beginPath(); c.arc(r, r, r - 20, 0, 7); c.stroke();
+    c.fillStyle = '#5a2a1c'; c.font = 'bold 56px "Segoe UI", Arial, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText(`×${tune.full_group_mult}`, r, r + 4);
+  });
+}
+const coinOn: boolean[] = [], coinT: number[] = []; // shown now; seconds since it popped in (negative: waiting its turn)
+let coinsReady = false; // false after a new, resumed or joined game: its coins show at once, with no gong
+/** A new game on this screen (clearVis): the next sync shows the coins as they are, without popping them. */
+export function resetCoins() { coinsReady = false; }
+/** Shows, pops and drops the coins to match who holds a full group. */
+function syncCoins(dt: number) {
+  const fresh = !coinsReady; coinsReady = true;
+  const order: number[] = [], rang: boolean[] = []; // per group: the next coin's turn, and its gong
+  for (let i = 0; i < 40; i++) {
+    const c = coins[i]; if (!c) continue;
+    const o = state.owner[i], on = o >= 0 && ownsGroup(o, TILES[i].g!);
+    if (on !== !!coinOn[i]) {
+      coinOn[i] = on;
+      const g = TILES[i].g!;
+      if (on && !fresh) { coinT[i] = -(order[g] = (order[g] ?? -1) + 1) * COIN_STAGGER; if (!rang[g] && !isGuest()) { sfx.landmark(); rang[g] = true; } } else coinT[i] = COIN_POP; // the host's gong reaches friends online
+    }
+    c.visible = on && coinT[i] >= 0;
+    if (!on) continue;
+    coinT[i] += dt;
+    const t = Math.min(1, coinT[i] / COIN_POP), pop = t < 1 ? Math.sin(t * Math.PI * 0.75) / Math.sin(Math.PI * 0.75) : 1; // overshoots, then settles
+    c.scale.setScalar(coinScale() * Math.max(0, pop));
+  }
+}
+
 // ---- 3D per-frame sync ---------------------------------------------------------------
 export function syncBuildings(dt: number) {
+  syncCoins(dt);
   for (let i = 0; i < 40; i++) {
     if (!OWNABLE(TILES[i])) continue;
     const o = state.owner[i];

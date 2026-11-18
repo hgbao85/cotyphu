@@ -2,7 +2,7 @@
 // game state and the tuning values, no browser, so Vitest runs them in Node.
 // Design record: design/game-brief.md (Core loop; Features: rent, building, mortgage).
 import { tune } from '../config';
-import { EVENTS, TILES } from './data';
+import { EVENTS, GROUPS, LEVEL_NAMES, TILES } from './data';
 import type { GameState, Player } from './types';
 
 /** Money as players read it: thousands of đồng in, "1.500.000 đ" out. */
@@ -61,6 +61,33 @@ export function rentOf(s: GameState, i: number, diceSum: number): number {
   }
   const n = TILES.filter((u, j) => u.t === 'util' && s.owner[j] === o && !s.mort[j]).length;
   return Math.round(diceSum * (n >= 2 ? tune.util_mult_two : tune.util_mult_one) * tune.rent_scale);
+}
+
+/** One line under the land card when player pi may buy tile i: what buying it does for them. A new
+ * player learns why a land is worth having: a full group, a rival to block, a port more. */
+export function buyHint(s: GameState, pi: number, i: number): string {
+  const t = TILES[i];
+  const ours = (o: number): boolean => o === pi || (!!s.teams && o >= 0 && s.players[o]?.team !== undefined && s.players[o].team === s.players[pi]?.team);
+  if (t.t === 'prop') {
+    const g = t.g as number, name = GROUPS[g].name, group = TILES.map((_, j) => j).filter(j => TILES[j].t === 'prop' && TILES[j].g === g);
+    const after = { ...s, owner: s.owner.map((o, j) => (j === i ? pi : o)) };
+    if (ownsGroup(after, pi, g)) return `Mua ô này là đủ nhóm ${name}: thuê × ${tune.full_group_mult}`;
+    const rival = s.players.find(p => !ours(p.id) && group.some(j => s.owner[j] === p.id));
+    if (rival) return `${rival.name} đã có ${group.filter(j => s.owner[j] === rival.id).length}/${group.length} ô nhóm ${name}: mua để chặn`;
+    const mine = group.filter(j => ours(s.owner[j])).length;
+    if (mine > 0) return `${s.teams ? 'Đội bạn' : 'Bạn'} sẽ có ${mine + 1}/${group.length} ô nhóm ${name}`;
+    return `Nhóm ${name} có ${group.length} ô: gom đủ thì thuê × ${tune.full_group_mult}`;
+  }
+  const n = TILES.filter((u, j) => u.t === t.t && s.owner[j] === pi).length + 1;
+  if (t.t === 'port') return `Có ${n} bến: thuê mỗi bến ${money(Math.round(tune.port_rent * Math.pow(2, n - 1) * tune.rent_scale))}`;
+  return `Có ${n} công ty: thuê = tổng xúc xắc × ${money(Math.round((n >= 2 ? tune.util_mult_two : tune.util_mult_one) * tune.rent_scale))}`;
+}
+/** One line under a rent paid on a province: why it costs that much. Empty for ports and companies. */
+export function rentHint(s: GameState, i: number): string {
+  const t = TILES[i], o = s.owner[i];
+  if (t.t !== 'prop' || o < 0) return '';
+  const lvl = LEVEL_NAMES[s.level[i]];
+  return ownsGroup(s, o, t.g as number) ? `${lvl} · chủ có đủ nhóm: thuê × ${tune.full_group_mult}` : lvl;
 }
 
 /** What building tile i up to toLevel costs (1-4 houses, 5 hotel, 6 landmark). */

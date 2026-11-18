@@ -19,7 +19,7 @@ import { owned, setAnimal, sellLevel, mortgage, unmortgage, flyTo } from '../gam
 import { rawSfx, sendAct, onlinePanel, isGuest, isHost, sendLobby, linkUp, hostOnline } from '../net/room';
 import { F } from '../core/flags';
 
-import { lastPos, tileShown, boardPointAt, tokVis, tokAnim, riseAnims } from '../three/scene3d';
+import { resetCoins, lastPos, tileShown, boardPointAt, tokVis, tokAnim, riseAnims } from '../three/scene3d';
 import { pointer, seatAnimal, PX, clicks, inBoard, pressed, btn, L, PW, humanTurn } from '../main';
 import { drawTokenIcon, messageBox, PROP_Y, PROP_ROW_H, PROP_MAX_ROWS, propArrowY } from './draw';
 import { titleSpots } from './phone';
@@ -113,7 +113,7 @@ export function drawNetBanner() {
   else if (F.netError && !(onlinePanel && onlinePanel.style.display === 'flex')) msg = F.netError;
   if (msg) messageBox([msg], L.cx, L.bannerY, 620);
 }
-export function clearVis() { moods.length = 0; moodPrev.length = 0; F.inspect = -1; lastPos.length = 0; tokVis.length = 0; tokAnim.length = 0; for (let i = 0; i < 40; i++) tileShown[i] = -1; riseAnims.length = 0; }
+export function clearVis() { moods.length = 0; moodPrev.length = 0; F.inspect = -1; lastPos.length = 0; tokVis.length = 0; tokAnim.length = 0; for (let i = 0; i < 40; i++) tileShown[i] = -1; riseAnims.length = 0; resetCoins(); }
 export function buildPropUI(pi: number) {
   const mine = owned(pi);
   const rowH = PROP_ROW_H, y0 = PROP_Y, rows = PROP_MAX_ROWS;

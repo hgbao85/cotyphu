@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import config from '../../data/config.json';
 import { EVENTS, TILES } from '../../src/game/data';
-import { buildCost, eventRentMult, money, netWorth, ownsGroup, propertyTax, rentOf } from '../../src/game/rules';
+import { buildCost, buyHint, eventRentMult, money, netWorth, ownsGroup, propertyTax, rentHint, rentOf } from '../../src/game/rules';
 import { rng, setSeed, shuffled } from '../../src/game/rng';
 import type { GameState, Player } from '../../src/game/types';
 
@@ -219,5 +219,40 @@ describe('full group in a team game', () => {
     expect(ownsGroup(s, 0, TILES[HA_NOI].g as number)).toBe(false);
     s.players[1].team = 0; s.mort[NAM_DINH] = true;                // a partner's mortgaged province breaks it too
     expect(ownsGroup(s, 0, TILES[HA_NOI].g as number)).toBe(false);
+  });
+});
+
+describe('the hint under a land card', () => {
+  const g = TILES[HA_NOI].g as number, mult = config.full_group_mult.value;
+  it('says buying the last province of a group completes it', () => {
+    const s = board(); s.owner[BAC_NINH] = 0; s.owner[NAM_DINH] = 0;
+    expect(buyHint(s, 0, HA_NOI)).toBe(`Mua ô này là đủ nhóm Bắc · Đồng bằng: thuê × ${mult}`);
+  });
+  it('says a rival already holds part of the group, so buying blocks them', () => {
+    const s = board(); s.owner[BAC_NINH] = 1;
+    expect(buyHint(s, 0, HA_NOI)).toBe('P1 đã có 1/3 ô nhóm Bắc · Đồng bằng: mua để chặn');
+  });
+  it('counts the group the buyer would hold', () => {
+    const s = board(); s.owner[BAC_NINH] = 0;
+    expect(buyHint(s, 0, HA_NOI)).toBe('Bạn sẽ có 2/3 ô nhóm Bắc · Đồng bằng');
+  });
+  it('names the group and its bonus when nobody holds any of it', () => {
+    expect(buyHint(board(), 0, HA_NOI)).toBe(`Nhóm Bắc · Đồng bằng có 3 ô: gom đủ thì thuê × ${mult}`);
+  });
+  it("counts a partner's provinces in a team game", () => {
+    const s = board(); (s as { teams?: boolean }).teams = true; s.players[0].team = 0; s.players[1].team = 0;
+    s.owner[BAC_NINH] = 1; s.owner[NAM_DINH] = 0;
+    expect(buyHint(s, 0, HA_NOI)).toBe(`Mua ô này là đủ nhóm Bắc · Đồng bằng: thuê × ${mult}`);
+  });
+  it('gives the rent per port with one more port', () => {
+    const s = board(); s.owner[PORTS[0]] = 0;
+    expect(buyHint(s, 0, PORTS[1])).toBe(`Có 2 bến: thuê mỗi bến ${money(config.port_rent.value * 2 * config.rent_scale.value)}`);
+  });
+  it('explains a rent from the building level and the full group', () => {
+    const s = board(); s.owner[HA_NOI] = 1; s.owner[BAC_NINH] = 1; s.owner[NAM_DINH] = 1; s.level[HA_NOI] = 2;
+    expect(rentHint(s, HA_NOI)).toBe(`Nhà 2 · chủ có đủ nhóm: thuê × ${mult}`);
+    s.owner[NAM_DINH] = 0;
+    expect(rentHint(s, HA_NOI)).toBe('Nhà 2');
+    expect(g).toBe(TILES[BAC_NINH].g);
   });
 });

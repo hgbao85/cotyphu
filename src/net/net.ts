@@ -4,7 +4,7 @@
 import type { Loose } from '../game/types';
 
 /** Who this browser is in an online game. */
-export type Role = 'off' | 'host' | 'guest';
+type Role = 'off' | 'host' | 'guest';
 
 export interface NetHandlers {
   /** The room exists: its code, and this browser's id in it (0 for the host). */
@@ -35,7 +35,7 @@ function storage(): Storage | null {
 }
 
 /** A key that stays the same in this browser, so a reconnect gets the same seat back. */
-export function playerKey(): string {
+function playerKey(): string {
   const s = storage();
   let k = s?.getItem('tpdv-key') || '';
   if (!k) {

@@ -1,5 +1,5 @@
 // The board's face, drawn once on a canvas and laid on the 3D table: tiles, prices, icons, colour bands.
-import * as THREE from 'three';
+
 import { tune } from '../config';
 import { GROUPS, TILES } from '../game/data';
 import { FONT, rrect, wrapLines } from '../screen';
@@ -35,7 +35,7 @@ export function boardTexture() {
     c.restore();
     c.fillStyle = '#6a4a2a'; c.font = `italic 40px ${FONT}`; c.textAlign = 'center';
     // deck spots
-    for (const [dx, dz, kind, label] of [[-2.3, -2.9, 'co', 'CƠ HỘI'], [2.3, -2.9, 'kv', 'KHÍ VẬN']] as [number, number, string, string][]) {
+    for (const [dx, dz, , label] of [[-2.3, -2.9, 'co', 'CƠ HỘI'], [2.3, -2.9, 'kv', 'KHÍ VẬN']] as [number, number, string, string][]) {
       c.save(); c.translate(X(dx), Z(dz)); c.rotate(dx < 0 ? -0.12 : 0.12);
       c.setLineDash([16, 10]); c.strokeStyle = '#8a6a3a'; c.lineWidth = 5; rrect(c, -150, -110, 300, 220, 18); c.stroke(); c.setLineDash([]);
       c.fillStyle = '#6a4a2a'; c.font = `bold 40px ${FONT}`; c.textAlign = 'center'; c.fillText(label, 0, 150);

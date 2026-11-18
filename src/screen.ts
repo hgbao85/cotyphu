@@ -10,7 +10,7 @@ export const BW = 900;
 export function setLogical(w: number, h: number): void {
   W = w; H = h;
 }
-export const PIXEL = false;
+const PIXEL = false;
 export const FONT = '"Segoe UI", "Helvetica Neue", Arial, sans-serif';
 
 export const canvas = document.getElementById('game') as HTMLCanvasElement;

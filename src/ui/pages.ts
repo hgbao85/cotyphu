@@ -6,7 +6,7 @@ import { money, rentPct } from '../game/rules';
 // ---- The rules, for players to read ----------------------------------------------------------
 // Plain HTML over the canvas, so it scrolls on a phone. Every number comes from data/config.json and
 // the board, so the page stays true when a value is tuned.
-export function rulesHtml(): string {
+function rulesHtml(): string {
   const pct = (v: number): string => `${Math.round(v * 100)}%`;
   const lands = TILES.filter(t => t.t === 'prop').map(t => t.p!);
   const ports = TILES.filter(t => t.t === 'port'), utils = TILES.filter(t => t.t === 'util');
@@ -104,14 +104,14 @@ export function showRules(on: boolean) {
   if (on) showPage('Luật chơi', rulesHtml()); else hidePage();
 }
 /** Opens the reading page over the game with a title and its HTML. */
-export function showPage(title: string, html: string) {
+function showPage(title: string, html: string) {
   pagePanel();
   (rulesPanel!.querySelector('h2') as HTMLElement).textContent = title;
   (rulesPanel!.querySelector('.ru-body') as HTMLElement).innerHTML = html;
   rulesPanel!.style.display = 'flex';
   (rulesPanel!.querySelector('.ru-body') as HTMLElement).scrollTop = 0;
 }
-export function hidePage() { if (rulesPanel) rulesPanel.style.display = 'none'; }
+function hidePage() { if (rulesPanel) rulesPanel.style.display = 'none'; }
 function pagePanel() {
   if (!rulesPanel) {
     const d = document.createElement('div');
@@ -124,7 +124,7 @@ function pagePanel() {
     rulesPanel = d;
   }
 }
-export const rulesOpen = (): boolean => !!rulesPanel && rulesPanel.style.display === 'flex';
+const rulesOpen = (): boolean => !!rulesPanel && rulesPanel.style.display === 'flex';
 addEventListener('keydown', e => { if (!rulesOpen()) return; if (e.code === 'Escape' || e.code === 'Enter') showRules(false); e.stopImmediatePropagation(); }, true); // the game hears no keys while the rules are open
 
 /** The game's history, newest first: every line of the log, with its round. */
@@ -132,6 +132,6 @@ export function showHistory(list: string[]) {
   const rows = [...list].reverse().map(l => { const m = /^V(\d+): (.*)$/.exec(l); return m ? `<li><b>Vòng ${m[1]}</b> · ${esc(m[2])}</li>` : `<li>${esc(l)}</li>`; });
   showPage('Lịch sử ván', rows.length ? `<ul>${rows.join('')}</ul>` : '<p>Chưa có gì.</p>');
 }
-export function esc(t: string): string {
+function esc(t: string): string {
   return t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
 }

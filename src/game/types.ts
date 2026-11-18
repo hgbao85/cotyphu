@@ -5,7 +5,7 @@
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Loose = any;
 
-export type TileKind = 'go' | 'prop' | 'kv' | 'co' | 'port' | 'util' | 'tax' | 'jail' | 'free' | 'gojail';
+type TileKind = 'go' | 'prop' | 'kv' | 'co' | 'port' | 'util' | 'tax' | 'jail' | 'free' | 'gojail';
 export type DeckKind = 'co' | 'kv';
 
 /** One of the 40 board tiles. Province tiles have a group, price and landmark. */
@@ -35,7 +35,7 @@ export interface Group {
   color: string;
 }
 
-export type CardAct = 'move' | 'nearport' | 'back' | 'jail' | 'free' | 'money' | 'repair' | 'freebuild' | 'payeach' | 'collect' | 'fly' | 'norent' | 'reroll';
+type CardAct = 'move' | 'nearport' | 'back' | 'jail' | 'free' | 'money' | 'repair' | 'freebuild' | 'payeach' | 'collect' | 'fly' | 'norent' | 'reroll';
 /** A rare card a player keeps for later: Thẻ Miễn Thuê (skip one rent) or Thẻ Đổ Lại (throw again). */
 export type KeepAct = 'norent' | 'reroll';
 
@@ -49,7 +49,7 @@ export interface Card {
 }
 
 /** human: plays on this screen · remote: a friend online · ai: the computer · off: empty. */
-export type SeatKind = 'human' | 'remote' | 'ai' | 'off';
+type SeatKind = 'human' | 'remote' | 'ai' | 'off';
 
 export interface Seat {
   kind: SeatKind;

@@ -62,7 +62,6 @@ export const LEVEL_NAMES = ['Đất trống', 'Nhà 1', 'Nhà 2', 'Nhà 3', 'Nh�
 export const LEVEL_SHORT = ['', 'N1', 'N2', 'N3', 'N4', 'KS', 'LM'];
 export const MAX_LEVEL = 6;
 export const PLAYER_COLORS = ['#d62828', '#2b6cd6', '#f2c200', '#7b3fc4'];
-export const PLAYER_COLOR_NAMES = ['Đỏ', 'Xanh', 'Vàng', 'Tím'];
 /** The twelve animals of the Vietnamese zodiac, each a piece with its own colour. A player's colour is
  * their animal's. */
 export const ANIMALS: { name: string; color: string }[] = [
@@ -81,7 +80,7 @@ export const AI_LEVELS = ['Dễ', 'Vừa', 'Khó'];
  * (× v), ports and airports (× v), building (cost × v), or the two tax tiles (none paid).
  * Design record: design/game-brief.md (After play: sự kiện theo vòng).
  */
-export interface RoundEvent { name: string; txt: string; kind: 'salary' | 'rentGroups' | 'rentTile' | 'ports' | 'build' | 'noTax'; v: number; groups?: number[]; tile?: string }
+interface RoundEvent { name: string; txt: string; kind: 'salary' | 'rentGroups' | 'rentTile' | 'ports' | 'build' | 'noTax'; v: number; groups?: number[]; tile?: string }
 export const EVENTS: RoundEvent[] = [
   { name: 'Tết Nguyên Đán', txt: 'Lương qua Xuất Phát × 2', kind: 'salary', v: 2 },
   { name: 'Bão miền Trung', txt: 'Đất miền Trung thu nửa tiền thuê', kind: 'rentGroups', v: 0.5, groups: [3, 4, 5] },

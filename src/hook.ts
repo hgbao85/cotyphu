@@ -15,7 +15,7 @@
 // canvas (an element's id is a window property), so a check waits for window.game.step.
 
 /** The hook the checks call, as window.game. */
-export interface GameHook {
+interface GameHook {
   readonly scene: string;
   readonly state: unknown;
   /** The key (a KeyboardEvent.code) goes down for one step. */
@@ -35,7 +35,7 @@ export interface GameHook {
 }
 
 /** A clock in seconds. */
-export interface Clock {
+interface Clock {
   now(): number;
 }
 
@@ -55,11 +55,6 @@ export const manual = params.get('manual') === '1';
 
 /** The clock a check injected, else the page's own. */
 export const clock: Clock = window.GAME_CLOCK ?? { now: () => performance.now() / 1000 };
-
-/** The seed from ?seed=, else the fallback. */
-export function seedFrom(fallback: number): number {
-  return Number(params.get('seed')) || fallback;
-}
 
 /** An AudioContext a check injected, else a new one. */
 export function audioContext(): AudioContext {

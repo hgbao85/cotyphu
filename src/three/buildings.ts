@@ -1,6 +1,6 @@
 // Houses, hotels and each province's Landmark as small 3D models (about 0.9 tall).
 import * as THREE from 'three';
-import { mat, mesh, plastic } from './materials';
+import { mat, mesh } from './materials';
 
 export function makeHouse() {
   const g = new THREE.Group();

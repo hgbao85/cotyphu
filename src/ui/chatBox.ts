@@ -26,5 +26,5 @@ export function showChat(on: boolean) {
   chatPanel.style.display = on ? 'flex' : 'none';
   if (on) { const input = chatPanel.querySelector('#ch-text') as HTMLInputElement; input.value = ''; (chatPanel.querySelector('#ch-count') as HTMLElement).textContent = `0/${tune.chat_max_len}`; input.focus(); }
 }
-export const chatOpen = (): boolean => !!chatPanel && chatPanel.style.display === 'flex';
+const chatOpen = (): boolean => !!chatPanel && chatPanel.style.display === 'flex';
 addEventListener('keydown', e => { if (chatOpen()) e.stopImmediatePropagation(); }, true); // the game hears no keys while typing

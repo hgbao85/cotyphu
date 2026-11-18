@@ -29,7 +29,7 @@ export function setMuted(m: boolean): void {
 addEventListener('tune', () => setMuted(muted)); // the tweak panel moved a value: the volume follows
 
 /** One tone: freq Hz for dur seconds, starting delay seconds from now. */
-export function tone(freq: number, dur: number, type: OscillatorType = 'square', vol = 0.3, delay = 0): void {
+function tone(freq: number, dur: number, type: OscillatorType = 'square', vol = 0.3, delay = 0): void {
   if (!audio || muted) return;
   const t = audio.ac.currentTime + delay, o = audio.ac.createOscillator(), g = audio.ac.createGain();
   o.type = type; o.frequency.value = freq;

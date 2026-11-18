@@ -3,7 +3,7 @@
 // ---- Board geometry (world units: the board is 12.2 wide, corners 1.6, tiles 1.0) ----------
 export const L = 12.2, HALF = L / 2, CORNER = 1.6, BAND = 0.38, BOARD_TOP = 0.3;
 /** A tile's place on the board. */
-export interface TileInfo { x: number; z: number; ox: number; oz: number; side: number }
+interface TileInfo { x: number; z: number; ox: number; oz: number; side: number }
 
 /** Centre x,z; outward unit ox,oz; side 0 bottom, 1 left, 2 top, 3 right, -1 corner. */
 export function tileInfo(i: number): TileInfo { // center x,z; outward unit ox,oz; side 0 bottom,1 left,2 top,3 right,-1 corner

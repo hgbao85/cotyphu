@@ -1,9 +1,8 @@
 // Materials, canvas textures and the mesh helper the 3D figures share. Shadows are off in a cheap render
 // (?render=cheap, the headless checks and self-play), as in the rest of the game.
 import * as THREE from 'three';
-import { params } from '../hook';
+import { CHEAP } from '../core/env';
 
-const CHEAP = params.get('render') === 'cheap';
 
 export function mat(color: THREE.ColorRepresentation, opts = {}) { return new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.55, metalness: 0.0 }, opts)); }
 export function plastic(color: THREE.ColorRepresentation) { return new THREE.MeshPhongMaterial({ color, shininess: 90, specular: 0x666666 }); }

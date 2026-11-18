@@ -165,8 +165,10 @@ export function drawPotLabel() {
   text(label, s.x, s.y + 1, 16, '#f2c44a', 'center', 'bold');
   ctx.restore();
 }
+/** The land card's height: taller with a đặc sản line. */
+const tileCardH = (t: { sp?: string }): number => (t.sp ? 382 : 360);
 function tileCard(i: number, cx: number, cy: number, extra?: (x: number, y: number, w: number, h: number) => void) { // the land card: band, name, price, rent per level, landmark
-  const t = TILES[i], w = 330, h = t.sp ? 382 : 360, x = cx - w / 2, y = cy - h / 2;
+  const t = TILES[i], w = 330, h = tileCardH(t), x = cx - w / 2, y = cy - h / 2;
   ctx.save();
   ctx.fillStyle = 'rgba(0,0,0,0.4)'; rrect(ctx, x + 6, y + 8, w, h, 14); ctx.fill();
   ctx.fillStyle = '#fbf3df'; rrect(ctx, x, y, w, h, 14); ctx.fill();
@@ -265,8 +267,15 @@ export function drawInspect() {
   const i = F.inspect, t = TILES[i];
   ctx.save(); ctx.fillStyle = 'rgba(10,5,3,0.45)'; ctx.fillRect(0, 0, L.phone ? W : BW, H); ctx.restore();
   if (OWNABLE(t)) {
-    tileCard(i, L.cx, L.popCy);
-    if (state.owner[i] >= 0 && !state.mort[i]) text(`Hiện thu: ${t.t === 'util' ? 'tổng xúc xắc × ' + money(rentOf(i, 1)) : money(rentOf(i, 7))}${t.t === 'prop' && ownsGroup(state.owner[i], t.g!) ? ' (đủ nhóm)' : ''}`, L.cx, L.popCy + 198, 17, '#fff8e6', 'center', 'bold');
+    const cy = L.phone ? L.popCy : L.popCy - 18; // wide: room under it for the rent line above the close button
+    tileCard(i, L.cx, cy);
+    if (state.owner[i] >= 0 && !state.mort[i]) { // under the card, on a dark strip: the board shows through the dim
+      const msg = `Hiện thu: ${t.t === 'util' ? 'tổng xúc xắc × ' + money(rentOf(i, 1)) : money(rentOf(i, 7))}${t.t === 'prop' && ownsGroup(state.owner[i], t.g!) ? ' (đủ nhóm)' : ''}`;
+      const y = cy + tileCardH(t) / 2 + 22;
+      ctx.save(); ctx.font = `bold 17px ${FONT}`; const mw = ctx.measureText(msg).width + 28;
+      ctx.fillStyle = 'rgba(20,10,6,0.85)'; rrect(ctx, L.cx - mw / 2, y - 17, mw, 34, 10); ctx.fill(); ctx.restore();
+      text(msg, L.cx, y, 17, '#fff8e6', 'center', 'bold');
+    }
   } else {
     const w = 440; ctx.font = `17px ${FONT}`;
     const infoLines = SPECIAL_INFO[t.t](t).flatMap((para: string) => wrapLines(ctx, para, w - 50));

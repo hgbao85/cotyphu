@@ -20,7 +20,7 @@ import { drawSummary } from '../ui/summary';
 
 import { drawNetBanner, drawPicker, fitText } from '../ui/setupScreen';
 import { lacquer, drawBoardView, drawButton, drawTokenIcon } from '../ui/draw';
-import { roomPill, TITLE, drawSeatAnimal, titleTeams, seatLabel, L, PX, PW, btn, humanTurn, seatAnimal } from '../main';
+import { phoneExtra, roomPill, TITLE, drawSeatAnimal, titleTeams, seatLabel, L, PX, PW, btn, humanTurn, seatAnimal } from '../main';
 import { rulesSpot } from '../app/install';
 
 // ---- The phone layout's own pieces: header, players, the button strip, the property sheet --------
@@ -164,6 +164,7 @@ export function drawResultsPhone() {
   clear('#1d120c');
   drawBoardView();
   ctx.fillStyle = 'rgba(20,10,6,0.7)'; ctx.fillRect(0, 0, W, H);
+  ctx.save(); ctx.translate(0, phoneExtra() / 2); // drawn for 960 high: a taller phone centres it
   ctx.save(); ctx.fillStyle = 'rgba(30,12,8,0.94)'; rrect(ctx, 10, 60, W - 20, 760, 20); ctx.fill(); ctx.strokeStyle = '#c9a24a'; ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
   for (let k = 0; k < 30; k++) { // a fanfare of drawn confetti
     const x = 30 + ((k * 137) % (W - 60)), y = 70 + ((k * 53 + state.t * 90 * (1 + k % 3)) % 740);
@@ -186,6 +187,7 @@ export function drawResultsPhone() {
   });
   drawSummary(26, 350 + state.ranking!.length * 62, W - 52);
   if (isGuest() && !state.vote) text('Bấm Chơi lại để bỏ phiếu ván mới', W / 2, 800, 16, '#e8d9b5');
+  ctx.restore();
   F.ui.forEach(drawButton);
   drawNetBanner();
   drawVote();

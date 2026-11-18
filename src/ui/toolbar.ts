@@ -30,11 +30,13 @@ import { L, btn } from '../main';
 export function buildToolbar() {
   let x = 12; const y = L.phone ? L.by + 6 : H - 42, h = L.phone ? 32 : 30;
   const pill = (w: number, label: string, fn: () => void) => { btn(x, y, w, h, label, fn, 'room'); x += w + 8; };
-  const history = () => { if (isGuest()) sendAct('history'); else showHistory(state.history || []); };
-  if (L.phone) { const r = historySpot(); btn(r.x, r.y, r.w, r.h, 'Lịch sử', history, '', true, '#6a4a2a'); } else pill(84, 'Lịch sử', history);
+  if (!L.phone) pill(84, 'Lịch sử', openHistory);
   if (roomCode) pill(96, 'Biểu cảm', () => { F.emoteMenu = !F.emoteMenu; F.roomMenu = false; F.inspect = -1; F.sheetOpen = false; });
 }
-/** Phone: the history button, left in the row under the turn's buttons (the property button in the
+function openHistory() { if (isGuest()) sendAct('history'); else showHistory(state.history || []); }
+/** Phone: the history button, in the row under the turn's buttons. */
+export function buildPhoneHistory() { const r = historySpot(); btn(r.x, r.y, r.w, r.h, 'Lịch sử', openHistory, '', true, '#6a4a2a'); }
+/** Phone: where the history button sits, left in the row under the turn's buttons (the property button in the
  * middle, the speed button right). */
 export function historySpot(): { x: number; y: number; w: number; h: number } {
   return { x: 12, y: L.btnY + 64, w: 104, h: 44 };

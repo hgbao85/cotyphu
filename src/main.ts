@@ -31,7 +31,7 @@ import { buildPropUI, openAnimalPicker, buildPicker, openSeatPicker, teamSpot, o
 import { propRows, PROP_Y, PROP_ROW_H, lacquer, drawBoardView, drawPotLabel, drawDiceFeel, drawPopup, drawPanel, drawFloaters, drawInspect, messageBox, drawButton, drawTokenIcon } from './ui/draw';
 import { buildSheetUI, buildSheetButton, drawTitlePhone, drawPhoneChrome, drawSheet, drawResultsPhone, titleSpots } from './ui/phone';
 import { moodStep } from './three/moods';
-import { buildToolbar, buildEmoteMenu, drawEmotes, drawEmoteMenu } from './ui/toolbar';
+import { buildToolbar, buildPhoneHistory, buildEmoteMenu, drawEmotes, drawEmoteMenu } from './ui/toolbar';
 import { rulesSpot } from './app/install';
 import { CHECKED } from './core/env';
 
@@ -62,6 +62,8 @@ function phoneLayout(extra: number): Layout {
   return { ...PHONE, bh: PHONE.bh + extra, popCy: PHONE.popCy + extra / 2, msgY: PHONE.msgY + extra, rollY: PHONE.rollY + extra, btnY: PHONE.btnY + extra, powerY: PHONE.powerY + extra, bannerY: PHONE.bannerY + extra, closeY: PHONE.closeY + extra };
 }
 export let L: Layout = WIDE;
+/** How much taller than 960 the phone screen is (0 on a wide screen): a screen drawn for 960 moves down half of it. */
+export const phoneExtra = (): number => (L.phone ? L.bh - PHONE.bh : 0);
 /** Picks the layout from the window's shape: a tall window gets the phone layout, as tall as the screen. */
 function chooseLayout() {
   const phone = innerHeight > innerWidth * 1.05;
@@ -126,18 +128,19 @@ function buildUI() {
   if (scene === 'results') {
     if (state.vote) { buildVoteUI(); return; }
     if (isGuest()) { // a friend asks for a new game, or leaves; only the host goes back to the title
-      btn(L.cx - 200, L.phone ? L.btnY + 58 : 560, 190, 52, 'Chơi lại', startVote, 'primary');
-      btn(L.cx + 10, L.phone ? L.btnY + 58 : 560, 190, 52, 'Rời phòng', leaveRoom, 'secondary', true, '#6a4a2a');
+      btn(L.cx - 200, L.phone ? 840 + phoneExtra() / 2 : 560, 190, 52, 'Chơi lại', startVote, 'primary');
+      btn(L.cx + 10, L.phone ? 840 + phoneExtra() / 2 : 560, 190, 52, 'Rời phòng', leaveRoom, 'secondary', true, '#6a4a2a');
       return;
     }
-    btn(L.cx - 200, L.phone ? L.btnY + 58 : 560, 190, 52, 'Chơi lại (Enter)', () => { if (roomCode) startVote(); else { reset(); clearVis(); setScene('play'); } }, 'primary');
-    btn(L.cx + 10, L.phone ? L.btnY + 58 : 560, 190, 52, 'Ván mới (N)', () => { setScene('title'); }, 'secondary');
+    btn(L.cx - 200, L.phone ? 840 + phoneExtra() / 2 : 560, 190, 52, 'Chơi lại (Enter)', () => { if (roomCode) startVote(); else { reset(); clearVis(); setScene('play'); } }, 'primary');
+    btn(L.cx + 10, L.phone ? 840 + phoneExtra() / 2 : 560, 190, 52, 'Ván mới (N)', () => { setScene('title'); }, 'secondary');
     return;
   }
   if (scene !== 'play') return;
   btn(W - 52, 12, 40, 34, '', () => setMuted(!muted()), 'mute');
   { const r = rulesSpot(); btn(r.x, r.y, r.w, r.h, 'Luật', () => showRules(true), 'room'); }
-  if (!isGuest() && state.players.some(p => p.kind !== 'human')) { const r = speedSpot(); if (L.phone) btn(r.x, r.y, r.w, r.h, `Tốc độ ×${gameSpeed}`, cycleSpeed, '', true, '#6a4a2a'); else btn(r.x, r.y, r.w, r.h, `×${gameSpeed}`, cycleSpeed, 'room'); }
+  const speedOn = !isGuest() && state.players.some(p => p.kind !== 'human');
+  if (speedOn && !L.phone) { const r = speedSpot(); btn(r.x, r.y, r.w, r.h, `×${gameSpeed}`, cycleSpeed, 'room'); }
   if (roomCode) {
     const r = roomPill();
     btn(r.x, r.y, r.w, r.h, `Phòng ${roomCode}`, () => { F.roomMenu = true; F.emoteMenu = false; F.inspect = -1; F.sheetOpen = false; }, 'room');
@@ -149,6 +152,10 @@ function buildUI() {
   if (F.emoteMenu) { buildEmoteMenu(); return; }
   if (F.inspect >= 0) { btn(L.cx - 90, L.closeY, 180, 50, 'Đóng', () => { F.inspect = -1; }, 'close'); return; }
   if (F.sheetOpen) { buildSheetUI(state.cur); return; }
+  if (L.phone) { // the row under the turn's buttons, hidden while a sheet, card or menu is open over it
+    buildPhoneHistory();
+    if (speedOn) { const r = speedSpot(); btn(r.x, r.y, r.w, r.h, `Tốc độ ×${gameSpeed}`, cycleSpeed, '', true, '#6a4a2a'); }
+  }
   if (!L.phone) { // click a row of the property list to see that land's card
     const mine = owned(state.cur), rows = propRows(mine.length);
     mine.slice(F.propScroll, F.propScroll + rows).forEach((i, r) => btn(PX + 14, PROP_Y + r * PROP_ROW_H, 250, PROP_ROW_H, '', () => { F.inspect = i; }, 'hidden'));

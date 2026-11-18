@@ -35,11 +35,15 @@ type LooseMesh = THREE.Mesh<THREE.BufferGeometry, Loose>; // a mesh whose materi
 export let dice3: THREE.Mesh[] = [], ring3: LooseMesh, flash3: LooseMesh, pick3: LooseMesh, hover3: LooseMesh;
 /** Frames the board for the layout: a phone's square view stands the camera a little further back. */
 export function aimCamera() {
-  const k = L.phone ? 1.12 : 1;
   camera.aspect = L.bw / L.bh;
-  camera.position.set(0, 19.7 * k, 13.75 * k); camera.lookAt(0, 0, 0.5);
+  if (L.phone) { // a phone: steeper, so the board's far side is not squeezed, and back far enough to fit the width
+    const tilt = PHONE_CAM_TILT, d = PHONE_CAM_DIST * Math.max(1, 1 / camera.aspect);
+    camera.position.set(0, d * Math.sin(tilt), d * Math.cos(tilt) + 0.3); camera.lookAt(0, 0, 0.3);
+  } else { camera.position.set(0, 19.7, 13.75); camera.lookAt(0, 0, 0.5); }
   camera.updateProjectionMatrix();
 }
+/** The phone camera: its angle above the table (radians) and its distance on a square view. */
+const PHONE_CAM_TILT = 1.24, PHONE_CAM_DIST = 24.6;
 function sizeRenderer() {
   renderer!.setPixelRatio(CHEAP ? 0.5 : Math.min(2, screenScale));
   renderer!.setSize(L.bw, L.bh, false);

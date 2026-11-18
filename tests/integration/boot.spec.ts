@@ -56,7 +56,9 @@ test('lays out for a phone held upright and plays a turn there @boot', async ({ 
   await page.setViewportSize({ width: 375, height: 812 });
   const errors = await open(page, 'manual=1&seed=7');
   const box = await page.locator('#game').boundingBox();
-  expect(box && box.height / box.width).toBeCloseTo(2, 1); // the phone layout is 480x960
+  // the phone layout is 480 wide and as tall as the phone (here 812/375), so no empty bands above and below
+  expect(box && box.height / box.width).toBeCloseTo(812 / 375, 1);
+  expect(box && box.height).toBeCloseTo(812, -1);
   const scene = await page.evaluate(() => {
     const g = window.game!;
     g.press('Enter'); g.step();

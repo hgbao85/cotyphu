@@ -21,7 +21,7 @@ import { F } from '../core/flags';
 
 import { lastPos, tileShown, boardPointAt, tokVis, tokAnim, riseAnims } from '../three/scene3d';
 import { pointer, seatAnimal, PX, clicks, inBoard, pressed, btn, L, PW, humanTurn } from '../main';
-import { drawTokenIcon, messageBox } from './draw';
+import { drawTokenIcon, messageBox, PROP_Y, PROP_ROW_H, PROP_MAX_ROWS, propArrowY } from './draw';
 import { titleSpots } from './phone';
 import { moods, moodPrev } from '../three/moods';
 
@@ -116,7 +116,7 @@ export function drawNetBanner() {
 export function clearVis() { moods.length = 0; moodPrev.length = 0; F.inspect = -1; lastPos.length = 0; tokVis.length = 0; tokAnim.length = 0; for (let i = 0; i < 40; i++) tileShown[i] = -1; riseAnims.length = 0; }
 export function buildPropUI(pi: number) {
   const mine = owned(pi);
-  const rowH = 30, y0 = 400, rows = Math.floor((H - 16 - y0) / rowH);
+  const rowH = PROP_ROW_H, y0 = PROP_Y, rows = PROP_MAX_ROWS;
   F.propScroll = Math.max(0, Math.min(F.propScroll, mine.length - rows));
   mine.slice(F.propScroll, F.propScroll + rows).forEach((i, r) => {
     const y = y0 + r * rowH, p = state.players[pi];
@@ -125,8 +125,8 @@ export function buildPropUI(pi: number) {
     else btn(W - 104, y + 3, 92, 24, 'Cầm cố', () => mortgage(pi, i), 'row', true, undefined, `mort:${i}`);
   });
   if (mine.length > rows) {
-    btn(PX + PW / 2 - 70, H - 4 - 22, 60, 20, 'up', () => { F.propScroll = Math.max(0, F.propScroll - rows); }, 'arrowUp', F.propScroll > 0);
-    btn(PX + PW / 2 + 10, H - 4 - 22, 60, 20, 'down', () => { F.propScroll += rows; }, 'arrowDown', F.propScroll + rows < mine.length);
+    btn(PX + PW / 2 - 70, propArrowY(mine.length), 60, 20, 'up', () => { F.propScroll = Math.max(0, F.propScroll - rows); }, 'arrowUp', F.propScroll > 0);
+    btn(PX + PW / 2 + 10, propArrowY(mine.length), 60, 20, 'down', () => { F.propScroll += rows; }, 'arrowDown', F.propScroll + rows < mine.length);
   }
 }
 /** A button pressed here: a guest sends its act to the host; everyone else runs it. */

@@ -20,10 +20,11 @@ import type { DeckKind, GameState, KeepAct, Loose, Player } from '../game/types'
 import { aiTurnStart, raiseCash, aiPickTile } from '../game/ai';
 import { checkSeed, events, L } from '../main';
 import { forgetLocalGame } from '../core/keepLocal';
-import { isGuest, lobby, sendLobby, peerOnline, isHost, myName, roomCode } from '../net/room';
+import { isGuest, lobby, sendLobby, peerOnline, isHost, myName } from '../net/room';
 import { tokAnim } from '../three/scene3d';
 import { fitText } from '../ui/setupScreen';
 import { F } from '../core/flags';
+import { phoneToolbarEnd } from '../ui/toolbar';
 import { CHEAP } from '../core/env';
 
 // ---- Rules --------------------------------------------------------------------------
@@ -175,7 +176,7 @@ export function drawEvent() {
     return;
   }
   // the reminder: a phone puts it in the toolbar row, right of the pills, clear of the board
-  const toolbarEnd = 12 + 84 + 8 + (roomCode ? 96 + 8 : 0);
+  const toolbarEnd = L.phone ? phoneToolbarEnd() : 0;
   const x = L.phone ? toolbarEnd : BW - 340, w = L.phone ? W - 12 - toolbarEnd : 330, y = L.phone ? L.by + 6 : 10, h = L.phone ? 32 : 46;
   ctx.save(); ctx.fillStyle = 'rgba(122,20,18,0.88)'; rrect(ctx, x, y, w, h, 10); ctx.fill(); ctx.strokeStyle = '#f2c44a'; ctx.lineWidth = 1.5; ctx.stroke(); ctx.restore();
   fitText(`Sự kiện: ${e.name}`, x + w / 2, y + (L.phone ? 10 : 15), w - 12, L.phone ? 13 : 15, '#f2c44a');

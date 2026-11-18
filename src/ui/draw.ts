@@ -98,15 +98,39 @@ export function drawPanel() {
   const y0 = 370;
   text(humanTurn() ? 'Tài sản của bạn' : `Tài sản của ${p.name}`, PX + 22, y0 + 14, 17, '#f2c44a', 'left', 'bold');
   if (!mine.length) text('Chưa có ô đất nào.', PX + 22, y0 + 48, 15, '#d9c8a6', 'left');
-  const rowH = 30, rows = Math.floor((H - 16 - 400) / rowH);
+  const rowH = PROP_ROW_H, rows = propRows(mine.length);
   mine.slice(F.propScroll, F.propScroll + rows).forEach((i, r) => {
-    const y = 400 + r * rowH, t = TILES[i];
+    const y = PROP_Y + r * rowH, t = TILES[i];
     ctx.fillStyle = r % 2 ? '#2c140f' : '#34180f'; ctx.fillRect(PX + 14, y, PW - 28, rowH);
     ctx.fillStyle = t.t === 'prop' ? GROUPS[t.g!].color : '#9a8a6a'; ctx.fillRect(PX + 20, y + 7, 14, 16);
     text(t.n, PX + 42, y + 15, 15, state.mort[i] ? '#9a8a7a' : '#fff8e6', 'left');
     const tag = state.mort[i] ? 'cầm cố' : LEVEL_SHORT[state.level[i]];
     if (tag) text(tag, PX + 230, y + 15, 14, state.mort[i] ? '#ff9a8a' : '#7ee08a', 'center', 'bold');
   });
+  drawPanelLog(panelLogTop(mine.length));
+}
+/** The wide panel's property list: where its rows start, how tall each is, and at most how many show
+ * (more scroll), so the log under it keeps room. */
+export const PROP_Y = 400, PROP_ROW_H = 30, PROP_MAX_ROWS = 6;
+/** How many property rows the panel shows for a player with n lands. */
+export const propRows = (n: number): number => Math.min(n, PROP_MAX_ROWS);
+/** Where the scroll arrows sit: under the last row. */
+export const propArrowY = (n: number): number => PROP_Y + propRows(n) * PROP_ROW_H + 4;
+/** Where the log starts: under the list (or its empty note) and its arrows. */
+const panelLogTop = (n: number): number => PROP_Y + Math.max(1, propRows(n)) * PROP_ROW_H + (n > PROP_MAX_ROWS ? 30 : 0) + 14;
+/** The game's latest lines, newest at the bottom, filling the panel down to its foot. */
+function drawPanelLog(top: number) {
+  const x = PX + 14, w = PW - 28, bottom = H - 16, lineH = 20;
+  ctx.save(); ctx.fillStyle = 'rgba(10,5,3,0.35)'; rrect(ctx, x, top, w, bottom - top, 8); ctx.fill(); ctx.restore();
+  text('Diễn biến', x + 8, top + 14, 15, '#f2c44a', 'left', 'bold');
+  ctx.save(); ctx.font = `14px ${FONT}`;
+  const room = Math.floor((bottom - top - 34) / lineH), lines: { s: string; last: boolean }[] = [];
+  for (let k = state.log.length - 1; k >= 0 && lines.length < room; k--) {
+    const wrapped = wrapLines(ctx, state.log[k], w - 20);
+    for (let j = wrapped.length - 1; j >= 0 && lines.length < room; j--) lines.unshift({ s: wrapped[j], last: k === state.log.length - 1 });
+  }
+  ctx.restore();
+  lines.forEach((l, j) => text(l.s, x + 10, top + 38 + j * lineH, 14, l.last ? '#fff8e6' : '#cbb994', 'left'));
 }
 export function drawDiceFeel() {
   if (state.shaking && !state.shaking.ai) { // the power bar under the shaking dice
@@ -139,15 +163,6 @@ export function drawPotLabel() {
   ctx.fillStyle = 'rgba(40,16,10,0.85)'; rrect(ctx, s.x - w / 2, s.y - 14, w, 28, 8); ctx.fill();
   ctx.strokeStyle = '#f2c44a'; ctx.lineWidth = 1.5; ctx.stroke();
   text(label, s.x, s.y + 1, 16, '#f2c44a', 'center', 'bold');
-  ctx.restore();
-}
-export function drawLog() {
-  const lines = state.log.slice(-3);
-  ctx.save();
-  ctx.font = `15px ${FONT}`;
-  const w = Math.max(...lines.map(l => ctx.measureText(l).width), 10) + 24;
-  ctx.fillStyle = 'rgba(20,10,6,0.72)'; rrect(ctx, 10, 10, Math.min(w, BW - 20), lines.length * 22 + 12, 8); ctx.fill();
-  lines.forEach((l, j) => text(l, 22, 28 + j * 22, 15, j === lines.length - 1 ? '#fff8e6' : '#cbb994', 'left'));
   ctx.restore();
 }
 function tileCard(i: number, cx: number, cy: number, extra?: (x: number, y: number, w: number, h: number) => void) { // the land card: band, name, price, rent per level, landmark
@@ -200,7 +215,8 @@ export function drawPopup() {
   const p = curP(), pop = state.popup, human = humanTurn();
   const cx = L.cx, cy = L.popCy, my = (y: number): number => L.phone ? L.msgY - 8 : y; // wide: over the board; phone: above the buttons
   drawOrder();
-  if (state.phase === 'roll' && human && !state.shaking) messageBox([`Lượt của ${p.name}${state.rolledDouble ? ': đổ đôi, được đổ tiếp!' : ''}`], cx, my(322), 460);
+  // whose turn it is shows on the player's card and, when several people share this screen, on the button
+  if (state.phase === 'roll' && human && !state.shaking && state.rolledDouble) messageBox([`${p.name}: đổ đôi, được đổ tiếp!`], cx, my(322), 460);
   if (state.phase === 'jail' && human && !state.shaking) messageBox([`${p.name} đang ở tù. Đổ được đôi thì ra ngay (lượt ${p.jailTries + 1}/3; ở đủ 3 lượt thì lượt sau được ra).${p.noSalary ? (p.freeCards.length ? ' Dùng Thẻ Ra Tù thì được nhận lương lại!' : ' Lần qua Xuất Phát tới sẽ mất lương.') : ''}`], cx, my(312), 520);
   if (state.phase === 'end' && human) messageBox([`${p.name}: hết lượt. Quản lý tài sản ${L.phone ? 'ở nút Tài sản' : 'ở bên phải'} nếu cần.`], cx, my(318), 640);
   if (!pop && state.phase !== 'pick' && state.phase !== 'debt') return;

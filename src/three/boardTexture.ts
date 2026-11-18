@@ -26,11 +26,10 @@ export function boardTexture() {
       const pts = [[a + t * b, Z(-e) + 26], [X(-e) + 26 + b, Z(-e) + 26 + t * b], [a + t * b, Z(-e) + 26 + b], [X(-e) + 26, Z(-e) + 26 + t * b]][s];
       c.beginPath(); if (s % 2 === 0) { c.moveTo(pts[0], pts[1] - 9); c.lineTo(pts[0], pts[1] + 9); } else { c.moveTo(pts[0] - 9, pts[1]); c.lineTo(pts[0] + 9, pts[1]); } c.stroke();
     }
-    // title band
+    // the title, printed faintly into the board: the turn's buttons sit over it and must stand out
     c.save(); c.translate(S / 2, Z(3.0));
-    c.fillStyle = '#b3201e'; rrect(c, -560, -95, 1120, 190, 30); c.fill();
-    c.strokeStyle = '#f2c44a'; c.lineWidth = 8; rrect(c, -540, -77, 1080, 154, 22); c.stroke();
-    c.fillStyle = '#ffe9a8'; c.font = `bold 108px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.strokeStyle = 'rgba(150,40,30,0.28)'; c.lineWidth = 5; rrect(c, -540, -77, 1080, 154, 22); c.stroke();
+    c.fillStyle = 'rgba(150,40,30,0.30)'; c.font = `bold 108px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle';
     c.fillText('TỶ PHÚ ĐẤT VIỆT', 0, 6);
     c.restore();
     c.fillStyle = '#6a4a2a'; c.font = `italic 40px ${FONT}`; c.textAlign = 'center';

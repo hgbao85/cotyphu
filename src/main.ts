@@ -28,7 +28,7 @@ import { buildTip, drawTip, tipNow } from './ui/tips';
 import { drawSummary } from './ui/summary';
 import { camera, aimCamera, boardPointAt, render3D, project, figItems, updateTokens, syncBuildings, hop, build3D, renderer, figCamera } from './three/scene3d';
 import { buildPropUI, openAnimalPicker, buildPicker, openSeatPicker, teamSpot, openPicker, clearSetupNote, drawNetBanner, drawPicker, handleInput, clearVis } from './ui/setupScreen';
-import { lacquer, drawBoardView, drawLog, drawPotLabel, drawDiceFeel, drawPopup, drawPanel, drawFloaters, drawInspect, messageBox, drawButton, drawTokenIcon } from './ui/draw';
+import { propRows, PROP_Y, PROP_ROW_H, lacquer, drawBoardView, drawPotLabel, drawDiceFeel, drawPopup, drawPanel, drawFloaters, drawInspect, messageBox, drawButton, drawTokenIcon } from './ui/draw';
 import { buildSheetUI, buildSheetButton, drawTitlePhone, drawPhoneChrome, drawSheet, drawResultsPhone, titleSpots } from './ui/phone';
 import { moodStep } from './three/moods';
 import { buildToolbar, buildEmoteMenu, drawEmotes, drawEmoteMenu } from './ui/toolbar';
@@ -54,13 +54,23 @@ interface Layout {
 }
 const WIDE: Layout = { phone: false, bx: 0, by: 0, bw: BW, bh: 720, cx: BW / 2, popCy: 330, msgY: 322, rollY: 372, btnY: 600, maxW: 640, powerY: 446, bannerY: 676, closeY: 548 };
 const PHONE: Layout = { phone: true, bx: 0, by: 50, bw: 480, bh: 480, cx: 240, popCy: 290, msgY: 738, rollY: 782, btnY: 782, maxW: 464, powerY: 908, bannerY: 942, closeY: 782 };
+/** The tallest phone screen, in logical pixels: a longer phone gets a taller board, not empty bands. */
+const PHONE_MAX_H = 1100;
+/** The phone layout for a screen `extra` logical pixels taller than 480x960: the board takes the
+ * extra height, and everything under it moves down by as much. */
+function phoneLayout(extra: number): Layout {
+  return { ...PHONE, bh: PHONE.bh + extra, popCy: PHONE.popCy + extra / 2, msgY: PHONE.msgY + extra, rollY: PHONE.rollY + extra, btnY: PHONE.btnY + extra, powerY: PHONE.powerY + extra, bannerY: PHONE.bannerY + extra, closeY: PHONE.closeY + extra };
+}
 export let L: Layout = WIDE;
-/** Picks the layout from the window's shape: a tall window gets the phone layout. */
+/** Picks the layout from the window's shape: a tall window gets the phone layout, as tall as the screen. */
 function chooseLayout() {
   const phone = innerHeight > innerWidth * 1.05;
-  const next = phone ? PHONE : WIDE;
-  if (next !== L) { L = next; F.propScroll = 0; F.sheetOpen = false; if (camera) aimCamera(); }
-  setLogical(phone ? 480 : 1280, phone ? 960 : 720);
+  const h = phone ? Math.max(960, Math.min(PHONE_MAX_H, Math.round(480 * innerHeight / innerWidth))) : 720;
+  if (phone !== L.phone || (phone && h - 960 !== L.bh - PHONE.bh)) {
+    L = phone ? phoneLayout(h - 960) : WIDE; F.propScroll = 0; F.sheetOpen = false;
+    if (camera) aimCamera();
+  }
+  setLogical(phone ? 480 : 1280, h);
 }
 beforeFit(chooseLayout);
 /** True when a point on the screen is over the board view. */
@@ -116,18 +126,18 @@ function buildUI() {
   if (scene === 'results') {
     if (state.vote) { buildVoteUI(); return; }
     if (isGuest()) { // a friend asks for a new game, or leaves; only the host goes back to the title
-      btn(L.cx - 200, L.phone ? 840 : 560, 190, 52, 'Chơi lại', startVote, 'primary');
-      btn(L.cx + 10, L.phone ? 840 : 560, 190, 52, 'Rời phòng', leaveRoom, 'secondary', true, '#6a4a2a');
+      btn(L.cx - 200, L.phone ? L.btnY + 58 : 560, 190, 52, 'Chơi lại', startVote, 'primary');
+      btn(L.cx + 10, L.phone ? L.btnY + 58 : 560, 190, 52, 'Rời phòng', leaveRoom, 'secondary', true, '#6a4a2a');
       return;
     }
-    btn(L.cx - 200, L.phone ? 840 : 560, 190, 52, 'Chơi lại (Enter)', () => { if (roomCode) startVote(); else { reset(); clearVis(); setScene('play'); } }, 'primary');
-    btn(L.cx + 10, L.phone ? 840 : 560, 190, 52, 'Ván mới (N)', () => { setScene('title'); }, 'secondary');
+    btn(L.cx - 200, L.phone ? L.btnY + 58 : 560, 190, 52, 'Chơi lại (Enter)', () => { if (roomCode) startVote(); else { reset(); clearVis(); setScene('play'); } }, 'primary');
+    btn(L.cx + 10, L.phone ? L.btnY + 58 : 560, 190, 52, 'Ván mới (N)', () => { setScene('title'); }, 'secondary');
     return;
   }
   if (scene !== 'play') return;
   btn(W - 52, 12, 40, 34, '', () => setMuted(!muted()), 'mute');
   { const r = rulesSpot(); btn(r.x, r.y, r.w, r.h, 'Luật', () => showRules(true), 'room'); }
-  if (!isGuest() && state.players.some(p => p.kind !== 'human')) { const r = speedSpot(); btn(r.x, r.y, r.w, r.h, `×${gameSpeed}`, cycleSpeed, 'room'); }
+  if (!isGuest() && state.players.some(p => p.kind !== 'human')) { const r = speedSpot(); if (L.phone) btn(r.x, r.y, r.w, r.h, `Tốc độ ×${gameSpeed}`, cycleSpeed, '', true, '#6a4a2a'); else btn(r.x, r.y, r.w, r.h, `×${gameSpeed}`, cycleSpeed, 'room'); }
   if (roomCode) {
     const r = roomPill();
     btn(r.x, r.y, r.w, r.h, `Phòng ${roomCode}`, () => { F.roomMenu = true; F.emoteMenu = false; F.inspect = -1; F.sheetOpen = false; }, 'room');
@@ -140,8 +150,8 @@ function buildUI() {
   if (F.inspect >= 0) { btn(L.cx - 90, L.closeY, 180, 50, 'Đóng', () => { F.inspect = -1; }, 'close'); return; }
   if (F.sheetOpen) { buildSheetUI(state.cur); return; }
   if (!L.phone) { // click a row of the property list to see that land's card
-    const mine = owned(state.cur), rows = Math.floor((H - 16 - 400) / 30);
-    mine.slice(F.propScroll, F.propScroll + rows).forEach((i, r) => btn(PX + 14, 400 + r * 30, 250, 30, '', () => { F.inspect = i; }, 'hidden'));
+    const mine = owned(state.cur), rows = propRows(mine.length);
+    mine.slice(F.propScroll, F.propScroll + rows).forEach((i, r) => btn(PX + 14, PROP_Y + r * PROP_ROW_H, 250, PROP_ROW_H, '', () => { F.inspect = i; }, 'hidden'));
   }
   if (humanTurn()) buildTurnUI();
 }
@@ -150,9 +160,13 @@ function buildUI() {
 export function buildTurnUI() {
   const p = curP();
   const ax = L.cx, ay = L.rollY, by = L.btnY; // wide: the board's open centre; phone: the strip under the players
+  // several people on this screen: the shake button says whose turn it is
+  const named = !isGuest() && state.players.filter(q => q.kind === 'human' && !q.bankrupt).length > 1;
+  const shakeLabel = (alone: string) => state.shaking ? 'Thả ra để ném!' : named ? `${p.name}: giữ để lắc` : alone;
+  const sw = named ? 300 : 260;
   switch (state.phase) {
-    case 'order': btn(ax - 130, ay, 260, 58, state.shaking ? 'Thả ra để ném!' : 'Giữ để lắc chọn lượt', () => startShake(), 'primary', true, '#c8201f', 'shake'); break;
-    case 'roll': btn(ax - 130, ay, 260, 58, state.shaking ? 'Thả ra để ném!' : 'Giữ để lắc xúc xắc', () => startShake(), 'primary', true, '#c8201f', 'shake'); break;
+    case 'order': btn(ax - sw / 2, ay, sw, 58, shakeLabel('Giữ để lắc chọn lượt'), () => startShake(), 'primary', true, '#c8201f', 'shake'); break;
+    case 'roll': btn(ax - sw / 2, ay, sw, 58, shakeLabel('Giữ để lắc xúc xắc'), () => startShake(), 'primary', true, '#c8201f', 'shake'); break;
     case 'jail': {
       btn(ax - 230, ay, 220, 54, state.shaking ? 'Thả ra để ném!' : 'Giữ lắc tìm đôi', () => startShake(), 'primary', true, '#c8201f', 'shake');
       if (p.freeCards.length > 0) btn(ax + 10, ay, 220, 54, 'Dùng thẻ ra tù', payJail, 'secondary', true, undefined, 'jailCard');
@@ -320,7 +334,7 @@ function cycleSpeed() {
 }
 /** Where the speed button sits: under the sound button, or beside the phone's property button. */
 function speedSpot(): { x: number; y: number; w: number; h: number } {
-  return L.phone ? { x: W - 78, y: L.btnY + 64, w: 64, h: 44 } : { x: W - 60, y: 48, w: 48, h: 26 };
+  return L.phone ? { x: W - 116, y: L.btnY + 64, w: 104, h: 44 } : { x: W - 60, y: 48, w: 48, h: 26 };
 }
 
 // ---- Scenes ------------------------------------------------------------------------------
@@ -405,7 +419,7 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
     draw() {
       clear('#1d120c');
       drawBoardView();
-      if (L.phone) drawPhoneChrome(); else drawLog();
+      if (L.phone) drawPhoneChrome(); // a wide screen's log is in the panel
       drawPotLabel();
       drawDiceFeel();
       drawPopup();

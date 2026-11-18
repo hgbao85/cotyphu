@@ -280,6 +280,7 @@ function canPickAnimal(i: number, s: Seat): boolean {
 /** A seat's animal in its round frame, with a small mark when a tap changes it. */
 export function drawSeatAnimal(i: number, x: number, y: number, r: number, s: Seat) {
   const a = seatAnimal(i), off = s.kind === 'off';
+  if (CHIBI) { waveOnGrass(a, i, x, y, r, off, canPickAnimal(i, s)); return; }
   ctx.save(); ctx.globalAlpha = off ? 0.45 : 1;
   ctx.fillStyle = '#f4ead2'; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
   ctx.strokeStyle = ANIMALS[a].color; ctx.lineWidth = 3; ctx.stroke();
@@ -287,6 +288,29 @@ export function drawSeatAnimal(i: number, x: number, y: number, r: number, s: Se
   if (canPickAnimal(i, s) && !off) { // a little gold arrow: tap to change
     ctx.fillStyle = '#f2c44a'; ctx.beginPath(); ctx.arc(x + r * 0.8, y + r * 0.8, r * 0.36, 0, 7); ctx.fill();
     ctx.strokeStyle = '#5a2a1c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x + r * 0.8, y + r * 0.8, r * 0.18, -2.4, 1.6); ctx.stroke();
+  }
+  ctx.restore();
+}
+/** The chibi title screen's seat: the animal standing on a little grass mound, bobbing and waving one
+ * paw (a seat nobody plays sits still and faded). A gold mark when a tap changes the animal. */
+function waveOnGrass(a: number, i: number, x: number, y: number, r: number, off: boolean, pick: boolean) {
+  const color = ANIMALS[a].color, t = state?.t ?? performance.now() / 1000, ph = i * 1.4;
+  const bob = off ? 0 : Math.abs(Math.sin(t * 2.4 + ph)) * r * 0.08;
+  ctx.save(); ctx.globalAlpha = off ? 0.45 : 1;
+  ctx.fillStyle = '#8fcf68'; ctx.beginPath(); ctx.ellipse(x, y + r * 0.88, r * 1.05, r * 0.26, 0, 0, 7); ctx.fill(); // the grass mound
+  ctx.fillStyle = '#6fb84e'; for (const dx of [-0.7, -0.35, 0.5, 0.8]) { ctx.beginPath(); ctx.ellipse(x + dx * r, y + r * 0.78, r * 0.07, r * 0.16, dx, 0, 7); ctx.fill(); }
+  const by = y + r * 0.5 - bob; // the body, under the head
+  ctx.fillStyle = color; ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = Math.max(1, r * 0.06);
+  ctx.beginPath(); ctx.ellipse(x, by, r * 0.5, r * 0.38, 0, 0, 7); ctx.fill(); ctx.stroke();
+  drawTokenIcon(a, x, y - r * 0.28 - bob, r * 1.45, color, off ? undefined : 'happy');
+  const wave = off ? 0.3 : 0.5 + 0.55 * Math.sin(t * 7 + ph); // one paw raised and waving hello
+  ctx.save(); ctx.translate(x + r * 0.45, by - r * 0.1); ctx.rotate(-0.55 - wave * 0.6); // out beside the head, so the wave shows
+  ctx.beginPath(); ctx.ellipse(r * 0.42, 0, r * 0.4, r * 0.13, 0, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.arc(r * 0.82, 0, r * 0.16, 0, 7); ctx.fill(); ctx.stroke(); ctx.restore();
+  ctx.beginPath(); ctx.ellipse(x - r * 0.42, by + r * 0.05, r * 0.12, r * 0.22, 0.4, 0, 7); ctx.fill(); ctx.stroke();
+  if (pick && !off) { // a little gold arrow: tap to change
+    ctx.fillStyle = '#f2c44a'; ctx.beginPath(); ctx.arc(x + r * 0.95, y + r * 0.55, r * 0.32, 0, 7); ctx.fill();
+    ctx.strokeStyle = '#5a2a1c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x + r * 0.95, y + r * 0.55, r * 0.16, -2.4, 1.6); ctx.stroke();
   }
   ctx.restore();
 }

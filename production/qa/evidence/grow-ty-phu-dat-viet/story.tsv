@@ -1,5 +1,5 @@
 browser	/c/Program Files/Google/Chrome/Application/chrome.exe
-time	2026-11-18 15:22:28
+time	2026-11-18 15:51:55
 render	cheap
 webgl	ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)
 ua	HeadlessChrome/158.0.0.0
@@ -8,127 +8,127 @@ state	0	title	{"t":0,"score":0,"gained":"","players":[{"id":0,"kind":"human","lv
 scene	1	play
 state	1	play	{"t":0,"score":0,"gained":"","players":[{"id":0,"kind":"human","lv":0,"color":"#d62828","token":1,"name":"Người Trâu","cash":2000,"pos":0,"laps":0,"inJail":false,"jailTries":0,"freeCards":[],"bankrupt
 playinput	4	Space
-console	151	Oscillator.frequency.setValueAtTime value 11302.2 outside nominal range [-11025, 11025]; value will be clamped.
-frame	3481	2edd502a
-frame	3482	70b5d85b
-frame	3483	91df4ba4
-frame	3484	25907fc4
-frame	3485	fb9b494f
-frame	3486	7eb4428a
-frame	3487	e27c9d40
-frame	3488	63be8cf1
-frame	3489	4cb10a8c
-frame	3490	dc4c593e
-frame	3491	b133b91e
-frame	3492	6ba213e0
-frame	3493	3c477307
-frame	3494	d89716e9
-frame	3495	f64f7dad
-frame	3496	bb594f66
-frame	3497	2ec55376
-frame	3498	d9512bbf
-frame	3499	26cba9b4
-frame	3500	191a144f
-frame	3501	f64f0d3b
-frame	3502	7e570d63
-frame	3503	38db988b
-frame	3504	277ce914
-frame	3505	1f36c966
-frame	3506	dd7ac459
-frame	3507	683ead2d
-frame	3508	aad0418c
-frame	3509	dd6d54e1
-frame	3510	43cd8b38
-frame	3511	48d41cc
-frame	3512	d36600af
-frame	3513	b98327b9
-frame	3514	7fe3bf4a
-frame	3515	51e7aae2
-frame	3516	154577c3
-frame	3517	2460b30e
-frame	3518	9b932b4e
-frame	3519	3ae1bbb1
-frame	3520	54ae7803
-frame	3521	cbfda808
-frame	3522	5dc7a048
-frame	3523	ea1136e1
-frame	3524	fffae87
-frame	3525	d469ba61
-frame	3526	d70967c4
-frame	3527	3bfa6b94
-frame	3528	35dad786
-frame	3529	bac70ad
-frame	3530	b31e080b
-frame	3531	85312a6a
-frame	3532	6ee53fe6
-frame	3533	df679b6c
-frame	3534	2925c520
-frame	3535	f89adef5
-frame	3536	bad00c54
-frame	3537	708b9830
-frame	3538	3e571c88
-frame	3539	2fd0de7c
-frame	3540	b9b02e73
-frame	3541	7c4e47ec
-frame	3542	d3252591
-frame	3543	198b8fc3
-frame	3544	1fffce13
-frame	3545	edf7f931
-frame	3546	55567dcd
-frame	3547	7a13622
-frame	3548	e1460d51
-frame	3549	dfbc1fa9
-frame	3550	af1ac1c6
-frame	3551	8315996b
-frame	3552	580ecc97
-frame	3553	a864de9b
-frame	3554	799101d6
-frame	3555	6be126ab
-frame	3556	b7ea2ff8
-frame	3557	363bfa36
-frame	3558	ec963d3e
-frame	3559	37094030
-frame	3560	a6587264
-frame	3561	3883dd16
-frame	3562	29e4e012
-frame	3563	97cfffb6
-frame	3564	3335429e
-frame	3565	f6fd97a6
-frame	3566	c02d2d7a
-frame	3567	573587d
-frame	3568	650d3276
-frame	3569	3168c3b
-frame	3570	b51846c1
-frame	3571	faef448f
-frame	3572	cec79736
-frame	3573	84618891
-frame	3574	c0d69092
-frame	3575	217edaf9
-frame	3576	53e0aa60
-frame	3577	386f03ca
-frame	3578	ac616c2c
-frame	3579	2dfc7d70
-frame	3580	f2ad9009
-frame	3581	b85ad77
-frame	3582	8f5b80a7
-frame	3583	46523010
-frame	3584	9c8c309
-frame	3585	bdf23e3f
-frame	3586	bae2e8fe
-frame	3587	e38f7715
-frame	3588	822b2849
-frame	3589	a52a9744
-frame	3590	2b6b1982
-frame	3591	d8217a02
-frame	3592	e0a9ac52
-frame	3593	442435e1
-frame	3594	316c9746
-frame	3595	7af47a0e
-frame	3596	bd5e4f74
-frame	3597	225ce8a6
-frame	3598	630cd5d7
-frame	3599	ccf1a3e2
-frame	3600	b5724418
+console	152	Oscillator.frequency.setValueAtTime value 11302.2 outside nominal range [-11025, 11025]; value will be clamped.
+frame	3481	ff505172
+frame	3482	63bec8b5
+frame	3483	7fa020a1
+frame	3484	b5534f78
+frame	3485	e2e934a5
+frame	3486	afa9ce14
+frame	3487	caffb380
+frame	3488	5ffd5c7e
+frame	3489	dbecc5d1
+frame	3490	41f0cfb9
+frame	3491	598567ca
+frame	3492	2695c933
+frame	3493	2a75261
+frame	3494	f2e36f4d
+frame	3495	fbe012ff
+frame	3496	d645004e
+frame	3497	76b05973
+frame	3498	274d044b
+frame	3499	e75d7d2f
+frame	3500	5a6e4b9a
+frame	3501	802f5d19
+frame	3502	9cfd3035
+frame	3503	8044250
+frame	3504	23651c5e
+frame	3505	60248bb3
+frame	3506	8fda9b5e
+frame	3507	b3eb9074
+frame	3508	87504b31
+frame	3509	1e16571e
+frame	3510	d0765279
+frame	3511	4f06e487
+frame	3512	229a477
+frame	3513	d5ecdfc2
+frame	3514	1dc292a4
+frame	3515	1d4c180a
+frame	3516	ad97655
+frame	3517	d6357d5b
+frame	3518	190d491b
+frame	3519	f52ea9f9
+frame	3520	c4bf23bb
+frame	3521	c0152934
+frame	3522	4cfb7893
+frame	3523	dcc3275d
+frame	3524	e9fd82f9
+frame	3525	8aaed3e6
+frame	3526	72cd3148
+frame	3527	754672d5
+frame	3528	b3a27beb
+frame	3529	bf802372
+frame	3530	85652bb8
+frame	3531	134b47d6
+frame	3532	eb9c1788
+frame	3533	ce5a6f32
+frame	3534	f09de160
+frame	3535	b7c80088
+frame	3536	faa2a0ef
+frame	3537	e8bf0ec8
+frame	3538	37d6673
+frame	3539	78f7b067
+frame	3540	12d4f998
+frame	3541	1894a9e8
+frame	3542	6871149
+frame	3543	bee6af44
+frame	3544	21a4b095
+frame	3545	3f12c7bc
+frame	3546	30fd1c05
+frame	3547	6d79424f
+frame	3548	a625d0ef
+frame	3549	20fa4413
+frame	3550	10bb1004
+frame	3551	cc4f816d
+frame	3552	b641db26
+frame	3553	90d6b304
+frame	3554	79027f3f
+frame	3555	6b1ea8d1
+frame	3556	589a286a
+frame	3557	ae5a60be
+frame	3558	3cd2eaa
+frame	3559	fa3b6f6b
+frame	3560	cb0c862e
+frame	3561	183a97a3
+frame	3562	fc9986b4
+frame	3563	8bf5376b
+frame	3564	b407308
+frame	3565	5fad1648
+frame	3566	c8a23f71
+frame	3567	8fcaa16f
+frame	3568	c0b04fdb
+frame	3569	7d635873
+frame	3570	a4be48a5
+frame	3571	23671674
+frame	3572	79e2cd0d
+frame	3573	efbf0359
+frame	3574	b1427038
+frame	3575	5ad3692a
+frame	3576	54c40cba
+frame	3577	a8d2c593
+frame	3578	88907279
+frame	3579	b95d66de
+frame	3580	777eac96
+frame	3581	141a7aba
+frame	3582	49d840f1
+frame	3583	c8ced651
+frame	3584	e20cb34f
+frame	3585	2a2334b1
+frame	3586	4c2d6187
+frame	3587	c935954d
+frame	3588	bf992b03
+frame	3589	8da03c67
+frame	3590	e29249b2
+frame	3591	fa244674
+frame	3592	b3a20f6
+frame	3593	f5c8dbc5
+frame	3594	ccbda48
+frame	3595	4ee228d6
+frame	3596	b1292b5a
+frame	3597	96c46f28
+frame	3598	69220f21
+frame	3599	4a73cf2c
+frame	3600	4c2f223d
 state	3600	play	{"t":59.98,"score":0,"gained":"","players":[{"id":2,"kind":"ai","lv":0,"color":"#f2c200","token":8,"name":"Máy Khỉ","cash":2000,"pos":14,"laps":0,"inJail":false,"jailTries":0,"freeCards":[],"bankrupt"
 digits	log	bold 40px "Baloo 2", "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
 digits	log	bold 46px "Baloo 2", "Segoe UI", "Helvetica Neue", Arial, sans-serif	tabular	0
@@ -146,13 +146,13 @@ digits	log	bold 20px "Baloo 2", "Segoe UI", "Helvetica Neue", Arial, sans-serif	
 loop	log	none	no loop() step was marked
 first	log	none	no state.beat
 pressure	none	the game set no number state.margin in play
-steptime	3600	0.026	5.300
-frametime	60	42.9	119.6	60	60	4
-done	3600	play	stop	60.0	10364
-console	0	[.WebGL-0x772c00643600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
-console	0	[.WebGL-0x772c00643600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
-console	0	[.WebGL-0x772c00643600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
-console	0	[.WebGL-0x772c00643600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)
+steptime	3600	0.027	3.200
+frametime	60	42.8	115.5	60	60	5
+done	3600	play	stop	60.0	10384
+console	0	[.WebGL-0x4604003b8800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+console	0	[.WebGL-0x4604003b8800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+console	0	[.WebGL-0x4604003b8800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+console	0	[.WebGL-0x4604003b8800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)
 measured	1280x720
 text	play	canvas	410,160,491,175	21.0	3.41	inside	Hũ tiền: 0 đ
 text	play	canvas	1014,11,1194,39	30.0	3.30	inside	TỶ PHÚ ĐẤT VIỆT
@@ -180,6 +180,6 @@ text	play	canvas	931,22,961,37	19.5	2.73	inside	Luật
 text	play	canvas	1236,55,1252,65	19.5	2.73	inside	×1
 text	play	canvas	30,685,79,701	19.5	2.73	inside	Lịch sử
 text	play	canvas	367,387,533,407	27.0	5.84	inside	Giữ để lắc xúc xắc
-screen	3600	play	6f79fe7e	drawn
+screen	3600	play	c8e1320	drawn
 uncaught	0
-shot	/d/cotyphu/production/qa/evidence/grow-ty-phu-dat-viet/story.png	370699
+shot	/d/cotyphu/production/qa/evidence/grow-ty-phu-dat-viet/story.png	372175

@@ -268,9 +268,15 @@ export function syncBuildings(dt: number) {
   }
 }
 export const lastPos: number[] = [];
+/** How big a piece stands when three or four share its tile. */
+const CROWD_SCALE = 0.8;
 export function updateTokens(dt: number) {
   state.players.forEach(p => {
-    const k = p.id, tgt = tokenSpot(k, p.pos, p.inJail);
+    // the pieces standing still on this tile share it, each in its own spot; a piece hopping past takes none
+    const here = state.players.filter(q => !q.bankrupt && q.pos === p.pos && q.inJail === p.inJail && (!tokAnim[q.id] || q === p));
+    const k = p.id, tgt = tokenSpot(k, p.pos, p.inJail, { i: Math.max(0, here.indexOf(p)), n: here.length });
+    const size = tune.piece_scale * (here.length >= 3 ? CROWD_SCALE : 1), now = tok3[k]?.scale.x; // a crowd of three or four stands a little smaller
+    if (tok3[k] && now !== undefined && Math.abs(now - size) > 1e-4) tok3[k].scale.setScalar(now + (size - now) * Math.min(1, dt * 8));
     if (!tokVis[k]) tokVis[k] = { x: tgt.x, y: 0, z: tgt.z };
     if (isGuest() && lastPos[k] !== undefined && lastPos[k] !== p.pos && !tokAnim[k]) { // a guest sees the host's moves as hops
       const step1 = (p.pos - lastPos[k] + 40) % 40 === 1 || (lastPos[k] - p.pos + 40) % 40 === 1;

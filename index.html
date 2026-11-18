@@ -4,8 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#1d120c">
+<meta name="color-scheme" content="only light"> <!-- the game draws its own colours: a phone's "dark mode for every site" must not darken its panels -->
 <title>Tỷ Phú Đất Việt</title>
 <style>
+  :root { color-scheme: only light; }
   html, body { margin: 0; height: 100%; background: #1d120c; overflow: hidden; }
   body { font-variant-numeric: tabular-nums; }
   canvas { display: block; margin: 0 auto; }
@@ -31,7 +33,7 @@
   #chat #ch-send { background: #2f8a3a; } #chat #ch-close { background: #6a4a2a; }
   #chat #ch-count { flex-basis: 100%; text-align: right; color: #cbb994; font-size: 13px; }
   #rules { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(20, 10, 6, 0.72); z-index: 11; padding: 12px; box-sizing: border-box; }
-  #rules .ru-card { width: min(640px, 100%); max-height: 100%; display: flex; flex-direction: column; background: linear-gradient(#3b1712, #1f0c09); border: 2px solid #c9a24a; border-radius: 18px; padding: 18px 18px 14px; box-sizing: border-box; color: #f4ead2; font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif; }
+  #rules .ru-card { width: min(640px, 100%); max-height: min(100%, 82vh); /* room around it to tap and close */ display: flex; flex-direction: column; background: linear-gradient(#3b1712, #1f0c09); border: 2px solid #c9a24a; border-radius: 18px; padding: 18px 18px 14px; box-sizing: border-box; color: #f4ead2; font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif; }
   #rules h2 { margin: 0 0 8px; text-align: center; color: #f2c44a; font-size: 24px; }
   #rules .ru-body { overflow-y: auto; -webkit-overflow-scrolling: touch; padding-right: 6px; font-size: 16px; line-height: 1.45; }
   #rules h3 { margin: 14px 0 4px; color: #f2c44a; font-size: 18px; }

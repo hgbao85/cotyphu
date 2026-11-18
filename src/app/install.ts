@@ -16,7 +16,7 @@ if (location.protocol.startsWith('http') && !import.meta.env.DEV) {
   add('manifest', './manifest.webmanifest');
   add('apple-touch-icon', './icons/apple-touch-icon.png');
   add('icon', './icons/icon-192.png'); // the tab's icon
-  for (const [name, content] of [['apple-mobile-web-app-capable', 'yes'], ['mobile-web-app-capable', 'yes'], ['apple-mobile-web-app-title', 'Tỷ Phú'], ['apple-mobile-web-app-status-bar-style', 'black-translucent']]) {
+  for (const [name, content] of [['apple-mobile-web-app-capable', 'yes'], ['mobile-web-app-capable', 'yes'], ['apple-mobile-web-app-title', 'Sự Thảy'], ['apple-mobile-web-app-status-bar-style', 'black-translucent']]) {
     const m = document.createElement('meta'); m.name = name; m.content = content; document.head.appendChild(m);
   }
   if ('serviceWorker' in navigator) {

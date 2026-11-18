@@ -1,4 +1,4 @@
-// Tỷ Phú Đất Việt service worker: lets the game install as an app and open without a network for a
+// Sự Thảy service worker: lets the game install as an app and open without a network for a
 // game on one screen. Pages and files are fetched fresh when online and kept as a fallback; online
 // rooms (/ws) and the health check are never touched.
 const CACHE = 'tpdv-v1';

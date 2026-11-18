@@ -96,7 +96,7 @@ export function faceOf(p: Player): IconMood | undefined {
 }
 export function drawPanel() {
   lacquer(PX, 0, PW, H);
-  text('TỶ PHÚ ĐẤT VIỆT', PX + PW / 2 + 14, 30, 24, '#f2c44a', 'center', 'bold');
+  text('SỰ THẢY', PX + PW / 2 + 14, 30, 24, '#f2c44a', 'center', 'bold');
   const roundTxt = state.mode === 'rounds' ? `Vòng ${Math.min(state.round, maxRounds())} / ${maxRounds()}` : `Vòng ${state.round} · tới khi phá sản`;
   if (roomCode) text(state.mode === 'rounds' ? `Vòng ${Math.min(state.round, maxRounds())}/${maxRounds()}` : `Vòng ${state.round}`, PX + 24, 59, 16, '#e8d9b5', 'left');
   else text(roundTxt, PX + PW / 2, 58, 16, '#e8d9b5');

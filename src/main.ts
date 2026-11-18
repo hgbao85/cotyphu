@@ -1,4 +1,4 @@
-// Tỷ Phú Đất Việt: a property board game on a map of Việt Nam, 2-4 seats, each a person or the
+// Sự Thảy: a property board game on a map of Việt Nam, 2-4 seats, each a person or the
 // computer. The 3D board is drawn with three.js into an offscreen canvas and copied into the 2D
 // canvas each frame; the HUD, popups and buttons are drawn on top in 2D.
 // Design record: design/game-brief.md. Rules with no browser live in src/game/.
@@ -88,7 +88,7 @@ beforeFit(chooseLayout);
 export const inBoard = (x: number, y: number): boolean => x >= L.bx && x < L.bx + L.bw && y >= L.by && y < L.by + L.bh;
 
 export const STEP = 1 / 60;            // simulation step in seconds; motion is per second, never per frame
-export const TITLE = 'Tỷ Phú Đất Việt';
+export const TITLE = 'Sự Thảy';
 const CONTROLS = ['Chuột: bấm các nút', 'Space / Enter: đổ xúc xắc, đồng ý', 'N / Esc: bỏ qua', 'M: tắt tiếng'];
 export const events: Loose[] = []; // window.game.events: anything the game wants a run to see
 export let checkSeed: number | null = null; // a seed a check set for the next games (window.game.configure)
@@ -402,7 +402,7 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
       text(TITLE.toUpperCase(), BW / 2, 100, 50, '#f2c44a', 'center', 'bold');
       text('Cờ tỷ phú trên bản đồ Việt Nam · 2 đến 4 người', BW / 2, 150, 19, '#e8d9b5');
       const hint = isGuest() ? (lobby ? `Phòng ${roomCode} · chờ ${lobby.hostName || 'chủ phòng'} bắt đầu ván` : `Đang vào phòng ${roomCode}...`)
-        : isHost() ? `Gửi mã phòng ${roomCode} cho bạn bè: họ sẽ vào chỗ "Chờ bạn online"` : 'Bấm vào chỗ ngồi, con vật hay kiểu ván để chọn từ danh sách';
+        : isHost() ? (roomCode ? `Gửi mã phòng ${roomCode} cho bạn bè: họ sẽ vào chỗ "Chờ bạn online"` : 'Đang mở phòng, chờ chút nhé...') : 'Bấm vào chỗ ngồi, con vật hay kiểu ván để chọn từ danh sách';
       text(hint, BW / 2, 200, 16, isGuest() || isHost() ? '#f2c44a' : '#cbb994');
       const seatsShown: Seat[] = isGuest() ? (lobby ? lobby.seats : []) : setup.seats;
       if (isGuest()) seatsShown.forEach((s, i) => { // a guest sees the seats, not their buttons
@@ -604,10 +604,17 @@ install({
 fit();
 build3D();
 // the chibi look's rounded font is embedded in the build; once the browser has it, the board's face is drawn again with it
-if (CHIBI) Promise.all(['400 20px "Baloo 2"', '700 20px "Baloo 2"'].map(f => document.fonts.load(f, 'Tỷ Phú Đất Việt'))).then(redrawBoardFace, () => {});
+if (CHIBI) Promise.all(['400 20px "Baloo 2"', '700 20px "Baloo 2"'].map(f => document.fonts.load(f, 'Sự Thảy · Việt Nam'))).then(redrawBoardFace, () => {});
 reset();
 setScene(params.get('scene') || 'title');
 if (scene === 'play') clearVis();
 last = clock.now();
 if (params.get('manual') === '1') drawFrame();
 else { requestAnimationFrame(frame); setInterval(timer, 50); }
+hideSplash();
+net.wakeServer(); // the room server on Render may be asleep: wake it now, before anyone opens a room
+/** Fades out the page's splash (index.html) once the game has drawn its first frame. */
+function hideSplash() {
+  const s = document.getElementById('splash'); if (!s) return;
+  s.classList.add('gone'); setTimeout(() => s.remove(), 400);
+}

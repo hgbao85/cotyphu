@@ -20,7 +20,7 @@ const q = new URLSearchParams(location.search), kind = q.get('kind') || 'icon';
 const W = kind === 'og' ? 1200 : Number(q.get('size') || 512), H = kind === 'og' ? 630 : W;
 const cv = document.getElementById('c'); cv.width = W; cv.height = H;
 const c = cv.getContext('2d');
-await document.fonts.load('700 40px "Baloo 2"', 'Tỷ Phú Đất Việt');
+await document.fonts.load('700 40px "Baloo 2"', 'Sự Thảy · Việt Nam');
 
 /** Sky on top, water below: the chibi look's backdrop. */
 function sky(x, y, w, h) {
@@ -56,8 +56,8 @@ if (kind === 'og') { // the link preview: the island with four animals, the name
   [1, 3, 8, 10].forEach((a, k) => face(a, 330 + k * 180, 430 - (k % 2) * 22, 150));
   coin(170, 120, 54); coin(1040, 150, 40);
   c.textAlign = 'center'; c.textBaseline = 'middle';
-  c.font = '700 104px "Baloo 2"'; c.lineWidth = 16; c.strokeStyle = '#ffffff'; c.strokeText('Tỷ Phú Đất Việt', W / 2, 150);
-  c.fillStyle = '#d9622b'; c.fillText('Tỷ Phú Đất Việt', W / 2, 150);
+  c.font = '700 104px "Baloo 2"'; c.lineWidth = 16; c.strokeStyle = '#ffffff'; c.strokeText('Sự Thảy', W / 2, 150);
+  c.fillStyle = '#d9622b'; c.fillText('Sự Thảy', W / 2, 150);
   c.font = '700 40px "Baloo 2"'; c.fillStyle = '#4a3020'; c.fillText('Cờ tỷ phú trên bản đồ Việt Nam · chơi online với bạn bè', W / 2, 250);
 } else { // an app icon: the buffalo on its island under the sky; "maskable" keeps it all in the middle 80%
   const pad = kind === 'maskable' ? 0 : W * 0.06, r = kind === 'maskable' ? 0 : W * 0.2;

@@ -38,7 +38,7 @@ function phoneCard(pi: number): { x: number; y: number; w: number; h: number } {
 /** The header, the log line, the players and the strip behind the buttons. */
 export function drawPhoneChrome() {
   lacquer(0, 0, W, L.by);
-  text('TỶ PHÚ ĐẤT VIỆT', 12, L.by / 2, 17, '#f2c44a', 'left', 'bold');
+  text('SỰ THẢY', 12, L.by / 2, 17, '#f2c44a', 'left', 'bold');
   const roundTxt = state.mode === 'rounds' ? `Vòng ${Math.min(state.round, maxRounds())}/${maxRounds()}` : `Vòng ${state.round}`;
   if (roomCode) { // in the gap between the rules pill and the room pill, smaller if it does not fit
     const r = rulesSpot(), left = r.x + r.w + 6, right = roomPill().x - 6;
@@ -131,7 +131,7 @@ export function drawTitlePhone() {
   text(TITLE.toUpperCase(), W / 2, 58, 34, '#f2c44a', 'center', 'bold');
   text('Cờ tỷ phú trên bản đồ Việt Nam · 2 đến 4 người', W / 2, 96, 15, '#e8d9b5');
   const hint = isGuest() ? (lobby ? `Phòng ${roomCode} · chờ ${lobby.hostName || 'chủ phòng'} bắt đầu ván` : `Đang vào phòng ${roomCode}...`)
-    : isHost() ? `Gửi mã ${roomCode} cho bạn bè: họ sẽ vào chỗ "Chờ bạn online"` : 'Bấm vào chỗ ngồi, con vật hay kiểu ván để chọn từ danh sách';
+    : isHost() ? (roomCode ? `Gửi mã ${roomCode} cho bạn bè: họ sẽ vào chỗ "Chờ bạn online"` : 'Đang mở phòng, chờ chút nhé...') : 'Bấm vào chỗ ngồi, con vật hay kiểu ván để chọn từ danh sách';
   ctx.font = `15px ${FONT}`;
   wrapLines(ctx, hint, W - 40).slice(0, 2).forEach((l, j) => text(l, W / 2, 130 + j * 20, 15, isGuest() || isHost() ? '#f2c44a' : '#cbb994'));
   const seatsShown: Seat[] = isGuest() ? (lobby ? lobby.seats : []) : setup.seats;

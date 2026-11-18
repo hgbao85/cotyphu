@@ -61,8 +61,10 @@ async function throwDice(page: Page) {
 
 test('a friend joins a room, picks an animal, throws for the order, sends an emote, reads the history and comes back after leaving', async ({ browser }) => {
   test.setTimeout(240000);
-  // The host makes a room.
+  // The host makes a room. Its chat gap is long for the check below: with the game's 3 s, a busy machine
+  // took longer than that between a friend's two lines and let the second through.
   const host = await screen(browser);
+  await host.page.evaluate(() => (window.game as unknown as { configure(o: unknown): void }).configure({ tune: { chat_gap: 30 } }));
   await tap(host.page, AT.online);
   await host.page.fill('#op-name', 'Chu');
   await host.page.click('#op-create');
@@ -114,7 +116,7 @@ test('a friend joins a room, picks an animal, throws for the order, sends an emo
   await expect.poll(async () => (await state(host.page)).emotes?.some(e => e.seat === FRIEND_SEAT && e.i === EMOTE_PAY_UP), { timeout: 5000 }).toBe(true);
 
   // The friend types a line: the host shows it over the friend's piece and writes it in the log; a second
-  // line straight after is too soon (chat_gap) and is dropped.
+  // line straight after is too soon (chat_gap, 30 s here) and is dropped.
   const line = 'Ai mua Hà Nội thì nhớ xây nhà nha, đừng để trống mãi như vậy chứ các bạn ơi';
   await tap(friend.page, AT.emotes);
   await tap(friend.page, AT.chat);

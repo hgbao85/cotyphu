@@ -16,7 +16,7 @@ import type { Loose, Seat } from '../game/types';
 
 import { owned, setAnimal, sellLevel, mortgage, unmortgage, flyTo } from '../game/turn';
 
-import { rawSfx, sendAct, onlinePanel, isGuest, isHost, sendLobby, linkUp, hostOnline } from '../net/room';
+import { rawSfx, sendAct, onlinePanel, isGuest, isHost, sendLobby, linkUp, hostOnline, roomCode, lobby } from '../net/room';
 import { F } from '../core/flags';
 
 import { resetCoins, lastPos, tileShown, boardPointAt, tokVis, tokAnim, riseAnims } from '../three/scene3d';
@@ -106,12 +106,20 @@ export function fitText(s: string, x: number, y: number, maxW: number, size: num
   text(s, x, y, sz, color, 'center', weight);
 }
 /** A line about the connection, over the board, when something is wrong with it. */
+/** The note while a room opens and the room server wakes: a count from 30 seconds, then a promise. */
+function roomWaitText(): string {
+  const since = net.connectingSince();
+  const left = since ? Math.ceil(ROOM_WAIT - (performance.now() - since) / 1000) : ROOM_WAIT;
+  return left > 0 ? `Đang mở phòng, máy chủ đang thức dậy... ${left}` : 'Đang chuẩn bị bàn cờ, sắp xong rồi...';
+}
+/** How long the note counts down for: about how long a sleeping free Render service takes to wake. */
+const ROOM_WAIT = 30;
 export function drawNetBanner() {
   let msg = '';
-  if (net.getRole() !== 'off' && !linkUp) msg = 'Mất kết nối mạng, đang nối lại...';
+  if (net.getRole() !== 'off' && !linkUp) msg = roomCode || isGuest() && lobby ? 'Mất kết nối mạng, đang nối lại...' : roomWaitText();
   else if (isGuest() && !hostOnline) msg = 'Chủ phòng mất kết nối, đang chờ quay lại...';
   else if (F.netError && !(onlinePanel && onlinePanel.style.display === 'flex')) msg = F.netError;
-  if (msg) messageBox([msg], L.cx, L.bannerY, 620);
+  if (msg) messageBox([msg], L.cx, Math.min(L.bannerY, H - 44), 620); // a tall phone's banner stays on the screen
 }
 export function clearVis() { moods.length = 0; moodPrev.length = 0; F.inspect = -1; lastPos.length = 0; tokVis.length = 0; tokAnim.length = 0; for (let i = 0; i < 40; i++) tileShown[i] = -1; riseAnims.length = 0; resetCoins(); }
 export function buildPropUI(pi: number) {

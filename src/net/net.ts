@@ -29,6 +29,9 @@ let role: Role = 'off';
 let wanted: Loose = null;           // the create or join message, sent again after a reconnect
 let handlers: NetHandlers | null = null;
 let retry = 0;
+let since = 0; // when this browser started trying to reach the server and has not got through yet (0: through, or not trying)
+/** When the first try to reach the room server began, while it has not got through yet; else 0. */
+export const connectingSince = (): number => since;
 
 function storage(): Storage | null {
   try { return localStorage; } catch { return null; }
@@ -55,15 +58,24 @@ export function getRole(): Role {
   return role;
 }
 
-/** The server's address: the page's own host, on /ws. */
+/** The room server's own address when it is not the page's (vite.config.ts ROOM_SERVER), else ''. */
+const ROOM_SERVER: string = __ROOM_SERVER__;
+/** The server's address: the room server's, else the page's own host, on /ws. */
 function url(): string {
+  if (ROOM_SERVER) return ROOM_SERVER.replace(/^http/, 'ws') + '/ws';
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
   return `${proto}//${location.host}/ws`;
 }
+/** Wakes the room server as the page opens, when it lives elsewhere and sleeps (a free Render
+ * service takes up to a minute): by the time someone opens a room it is usually up. */
+export function wakeServer(): void {
+  if (ROOM_SERVER && location.protocol.startsWith('http')) fetch(ROOM_SERVER + '/health', { mode: 'no-cors', cache: 'no-store' }).catch(() => {});
+}
 
 function open(): void {
+  if (!since && role !== 'off') since = performance.now();
   ws = new WebSocket(url());
-  ws.onopen = () => { retry = 0; handlers?.onLink(true); if (wanted) ws?.send(JSON.stringify(wanted)); };
+  ws.onopen = () => { retry = 0; since = 0; handlers?.onLink(true); if (wanted) ws?.send(JSON.stringify(wanted)); };
   ws.onclose = () => {
     handlers?.onLink(false);
     if (role === 'off') return;
@@ -102,7 +114,7 @@ export function joinRoom(code: string, name: string, h: NetHandlers): void {
 
 /** Leaves the room and closes the connection. */
 export function leave(): void {
-  role = 'off'; wanted = null; handlers = null;
+  role = 'off'; wanted = null; handlers = null; since = 0;
   ws?.close(); ws = null;
 }
 

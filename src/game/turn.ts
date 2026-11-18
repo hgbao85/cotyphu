@@ -394,7 +394,7 @@ function endGame(reason: string) {
     .sort((a, b) => (state.teams ? teamWorth(b.team) - teamWorth(a.team) : 0) || (Number(a.bankrupt) - Number(b.bankrupt)) || b.worth - a.worth);
   state.ranking = ranking; state.phase = 'over';
   const w = state.players[ranking[0].i];
-  state.gained = state.teams ? `${teamTag(w.team)} thắng: ${state.players.filter(q => q.team === w.team).map(q => q.name).join(' và ')}!` : `${w.name} là Tỷ Phú Đất Việt!`;
+  state.gained = state.teams ? `${teamTag(w.team)} thắng: ${state.players.filter(q => q.team === w.team).map(q => q.name).join(' và ')}!` : `${w.name} là tỷ phú, thắng ván!`;
   state.score = Math.round(ranking[0].worth);
   state.reason = reason;
   log(state.gained);

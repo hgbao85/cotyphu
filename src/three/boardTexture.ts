@@ -33,7 +33,7 @@ export function boardTexture() {
     c.save(); c.translate(S / 2, Z(3.0));
     c.strokeStyle = 'rgba(150,40,30,0.28)'; c.lineWidth = 5; rrect(c, -540, -77, 1080, 154, 22); c.stroke();
     c.fillStyle = 'rgba(150,40,30,0.30)'; c.font = `bold 108px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillText('TỶ PHÚ ĐẤT VIỆT', 0, 6);
+    c.fillText('SỰ THẢY', 0, 6);
     c.restore();
     }
     c.fillStyle = '#6a4a2a'; c.font = `italic 40px ${FONT}`; c.textAlign = 'center';

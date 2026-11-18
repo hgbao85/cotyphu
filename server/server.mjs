@@ -1,4 +1,4 @@
-// Tỷ Phú Đất Việt online: serves the built game (dist/) and relays messages between the players
+// Sự Thảy online: serves the built game (dist/) and relays messages between the players
 // of a room over WebSocket (/ws). The rules run in the host's browser; this server only knows who
 // is in which room and passes messages along, so it stays small and holds no game state.
 //
@@ -41,7 +41,7 @@ const TYPES = {
 const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url || '/', 'http://x');
-    if (url.pathname === '/health') { res.writeHead(200, { 'content-type': 'text/plain' }); res.end('ok'); return; }
+    if (url.pathname === '/health') { res.writeHead(200, { 'content-type': 'text/plain', 'access-control-allow-origin': '*', 'cache-control': 'no-store' }); res.end('ok'); return; } // the page on Vercel wakes us with it
     let path = normalize(join(STATIC_DIR, decodeURIComponent(url.pathname)));
     if (!path.startsWith(STATIC_DIR)) { res.writeHead(403); res.end(); return; }
     const info = await stat(path).catch(() => null);
@@ -168,4 +168,4 @@ setInterval(() => {
   }
 }, 20 * 1000).unref();
 
-server.listen(PORT, () => console.log(`Tỷ Phú Đất Việt: http://localhost:${PORT}  (rooms on /ws, files from ${STATIC_DIR})`));
+server.listen(PORT, () => console.log(`Sự Thảy: http://localhost:${PORT}  (rooms on /ws, files from ${STATIC_DIR})`));

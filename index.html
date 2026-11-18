@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#bfe6f5">
 <meta name="color-scheme" content="only light"> <!-- the game draws its own colours: a phone's "dark mode for every site" must not darken its panels -->
-<title>Tỷ Phú Đất Việt</title>
+<title>Sự Thảy</title>
 <!-- The link preview (Messenger, Zalo, Facebook): read without running the page, so it is written here.
      The image needs a whole address: the game's home on Render. tools/icons/render.mjs draws it. -->
 <meta name="description" content="Cờ tỷ phú trên bản đồ Việt Nam: chơi một máy hoặc online với bạn bè.">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Tỷ Phú Đất Việt">
+<meta property="og:title" content="Sự Thảy">
 <meta property="og:description" content="Cờ tỷ phú trên bản đồ Việt Nam: chơi một máy hoặc online với bạn bè.">
 <meta property="og:url" content="https://ty-phu-dat-viet-oizq.onrender.com/">
 <meta property="og:image" content="https://ty-phu-dat-viet-oizq.onrender.com/og.png">
@@ -75,9 +75,45 @@
   html.chibi #online button.op-close { background: transparent; color: #6a4a32; border-color: #e8a86a; }
   html.chibi #online #op-error { color: #d9442b; }
   html.chibi #online button, html.chibi #online input, html.chibi #chat button, html.chibi #chat input, html.chibi #rules button { font-family: "Baloo 2", "Segoe UI", Arial, sans-serif; }
+  /* The splash while the game's code loads (src/main.ts hides it after the first frame): pure CSS, so it
+     shows at once. Four round animals hop on a grass island under the sky. */
+  #splash { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
+    background: linear-gradient(#d6f0fa, #8fd0e8); font-family: "Baloo 2", "Segoe UI", Arial, sans-serif; color: #4a3020; transition: opacity 0.35s; }
+  #splash.gone { opacity: 0; pointer-events: none; }
+  #splash h1 { margin: 0; font-size: clamp(34px, 9vw, 64px); color: #d9622b; text-shadow: 0 3px 0 #fff, 0 -3px 0 #fff, 3px 0 0 #fff, -3px 0 0 #fff; text-align: center; }
+  #splash .sp-island { position: relative; width: min(320px, 80vw); height: 120px; }
+  #splash .sp-island::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 46px; border-radius: 50%; background: #86c95e; box-shadow: 0 10px 0 #c08a5a; }
+  #splash .sp-row { position: absolute; left: 0; right: 0; bottom: 22px; display: flex; justify-content: space-evenly; z-index: 1; }
+  #splash .sp-pet { width: 52px; height: 52px; border-radius: 50%; position: relative; animation: sp-hop 0.9s ease-in-out infinite; box-shadow: inset 0 -6px 0 rgba(0,0,0,0.12); }
+  #splash .sp-pet::before, #splash .sp-pet::after { content: ""; position: absolute; top: 20px; width: 7px; height: 9px; border-radius: 50%; background: #2a1a10; }
+  #splash .sp-pet::before { left: 15px; } #splash .sp-pet::after { right: 15px; }
+  #splash .sp-pet:nth-child(1) { background: #e0403a; } #splash .sp-pet:nth-child(2) { background: #6fb0f0; animation-delay: 0.15s; }
+  #splash .sp-pet:nth-child(3) { background: #f2c44a; animation-delay: 0.3s; } #splash .sp-pet:nth-child(4) { background: #9a6ad6; animation-delay: 0.45s; }
+  @keyframes sp-hop { 0%, 100% { transform: translateY(0) scale(1.06, 0.94); } 45% { transform: translateY(-34px) scale(0.96, 1.04); } }
+  #splash p { margin: 0; font-size: 18px; font-weight: bold; }
+  #splash .sp-count { width: 64px; height: 64px; border-radius: 50%; background: #fff6e2; border: 4px solid #e8a86a; display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: bold; color: #d9622b; }
+  @media (prefers-reduced-motion: reduce) { #splash .sp-pet { animation: none; } }
 </style>
 </head>
 <body>
+<div id="splash" role="status" aria-label="Đang tải">
+  <h1>Sự Thảy</h1>
+  <div class="sp-island"><div class="sp-row"><i class="sp-pet"></i><i class="sp-pet"></i><i class="sp-pet"></i><i class="sp-pet"></i></div></div>
+  <div class="sp-count" id="sp-count">30</div>
+  <p id="sp-say">Chờ chút nhé, game sắp mở...</p>
+</div>
+<script>
+  // The splash counts down 30 seconds while the game loads; past that it says the board is being set up.
+  (function () {
+    var n = 30, c = document.getElementById('sp-count'), say = document.getElementById('sp-say');
+    var t = setInterval(function () {
+      if (!document.getElementById('splash')) { clearInterval(t); return; }
+      n -= 1;
+      if (n > 0) { c.textContent = n; return; }
+      clearInterval(t); c.style.display = 'none'; say.textContent = 'Đang chuẩn bị bàn cờ...';
+    }, 1000);
+  })();
+</script>
 <canvas id="game"></canvas>
 <script type="module" src="./src/main.ts"></script>
 </body>

@@ -5,7 +5,13 @@
 import { defineConfig } from 'vitest/config';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 
+/** Where the online rooms are when the page is served elsewhere: Vercel serves the page and Render runs the
+ * room server (server/server.mjs), which sleeps when nobody plays. ROOM_SERVER overrides it; a build on
+ * Render itself, or anywhere else, leaves it empty and uses the page's own host. */
+const ROOM_SERVER = process.env.ROOM_SERVER ?? (process.env.VERCEL ? 'https://ty-phu-dat-viet-oizq.onrender.com' : '');
+
 export default defineConfig(({ mode }) => ({
+  define: { __ROOM_SERVER__: JSON.stringify(ROOM_SERVER) },
   // Relative paths, so the build works from any folder, itch.io included.
   base: './',
   // Assets are imported in the code (new URL('../assets/x.png', import.meta.url)),

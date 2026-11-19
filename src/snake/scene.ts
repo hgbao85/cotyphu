@@ -19,8 +19,9 @@ import { openSettings } from '../ui/settings';
 import { LEAVE_LOCAL, CHANGE_PLAYERS } from '../ui/words';
 import { wideSpeedSpot, phoneRow, resultsBox, mostOf, drawSummary, drawOrderMark } from '../ui/gameChrome';
 import { makeTips } from '../ui/gameTips';
-import { tiltOf, tiltAngle, type Tilt, type Spot } from '../ui/tilt';
-import { figure, drawFigure } from '../three/figureSprites';
+import { board3d, type BoardSpot } from '../three/board3d';
+import { buildViewButtons, viewKeys, viewRow } from '../ui/viewButtons';
+import { useView } from '../ui/viewGestures';
 
 /** First-game tips, as Cờ Tỷ Phú's: the first throw, and waiting to come on when that rule is on. */
 const tips = makeTips('snake:', {
@@ -56,11 +57,15 @@ const PX = 740, PWD = 1280 - 740;
 const cellSize = (): number => boardRect().s / 10;
 /** The flat board's margin around the grid (its frame and the snakes' heads), a share of its side. */
 const PAD = 0.03;
-/** The board seen tilted, as Cờ Tỷ Phú's table (src/ui/tilt.ts): the grid and its margin. */
-const tilt = (): Tilt => { const b = boardRect(), p = b.s * PAD; return tiltOf('snake', { x: b.x - p, y: b.y - p, s: b.s + p * 2 }, phone()); };
+/** The board in 3D (src/three/board3d.ts): the flat picture with its margin as the face of a board,
+ * seen from the player's own view (turned, tilted, zoomed). */
+const B = board3d('snake', '#5f9e45');
+/** Where the board is on the screen: the 3D picture fills the board's side; the usual view fits the grid and its margin. */
+const viewRect = () => (phone() ? { x: 0, y: 46, w: W, h: 482 } : { x: 0, y: 0, w: PX, h: H });
+function syncView(): void { const b = boardRect(), p = b.s * PAD; B.frame(viewRect(), { x: b.x - p, y: b.y - p, s: b.s + p * 2 }, phone()); }
 /** A point of the grid (rows and columns, as fractions) on the screen, and how big things are there (k:
  * 1 is the flat board's size; the far side smaller). */
-function at(r: number, c: number): Spot { const n = 1 + PAD * 2; return tilt().project((PAD + c / 10) / n, (PAD + r / 10) / n); }
+function at(r: number, c: number): BoardSpot { const n = 1 + PAD * 2; return B.project((PAD + c / 10) / n, (PAD + r / 10) / n); }
 /** The centre of cell n, as grid fractions. */
 function centre(n: number): { r: number; c: number } { const g = gridOf(Math.max(1, n)); return { r: g.r + 0.5, c: g.c + 0.5 }; }
 
@@ -139,14 +144,14 @@ function drawBoardInto(c: CanvasRenderingContext2D, s: number): void {
 }
 /** Copies the board, drawn once at the screen's pixel size. */
 function drawBoard(): void {
-  const b = boardRect(), px = Math.round(b.s * screenScale), key = `${px}`;
+  const b = boardRect(), px = Math.min(2048, Math.round(b.s * screenScale * (B.live ? 2 : 1))), key = `${px}`;
   if (!boardCache || key !== cacheKey) {
     const pad = Math.round(px * PAD);
     boardCache = document.createElement('canvas'); boardCache.width = boardCache.height = px + pad * 2;
     const c = boardCache.getContext('2d')!; c.translate(pad, pad); c.scale(px / b.s, px / b.s);
     drawBoardInto(c, b.s); cacheKey = key;
   }
-  tilt().draw(ctx, boardCache); // the flat board with its margin, seen tilted
+  B.drawBoard(ctx, boardCache); // the flat board with its margin, as the face of the 3D board
 }
 
 // ---- Pieces ------------------------------------------------------------------------------------
@@ -162,16 +167,15 @@ function drawPiece(x: number, y: number, size: number, seat: number, animal: num
   ctx.restore();
   drawTokenIcon(animal, x, y - lift - size * 0.02, size * 0.86, S.color, mood ?? (glow ? 'happy' : undefined));
 }
-/** A piece standing on the board: Cờ Tỷ Phú's 3D figure of the player's animal in the seat's colour, its shadow
- * and (whose turn) a glowing ring on the board under it. The flat token without WebGL. */
-function drawBoardPiece(x: number, y: number, size: number, seat: number, animal: number, lift: number, glow: number, mood?: 'happy' | 'sad'): void {
-  const f = figure(animal, SEATS[seat].color, tiltAngle(phone()));
-  if (!f) { drawPiece(x, y, size, seat, animal, lift, glow, mood); return; }
+/** A piece standing on the board: its shadow and (whose turn) a glowing ring drawn on the board now, Cờ Tỷ
+ * Phú's 3D figure of the player's animal queued (B.flush draws the figures over the board's marks). */
+function drawBoardPiece(at: BoardSpot, size: number, seat: number, animal: number, lift: number, glow: number, mood?: 'happy' | 'sad'): void {
+  const x = at.x, y = at.y;
   ctx.save();
   ctx.fillStyle = 'rgba(40,60,30,0.3)'; ctx.beginPath(); ctx.ellipse(x, y, size * 0.4 * (1 - Math.min(0.5, lift / size)), size * 0.17, 0, 0, 7); ctx.fill();
   if (glow) { ctx.strokeStyle = `rgba(255,236,120,${0.5 + 0.5 * glow})`; ctx.lineWidth = size * 0.1; ctx.beginPath(); ctx.ellipse(x, y, size * 0.52, size * 0.24, 0, 0, 7); ctx.stroke(); }
   ctx.restore();
-  drawFigure(ctx, f, x, y, size * 1.1, lift); // as big on its cell as Cờ Tỷ Phú's pieces on their tiles
+  B.piece(at, size, lift, SEATS[seat].color, SEATS[seat].dark, animal, mood); // as big on its cell as Cờ Tỷ Phú's pieces on their tiles
 }
 /** Where a player's piece is drawn now (grid fractions and lift): hopping, on a ladder or snake, or standing. */
 function piecePos(pi: number): { r: number; c: number; lift: number } {
@@ -199,21 +203,22 @@ function standSpot(pi: number, pos: number): { r: number; c: number } {
 }
 function drawPieces(): void {
   const cs = cellSize();
-  const list = G.players.map((p, pi) => { const q = piecePos(pi), s = at(q.r, q.c); return { p, pi, x: s.x, y: s.y, k: s.k, lift: q.lift * cs * s.k }; });
+  const list = G.players.map((p, pi) => { const q = piecePos(pi), s = at(q.r, q.c); return { p, pi, s, x: s.x, y: s.y, k: s.k, lift: q.lift * cs * s.k }; });
   list.sort((a, b) => (a.pi === G.cur ? 1 : 0) - (b.pi === G.cur ? 1 : 0) || a.y - b.y); // whose turn on top
   for (const it of list) {
     const cur = it.pi === G.cur && G.phase !== 'over', crowd = G.players.filter(q => q.pos === it.p.pos).length > 1 && !(G.hop?.pi === it.pi) || it.p.pos === 0;
     const ck = cs * it.k; // a cell's size where the piece stands: the far side smaller
     const bob = cur && prefs.effects && (G.phase === 'roll' || G.phase === 'shake') ? Math.abs(Math.sin(G.t * 5)) * ck * 0.12 : 0;
     const sad = G.slide?.pi === it.pi && G.slide.link.kind === 'snake';
-    drawBoardPiece(it.x, it.y, ck * (crowd ? 0.56 : 0.8), it.p.seat, it.p.animal, it.lift + bob, cur ? 0.5 + 0.5 * Math.sin(G.t * 6) : 0, sad ? 'sad' : G.slide?.pi === it.pi ? 'happy' : undefined);
+    drawBoardPiece(it.s, ck * (crowd ? 0.56 : 0.8), it.p.seat, it.p.animal, it.lift + bob, cur ? 0.5 + 0.5 * Math.sin(G.t * 6) : 0, sad ? 'sad' : G.slide?.pi === it.pi ? 'happy' : undefined);
   }
+  B.flush(ctx); // the figures, over the board's marks; the words float above them
   for (const f of G.floaters) {
     const u = f.t / 1.4, b = boardRect();
     let x: number, y: number;
     if (f.pi >= 0) { const q = piecePos(f.pi), s = at(q.r, q.c); x = s.x; y = s.y - cs * 0.8 - u * cs * 0.8; }
     else { const m = at(5, 5); x = m.x; y = m.y - u * cs; } // about the throw: the middle of the board, clear of the panel
-    if (f.pi >= 0) x = Math.max(b.x + cs * 1.4, Math.min(b.x + b.s - cs * 1.4, x)), y = Math.max(tilt().top + cs * 0.4, y);
+    if (f.pi >= 0) x = Math.max(b.x + cs * 1.4, Math.min(b.x + b.s - cs * 1.4, x)), y = Math.max(B.topY() + cs * 0.4, y);
     ctx.save(); ctx.globalAlpha = 1 - Math.max(0, u - 0.6) / 0.4;
     ctx.font = `bold ${Math.round(Math.max(18, cs * 0.42))}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.lineWidth = 6; ctx.strokeStyle = '#fff6e2'; ctx.strokeText(f.text, x, y);
@@ -495,6 +500,10 @@ function buildPlay(): void {
     if (ph) { const r = phoneRow(); btn(W / 2 - 52, r.y, 104, r.h, 'Biểu cảm', on.extras.toggleEmotes, '', true, '#8a5a2a'); }
     else btn(W - 214, LOG_Y - 14, 88, 28, 'Biểu cảm', on.extras.toggleEmotes, 'room', true, '');
   }
+  if (B.live) { // the view: zoom, turn, back (a phone pinches to zoom: turn and back sit in its row's gaps)
+    const r = phoneRow();
+    buildViewButtons(btn, B.orbit, ph ? [null, null, { x: 124, y: r.y, w: 56, h: r.h }, { x: 300, y: r.y, w: 56, h: r.h }] : viewRow(14, 676), ph ? '' : 'room', ph ? '#6a4a2a' : '');
+  }
   if (G.vote) { on.extras.buildOverlay(); return; } // the vote for a new game, over everything
   if (F.roomMenu) {
     const y = ph ? H / 2 : 400;
@@ -633,21 +642,23 @@ function turnSpeed(): number {
 /** The two screens of Rắn và Thang, for main.ts's scene table. */
 export const snakeScenes: Record<string, { update(dt: number): void; draw(): void }> = {
   snakeSetup: {
-    update() { buildSetup(); handleTaps(); },
-    draw() { drawSetup(); },
+    update() { syncView(); buildSetup(); handleTaps(); },
+    draw() { syncView(); drawSetup(); },
   },
   snake: {
     update(dt: number) {
       if (!ready()) { if (on.isGuest()) return; setScene('snakeSetup'); return; }
+      syncView(); B.orbit.step(dt);
       buildPlay(); handleTaps();
       if (scene !== 'snake') return;
+      if (B.live && !F.roomMenu && !G.vote && !F.emoteMenu && !F.picker) { useView({ orbit: B.orbit, cam: () => B.cam, rect: viewRect() }); viewKeys(B.orbit, pressed); } // the player turns and zooms their own view
       on.extras.step(dt); // the bubbles age; the host runs the vote's clock
       if (on.isGuest()) { G.t += dt; if (G.hop) G.hop.t = Math.min(G.hop.t + dt, tune.snake_hop_time); if (G.slide) G.slide.t = Math.min(G.slide.t + dt, tune.snake_slide_time); if (G.throwAt) G.throwAt.t += dt; if (G.shake) G.shake.t += dt; if (G.show) G.show.t += dt; for (const f of G.floaters) f.t += dt; return; }
       gameStep(dt * turnSpeed(), holding(), on.peerOnline); // the computer's turns at the chosen speed
     },
     draw() {
       if (!ready()) { clear('#bfe6f5'); text('Đang tải ván...', W / 2, H / 2, 22, '#4a3020', 'center', 'bold'); return; }
-      drawPlay();
+      syncView(); drawPlay();
     },
   },
 };

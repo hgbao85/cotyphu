@@ -11,8 +11,9 @@ const plastic = (c: THREE.ColorRepresentation): Mat => new THREE.MeshPhongMateri
  * @param a the animal, 0 Chuột ... 11 Heo (ANIMALS in game/data.ts)
  * @param color its colour
  * @param shadows whether the parts cast and take shadows
+ * @param detail how round the spheres are (1: Cờ Tỷ Phú's; lower for boards with many pieces)
  */
-export function makeAnimal(a: number, color: string, shadows = true): THREE.Group {
+export function makeAnimal(a: number, color: string, shadows = true, detail = 1): THREE.Group {
   const g = new THREE.Group();
   const col = new THREE.Color(color), dark = col.clone().multiplyScalar(0.62), light = col.clone().lerp(new THREE.Color(0xffffff), 0.45);
   const m = plastic(col), md = plastic(dark), ml = plastic(light);
@@ -21,7 +22,7 @@ export function makeAnimal(a: number, color: string, shadows = true): THREE.Grou
     const o = new THREE.Mesh(geo, mt); o.position.set(x, y, z); o.scale.set(sx, sy, sz); o.rotation.set(rx, ry, rz);
     o.castShadow = shadows; o.receiveShadow = shadows; g.add(o); return o;
   };
-  const S = (r: number) => new THREE.SphereGeometry(r, 18, 14);
+  const S = (r: number) => new THREE.SphereGeometry(r, Math.max(6, Math.round(18 * detail)), Math.max(4, Math.round(14 * detail)));
   const both = (f: (s: number) => void) => { f(-1); f(1); };
 
   add(new THREE.CylinderGeometry(0.2, 0.24, 0.07, 24), md, 0, 0.035, 0); // the base

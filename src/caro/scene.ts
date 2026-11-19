@@ -19,8 +19,9 @@ import { openSettings } from '../ui/settings';
 import { LEAVE_LOCAL, CHANGE_PLAYERS } from '../ui/words';
 import { wideSpeedSpot, phoneRow, resultsBox, drawSummary, drawOrderMark } from '../ui/gameChrome';
 import { makeTips } from '../ui/gameTips';
-import { tiltOf, tiltAngle, type Tilt, type Spot } from '../ui/tilt';
-import { figure, drawFigure } from '../three/figureSprites';
+import { board3d, type BoardSpot } from '../three/board3d';
+import { buildViewButtons, viewKeys, viewRow } from '../ui/viewButtons';
+import { useView } from '../ui/viewGestures';
 import { speedNow, cycleSpeed } from '../core/speed';
 import { showOnlinePanel } from '../net/room';
 import { G, setG, SEATS, LV_NAMES, caroSetup, newGame, playAgain, tryPlace, startShake, shakePower, orderDice, curP, step as gameStep, rulesNow, autoPlays, cellName } from './game';
@@ -59,20 +60,21 @@ const N = (): number => G?.size ?? rulesNow().size;
 const cellSize = (): number => boardRect().s / N();
 /** The flat board's margin around the grid (its frame and the column letters), a share of its side. */
 const PAD = 0.05;
-/** The board seen tilted, as Cờ Tỷ Phú's table (src/ui/tilt.ts): the grid and its margin. */
-const tilt = (): Tilt => { const b = boardRect(), p = b.s * PAD; return tiltOf('caro', { x: b.x - p, y: b.y - p, s: b.s + p * 2 }, phone()); };
+/** The board in 3D (src/three/board3d.ts): the flat picture with its margin as the face of a wooden board,
+ * seen from the player's own view (turned, tilted, zoomed). */
+const B = board3d('caro', '#b07a34');
+/** Where the board is on the screen: the 3D picture fills the board's side of the screen; the usual view fits the grid and its margin. */
+const viewRect = () => (phone() ? { x: 0, y: 46, w: W, h: 482 } : { x: 0, y: 0, w: PX, h: H });
+function syncView(): void { const b = boardRect(), p = b.s * PAD; B.frame(viewRect(), { x: b.x - p, y: b.y - p, s: b.s + p * 2 }, phone()); }
 /** A point of the grid (rows and columns, as fractions) on the screen, and how big things are there. */
-function at(r: number, c: number): Spot { const n = 1 + PAD * 2, k = N(); return tilt().project((PAD + c / k) / n, (PAD + r / k) / n); }
+function at(r: number, c: number): BoardSpot { const n = 1 + PAD * 2, k = N(); return B.project((PAD + c / k) / n, (PAD + r / k) / n); }
 /** The centre of a cell on the screen. */
-const cellSpot = (cell: number): Spot => at(Math.floor(cell / N()) + 0.5, (cell % N()) + 0.5);
-/** The cell under a point of the screen, or -1 (the tilt undone: the row from the height, then the column). */
+const cellSpot = (cell: number): BoardSpot => at(Math.floor(cell / N()) + 0.5, (cell % N()) + 0.5);
+/** The cell under a point of the screen, or -1. */
 function cellAt(x: number, y: number): number {
-  const T = tilt(), n = 1 + PAD * 2, k = N();
-  if (y < T.top || y > T.bottom) return -1;
-  let lo = 0, hi = 1;
-  for (let i = 0; i < 30; i++) { const m = (lo + hi) / 2; if (T.project(0.5, m).y < y) lo = m; else hi = m; }
-  const v = (lo + hi) / 2, a = T.project(0, v).x, b = T.project(1, v).x, u = (x - a) / (b - a);
-  const r = Math.floor((v * n - PAD) * k), c = Math.floor((u * n - PAD) * k);
+  const q = B.unproject(x, y), n = 1 + PAD * 2, k = N();
+  if (!q) return -1;
+  const r = Math.floor((q.v * n - PAD) * k), c = Math.floor((q.u * n - PAD) * k);
   return r >= 0 && c >= 0 && r < k && c < k ? r * k + c : -1;
 }
 
@@ -101,14 +103,14 @@ function drawBoardInto(c: CanvasRenderingContext2D, s: number, k: number): void 
 }
 /** Copies the board, drawn once at the screen's pixel size. */
 function drawBoard(): void {
-  const b = boardRect(), px = Math.round(b.s * screenScale), key = `${px}:${N()}`;
+  const b = boardRect(), px = Math.min(2048, Math.round(b.s * screenScale * (B.live ? 2 : 1))), key = `${px}:${N()}`;
   if (!boardCache || key !== cacheKey) {
     const pad = Math.round(px * PAD);
     boardCache = document.createElement('canvas'); boardCache.width = boardCache.height = px + pad * 2;
     const c = boardCache.getContext('2d')!; c.translate(pad, pad); c.scale(px / b.s, px / b.s);
     drawBoardInto(c, b.s, N()); cacheKey = key;
   }
-  tilt().draw(ctx, boardCache);
+  B.drawBoard(ctx, boardCache);
 }
 
 // ---- Pieces ------------------------------------------------------------------------------------
@@ -124,15 +126,15 @@ function drawPiece(x: number, y: number, size: number, seat: number, animal: num
   ctx.restore();
   drawTokenIcon(animal, x, y - lift - size * 0.02, size * 0.86, S.color, mood ?? (glow ? 'happy' : undefined));
 }
-/** A piece standing on the board: Cờ Tỷ Phú's 3D figure in the seat's colour with its shadow; the flat token without WebGL. */
-function drawBoardPiece(x: number, y: number, size: number, seat: number, animal: number, lift: number, glow: number, mood?: 'happy' | 'sad'): void {
-  const f = figure(animal, SEATS[seat].color, tiltAngle(phone()));
-  if (!f) { drawPiece(x, y, size, seat, animal, lift, glow, mood); return; }
+/** A piece standing on the board: its shadow and (glow) a ring drawn on the board now, the 3D figure queued
+ * (B.flush draws the figures over the board's marks). */
+function drawBoardPiece(at: BoardSpot, size: number, seat: number, animal: number, lift: number, glow: number, mood?: 'happy' | 'sad'): void {
+  const x = at.x, y = at.y;
   ctx.save();
   ctx.fillStyle = 'rgba(40,60,30,0.3)'; ctx.beginPath(); ctx.ellipse(x, y, size * 0.4 * (1 - Math.min(0.5, lift / (size * 3))), size * 0.17, 0, 0, 7); ctx.fill();
   if (glow) { ctx.strokeStyle = `rgba(255,236,120,${0.5 + 0.5 * glow})`; ctx.lineWidth = size * 0.12; ctx.beginPath(); ctx.ellipse(x, y, size * 0.52, size * 0.24, 0, 0, 7); ctx.stroke(); }
   ctx.restore();
-  drawFigure(ctx, f, x, y, size * 1.1, lift);
+  B.piece(at, size, lift, SEATS[seat].color, SEATS[seat].dark, animal, mood);
 }
 /** The winning row: a golden band through its cells, under the pieces. */
 function drawWinLine(): void {
@@ -163,7 +165,7 @@ function aimCell(): number {
   return c >= 0 && G.board[c] === EMPTY ? c : -1;
 }
 function drawPieces(): void {
-  const cs = cellSize(), list: { cell: number; who: number; s: Spot }[] = [];
+  const cs = cellSize(), list: { cell: number; who: number; s: BoardSpot }[] = [];
   G.board.forEach((who, cell) => { if (who !== EMPTY) list.push({ cell, who, s: cellSpot(cell) }); });
   list.sort((a, b) => a.s.y - b.s.y); // the far ones first
   const win = new Set(G.line ?? []);
@@ -173,8 +175,9 @@ function drawPieces(): void {
     if (G.drop?.cell === it.cell) { const u = Math.min(1, G.drop.t / tune.caro_place_time); lift = (1 - u) * (1 - u) * ck * 3; }
     const glow = win.has(it.cell) ? 0.5 + 0.5 * Math.sin(G.t * 6) : 0;
     const mood = G.phase === 'over' && !G.draw ? (it.who === G.winner ? 'happy' : 'sad') : undefined;
-    drawBoardPiece(it.s.x, it.s.y, ck * 0.82, p.seat, p.animal, lift, glow, mood);
+    drawBoardPiece(it.s, ck * 0.82, p.seat, p.animal, lift, glow, mood);
   }
+  B.flush(ctx); // the figures, over the board's marks; the words float above them
   for (const f of G.floaters) {
     const u = f.t / 1.6, s = cellSpot(f.cell), y = s.y - cs * 1.2 - u * cs;
     ctx.save(); ctx.globalAlpha = 1 - Math.max(0, u - 0.6) / 0.4;
@@ -457,6 +460,10 @@ function buildPlay(): void {
     if (ph) { const r = phoneRow(); btn(W / 2 - 52, r.y, 104, r.h, 'Biểu cảm', on.extras.toggleEmotes, '', true, '#8a5a2a'); }
     else btn(W - 214, LOG_Y - 14, 88, 28, 'Biểu cảm', on.extras.toggleEmotes, 'room', true, '');
   }
+  if (B.live) { // the view: zoom, turn, back (a phone pinches to zoom: turn and back sit in its row's gaps)
+    const r = phoneRow();
+    buildViewButtons(btn, B.orbit, ph ? [null, null, { x: 124, y: r.y, w: 56, h: r.h }, { x: 300, y: r.y, w: 56, h: r.h }] : viewRow(14, 676), ph ? '' : 'room', ph ? '#6a4a2a' : '');
+  }
   if (G.vote) { on.extras.buildOverlay(); return; }
   if (F.roomMenu) {
     const y = ph ? H / 2 : 400;
@@ -615,21 +622,23 @@ function turnSpeed(): number {
 /** The two screens of Cờ Caro, for main.ts's scene table. */
 export const caroScenes: Record<string, { update(dt: number): void; draw(): void }> = {
   caroSetup: {
-    update() { buildSetup(); handleTaps(); },
-    draw() { drawSetup(); },
+    update() { syncView(); buildSetup(); handleTaps(); },
+    draw() { syncView(); drawSetup(); },
   },
   caro: {
     update(dt: number) {
       if (!ready()) { if (on.isGuest()) return; setScene('caroSetup'); return; }
+      syncView(); B.orbit.step(dt);
       buildPlay(); handleTaps();
       if (scene !== 'caro') return;
+      if (B.live && !F.roomMenu && !G.vote && !F.emoteMenu && !F.picker) { useView({ orbit: B.orbit, cam: () => B.cam, rect: viewRect() }); viewKeys(B.orbit, pressed); } // the player turns and zooms their own view
       on.extras.step(dt);
       if (on.isGuest()) { G.t += dt; G.timer += dt; if (G.drop) G.drop.t = Math.min(G.drop.t + dt, tune.caro_place_time); if (G.throwAt) G.throwAt.t += dt; if (G.shake) G.shake.t += dt; if (G.show) G.show.t += dt; for (const f of G.floaters) f.t += dt; return; }
       gameStep(dt * turnSpeed(), holding(), on.peerOnline);
     },
     draw() {
       if (!ready()) { clear('#bfe6f5'); text('Đang tải ván...', W / 2, H / 2, 22, '#4a3020', 'center', 'bold'); return; }
-      drawPlay();
+      syncView(); drawPlay();
     },
   },
 };

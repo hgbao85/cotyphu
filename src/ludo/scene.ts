@@ -19,8 +19,9 @@ import { openSettings } from '../ui/settings';
 import { LEAVE_LOCAL, CHANGE_PLAYERS } from '../ui/words';
 import { wideSpeedSpot, phoneRow, resultsBox, mostOf, drawSummary, drawOrderMark } from '../ui/gameChrome';
 import { makeTips } from '../ui/gameTips';
-import { tiltOf, tiltAngle, type Tilt, type Spot } from '../ui/tilt';
-import { figure, drawFigure } from '../three/figureSprites';
+import { board3d, type BoardSpot } from '../three/board3d';
+import { buildViewButtons, viewKeys, viewRow } from '../ui/viewButtons';
+import { useView } from '../ui/viewGestures';
 
 /** First-game tips, as Cờ Tỷ Phú's: the first throw, the first horse to pick. */
 const tips = makeTips('ludo:', {
@@ -51,11 +52,15 @@ function boardRect(): { x: number; y: number; s: number } {
 }
 /** The wide layout's panel. */
 const PX = 740, PWD = 1280 - 740;
-/** The board seen tilted, as Cờ Tỷ Phú's table (src/ui/tilt.ts). */
-const tilt = (): Tilt => tiltOf('ludo', boardRect(), phone());
+/** The board in 3D (src/three/board3d.ts): the flat picture as the face of a board, seen from the player's
+ * own view (turned, tilted, zoomed). */
+const B = board3d('ludo', '#5f9e45');
+/** Where the board is on the screen: the 3D picture fills the board's side; the usual view fits the board's square. */
+const viewRect = () => (phone() ? { x: 0, y: 46, w: W, h: 482 } : { x: 0, y: 0, w: PX, h: H });
+function syncView(): void { B.frame(viewRect(), boardRect(), phone()); }
 /** A point of the grid (rows and columns, as fractions) on the screen, and how big things are there (k:
  * 1 is the flat board's size; the far side smaller). */
-function at(r: number, c: number): Spot { return tilt().project(c / 15, r / 15); }
+function at(r: number, c: number): BoardSpot { return B.project(c / 15, r / 15); }
 const cellSize = (): number => boardRect().s / 15;
 /** The corner yard of each side: its top-left cell. */
 const YARD: [number, number][] = [[0, 0], [0, 9], [9, 9], [9, 0]];
@@ -137,13 +142,13 @@ function drawBoardInto(c: CanvasRenderingContext2D, s: number): void {
 }
 /** Copies the board, drawn once at the screen's pixel size. */
 function drawBoard(): void {
-  const b = boardRect(), px = Math.round(b.s * screenScale), key = `${px}`;
+  const b = boardRect(), px = Math.min(2048, Math.round(b.s * screenScale * (B.live ? 2 : 1))), key = `${px}`;
   if (!boardCache || key !== cacheKey) {
     boardCache = document.createElement('canvas'); boardCache.width = boardCache.height = px;
     const c = boardCache.getContext('2d')!; c.scale(px / b.s, px / b.s);
     drawBoardInto(c, b.s); cacheKey = key;
   }
-  tilt().draw(ctx, boardCache); // the flat board, seen tilted
+  B.drawBoard(ctx, boardCache); // the flat board, as the face of the 3D board
 }
 
 // ---- Horses ------------------------------------------------------------------------------------
@@ -159,33 +164,32 @@ function drawHorse(x: number, y: number, size: number, side: number, animal: num
   ctx.restore();
   drawTokenIcon(animal, x, y - lift - size * 0.02, size * 0.86, col, glow ? 'happy' : undefined);
 }
-/** A horse standing on the board: Cờ Tỷ Phú's 3D figure of the player's animal in the side's colour, its
- * shadow and (for a horse that may move) a glowing ring on the board under it. The flat token without WebGL. */
-function drawBoardHorse(x: number, y: number, size: number, side: number, animal: number, lift: number, glow: number): void {
-  const f = figure(animal, SIDES[side].color, tiltAngle(phone()));
-  if (!f) { drawHorse(x, y, size, side, animal, lift, glow); return; }
+/** A horse standing on the board: its shadow and (for a horse that may move) a glowing ring drawn on the
+ * board now, Cờ Tỷ Phú's 3D figure of the player's animal queued (B.flush draws the figures over the marks). */
+function drawBoardHorse(at: BoardSpot, size: number, side: number, animal: number, lift: number, glow: number): void {
+  const x = at.x, y = at.y;
   ctx.save();
   ctx.fillStyle = 'rgba(40,60,30,0.3)'; ctx.beginPath(); ctx.ellipse(x, y, size * 0.4 * (1 - Math.min(0.5, lift / size)), size * 0.17, 0, 0, 7); ctx.fill();
   if (glow) { ctx.strokeStyle = `rgba(255,236,120,${0.5 + 0.5 * glow})`; ctx.lineWidth = size * 0.1; ctx.beginPath(); ctx.ellipse(x, y, size * 0.52, size * 0.24, 0, 0, 7); ctx.stroke(); }
   ctx.restore();
-  drawFigure(ctx, f, x, y, size * 1.1, lift); // as big on its cell as Cờ Tỷ Phú's pieces on their tiles
+  B.piece(at, size, lift, SIDES[side].color, SIDES[side].dark, animal, glow ? 'happy' : undefined); // as big on its cell as Cờ Tỷ Phú's pieces on their tiles
 }
 /** Where a horse is drawn now: hopping, flying home after a kick, or standing (k: its size there). */
-function horsePos(pi: number, h: number): { x: number; y: number; lift: number; k: number } {
+function horsePos(pi: number, h: number): { x: number; y: number; lift: number; k: number; s: BoardSpot } {
   const p = G.players[pi], cs = cellSize();
   const hp = G.hop;
   if (hp && hp.pi === pi && hp.h === h && hp.path.length) {
     const a = spot(p.side, h, p.horses[h]), b = spot(p.side, h, hp.path[0]);
     const u = Math.min(1, hp.t / tune.ludo_hop_time), q = at(a.r + (b.r - a.r) * u, a.c + (b.c - a.c) * u);
-    return { x: q.x, y: q.y, lift: Math.sin(u * Math.PI) * cs * 0.55 * q.k, k: q.k };
+    return { x: q.x, y: q.y, lift: Math.sin(u * Math.PI) * cs * 0.55 * q.k, k: q.k, s: q };
   }
   const k = G.kicked.find(x => x.pi === pi && x.h === h);
   if (k) {
     const a = spot(p.side, h, k.from), b = nest(p.side, h), u = Math.min(1, k.t / 0.6), q = at(a.r + (b.r - a.r) * u, a.c + (b.c - a.c) * u);
-    return { x: q.x, y: q.y, lift: Math.sin(u * Math.PI) * cs * 2 * q.k, k: q.k };
+    return { x: q.x, y: q.y, lift: Math.sin(u * Math.PI) * cs * 2 * q.k, k: q.k, s: q };
   }
   const s = spot(p.side, h, p.horses[h]), q = at(s.r, s.c);
-  return { x: q.x, y: q.y, lift: 0, k: q.k };
+  return { x: q.x, y: q.y, lift: 0, k: q.k, s: q };
 }
 /** True when this screen chooses the current player's horse. */
 function myTurn(): boolean {
@@ -241,7 +245,8 @@ function drawHints(): void {
 function drawHorses(): void {
   drawHints();
   const cs = cellSize(), mv = movable();
-  const list: { pi: number; h: number; x: number; y: number; lift: number; k: number }[] = [];
+  const list: { pi: number; h: number; x: number; y: number; lift: number; k: number; s: BoardSpot }[] = [];
+  const labels: (() => void)[] = []; // the horses' numbers, drawn over the figures
   G.players.forEach((p, pi) => p.horses.forEach((_, h) => list.push({ pi, h, ...horsePos(pi, h) })));
   list.sort((a, b) => a.y - b.y); // the lower ones in front
   for (const it of list) {
@@ -250,9 +255,11 @@ function drawHorses(): void {
     const bob = mine && prefs.effects ? Math.abs(Math.sin(G.t * 5 + it.h)) * ck * 0.18 : 0;
     const breathe = prefs.effects && it.pi === G.cur && !mine ? Math.sin(G.t * 3 + it.h) * ck * 0.03 : 0;
     const chosen = mine && it.h === picked(); // the tapped horse, waiting for how far
-    drawBoardHorse(it.x, it.y, ck * (chosen ? 1.12 : 0.95), p.side, animalOf(p, p.side), it.lift + bob + breathe + (chosen ? ck * 0.2 : 0), mine ? (chosen ? 1 : 0.5 + 0.5 * Math.sin(G.t * 6)) : 0);
-    if (mine && mv.length > 1) text(String(it.h + 1), it.x + ck * 0.38, it.y - it.lift - bob - ck * 0.4, Math.round(ck * 0.36), '#4a3020', 'center', 'bold');
+    drawBoardHorse(it.s, ck * (chosen ? 1.12 : 0.95), p.side, animalOf(p, p.side), it.lift + bob + breathe + (chosen ? ck * 0.2 : 0), mine ? (chosen ? 1 : 0.5 + 0.5 * Math.sin(G.t * 6)) : 0);
+    if (mine && mv.length > 1) labels.push(() => text(String(it.h + 1), it.x + ck * 0.38, it.y - it.lift - bob - ck * 0.4, Math.round(ck * 0.36), '#4a3020', 'center', 'bold'));
   }
+  B.flush(ctx); // the figures, over the board's marks; their numbers and the words float above them
+  labels.forEach(f => f());
   for (const f of G.floaters) {
     const u = f.t / 1.4;
     const q = f.pi >= 0 ? horsePos(f.pi, f.h) : { ...at(7.5, 7.5), lift: cs * 1.4 * at(7.5, 7.5).k };
@@ -575,6 +582,10 @@ function buildPlay(): void {
     if (ph) { const r = phoneRow(); btn(W / 2 - 52, r.y, 104, r.h, 'Biểu cảm', on.extras.toggleEmotes, '', true, '#8a5a2a'); }
     else btn(W - 214, LOG_Y - 14, 88, 28, 'Biểu cảm', on.extras.toggleEmotes, 'room', true, '');
   }
+  if (B.live) { // the view: zoom, turn, back (a phone pinches to zoom: turn and back sit in its row's gaps)
+    const r = phoneRow();
+    buildViewButtons(btn, B.orbit, ph ? [null, null, { x: 124, y: r.y, w: 56, h: r.h }, { x: 300, y: r.y, w: 56, h: r.h }] : viewRow(14, 676), ph ? '' : 'room', ph ? '#6a4a2a' : '');
+  }
   if (G.vote) { on.extras.buildOverlay(); return; } // the vote for a new game, over everything
   if (F.roomMenu) { // leaving the game: asked once
     const y = ph ? H / 2 : 400;
@@ -722,21 +733,23 @@ function turnSpeed(): number {
 /** The two screens of Cá Ngựa, for main.ts's scene table. */
 export const ludoScenes: Record<string, { update(dt: number): void; draw(): void }> = {
   ludoSetup: {
-    update() { buildSetup(); handleTaps(); },
-    draw() { drawSetup(); },
+    update() { syncView(); buildSetup(); handleTaps(); },
+    draw() { syncView(); drawSetup(); },
   },
   ludo: {
     update(dt: number) {
       if (!ready()) { if (on.isGuest()) return; setScene('ludoSetup'); return; }
+      syncView(); B.orbit.step(dt);
       buildPlay(); handleTaps();
       if (scene !== 'ludo') return;
+      if (B.live && !F.roomMenu && !G.vote && !F.emoteMenu && !F.picker) { useView({ orbit: B.orbit, cam: () => B.cam, rect: viewRect() }); viewKeys(B.orbit, pressed); } // the player turns and zooms their own view
       on.extras.step(dt); // the bubbles age; the host runs the vote's clock
       if (on.isGuest()) { G.t += dt; if (G.hop) G.hop.t = Math.min(G.hop.t + dt, tune.ludo_hop_time); if (G.throwAt) G.throwAt.t += dt; if (G.shake) G.shake.t += dt; if (G.show) G.show.t += dt; for (const f of G.floaters) f.t += dt; return; }
       gameStep(dt * turnSpeed(), holding(), on.peerOnline); // the computer's turns at the chosen speed
     },
     draw() {
       if (!ready()) { clear('#bfe6f5'); text('Đang tải ván...', W / 2, H / 2, 22, '#4a3020', 'center', 'bold'); return; }
-      drawPlay();
+      syncView(); drawPlay();
     },
   },
 };

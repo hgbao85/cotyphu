@@ -26,6 +26,9 @@ import { buildVoteUI, startVote, leaveRoom, showOnlinePanel, lastRoom, rejoinRoo
 import { F } from './core/flags';
 import { buildTip, drawTip, tipNow } from './ui/tips';
 import { drawSummary } from './ui/summary';
+import { view as tableView } from './three/scene3d';
+import { buildViewButtons, viewKeys, viewRow } from './ui/viewButtons';
+import { useView, activeView } from './ui/viewGestures';
 import { redrawBoardFace, camera, aimCamera, boardPointAt, render3D, project, figItems, updateTokens, syncBuildings, hop, build3D, renderer, figCamera } from './three/scene3d';
 import { buildPropUI, openAnimalPicker, buildPicker, openSeatPicker, teamSpot, openPicker, clearSetupNote, drawNetBanner, drawPicker, handleInput, clearVis } from './ui/setupScreen';
 import { propRows, PROP_Y, PROP_ROW_H, lacquer, drawBoardView, drawPotLabel, drawDiceFeel, drawPopup, drawPanel, drawFloaters, drawInspect, messageBox, drawButton, drawTokenIcon } from './ui/draw';
@@ -41,6 +44,7 @@ import { openSettings } from './ui/settings';
 import { prefs } from './core/prefs';
 import { CHIBI } from './core/theme';
 import { hubScene } from './ui/hub';
+import { viewDown, viewMove, viewUp, viewCancel, viewWheel, viewTick } from './ui/viewGestures';
 import { ludoScenes, ludoNet, ludoView } from './ludo/scene';
 import { ludoSetup } from './ludo/game';
 import type { LudoSeat } from './ludo/rules';
@@ -125,12 +129,24 @@ function toLogical(e: { clientX: number; clientY: number }) {
   return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H };
 }
 export let pointerHeld = false;
-addEventListener('pointerdown', e => { startAudio(); pointerHeld = true; clicks.push(toLogical(e)); });
-addEventListener('pointerup', e => { pointerHeld = false; if (e.pointerType !== 'mouse') pointer = { x: -1, y: -1 }; }); // a finger leaves no hover behind
+/** True when a point is on one of this step's buttons. */
+const onButton = (p: { x: number; y: number }): boolean => F.ui.some(b => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h);
+// A press on a board that can be turned and zoomed (src/ui/viewGestures.ts) is the board's: dragging moves
+// the view, and the game hears it only as a tap when it lifts without moving. Every other press is a click at once.
+addEventListener('pointerdown', e => {
+  startAudio(); pointerHeld = true;
+  const p = toLogical(e);
+  if (!viewDown(e.pointerId, p.x, p.y, e.button, e.shiftKey, onButton(p))) clicks.push(p);
+});
+addEventListener('pointerup', e => {
+  pointerHeld = false;
+  const tap = viewUp(e.pointerId); if (tap) clicks.push(tap);
+  if (e.pointerType !== 'mouse') pointer = { x: -1, y: -1 }; // a finger leaves no hover behind
+});
 addEventListener('contextmenu', e => e.preventDefault()); // a long press shakes the dice, it opens no menu
-addEventListener('pointercancel', () => { pointerHeld = false; });
-addEventListener('pointermove', e => { pointer = toLogical(e); });
-addEventListener('wheel', e => { F.wheel += Math.sign(e.deltaY); }, { passive: true });
+addEventListener('pointercancel', e => { pointerHeld = false; viewCancel(e.pointerId); });
+addEventListener('pointermove', e => { pointer = toLogical(e); viewMove(e.pointerId, pointer.x, pointer.y); });
+addEventListener('wheel', e => { if (!viewWheel(pointer.x, pointer.y, e.deltaY)) F.wheel += Math.sign(e.deltaY); }, { passive: true });
 addEventListener('blur', () => { down.clear(); pointerHeld = false; });
 
 // ---- 2D UI ---------------------------------------------------------------------------
@@ -144,6 +160,15 @@ export function humanTurn(): boolean {
   if (!state || !state.players || state.phase === 'over') return false;
   const p = curP();
   return isGuest() ? p.id === mySeat : p.kind === 'human';
+}
+/** The view of the table (zoom, turn, back) as on the other games' boards, while nothing covers the board:
+ * buttons in the board's corner (a phone: turn and back at its top right, as the row under it is full),
+ * the keys, and the gestures (src/ui/viewGestures.ts). */
+function buildTableView() {
+  if (scene !== 'play' || !renderer || F.roomMenu || F.emoteMenu || F.picker || F.sheetOpen || state.vote) return;
+  buildViewButtons(btn, tableView, L.phone ? [null, null, { x: W - 128, y: L.by + 6, w: 56, h: 32 }, { x: W - 66, y: L.by + 6, w: 56, h: 32 }] : viewRow(706, 680));
+  useView({ orbit: tableView, cam: () => camera, rect: { x: L.bx, y: L.by, w: L.bw, h: L.bh } });
+  viewKeys(tableView, pressed);
 }
 function buildUI() {
   F.ui = [];
@@ -457,8 +482,9 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
   play: {
     update(dt: number) {
       if (!isGuest()) state.t += dt;
-      buildUI(); handleInput();
+      buildUI(); buildTableView(); handleInput();
       if (scene !== 'play') return;
+      tableView.step(dt); if (camera) aimCamera(); // the player's own view of the table, eased toward where the buttons sent it
       { // the tile under the mouse lights up and the cursor says it can be clicked
         const onBtn = F.ui.some(b => b.role !== 'hidden' && pointer.x >= b.x && pointer.x <= b.x + b.w && pointer.y >= b.y && pointer.y <= b.y + b.h);
         const pt = inBoard(pointer.x, pointer.y) && !onBtn ? boardPointAt(pointer.x, pointer.y) : null;
@@ -575,7 +601,7 @@ function updateTurn(dt: number) {
 // ---- Loop: fixed step, frame time clamped ---------------------------------------------
 function step() {
   if (pressed('KeyM')) { setMuted(!muted()); hit.delete('KeyM'); }
-  scenes[scene].update(STEP); netStep(); ludoNet(); snakeNet(); caroNet(); hit.clear();
+  viewTick(); scenes[scene].update(STEP); netStep(); ludoNet(); snakeNet(); caroNet(); hit.clear();
   if (events.length > EVENTS_KEPT) events.splice(0, events.length - EVENTS_KEPT);
 }
 let last = 0, acc = 0;
@@ -599,6 +625,10 @@ install({
   get ludo() { return ludoView(); },
   get snake() { return snakeView(); },
   get caro() { return caroView(); },
+  /** The board view the player can move now (any game), read-only: its turn, tilt, zoom and pan; null when none. */
+  get boardView() { const v = activeView(); return v ? { yaw: v.orbit.yaw, pitch: v.orbit.pitch, zoom: v.orbit.zoom, panX: v.orbit.panX, panZ: v.orbit.panZ, home: v.orbit.isHome(), rect: v.rect } : null; },
+  /** For checks: puts the board view the player can move now at once (turn and tilt in radians, zoom from 1). */
+  setBoardView(o: { yaw?: number; pitch?: number; zoom?: number }) { const v = activeView(); if (!v) return; const b = v.orbit; if (o.yaw !== undefined) b.yaw = b.yawT = o.yaw; if (o.pitch !== undefined) b.pitch = b.pitchT = o.pitch; if (o.zoom !== undefined) b.zoom = b.zoomT = o.zoom; b.aim(v.cam()); },
   /** For checks: where Cờ Caro's cell is on the screen (the layout's own coordinates), to tap it. */
   caroSpot(cell: number) { return caroSpot(cell); },
   /** For checks: Cờ Caro's seats for the next game, and its setup screen (where Enter starts it). */

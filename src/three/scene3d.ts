@@ -23,6 +23,7 @@ import { rawSfx, isGuest } from '../net/room';
 
 import { L, hoverTile } from '../main';
 import { applyMood } from './moods';
+import { OrbitView } from './orbitView';
 import { CHEAP } from '../core/env';
 import { CHIBI } from '../core/theme';
 import { prefs } from '../core/prefs';
@@ -41,12 +42,17 @@ export let dice3: THREE.Mesh[] = [], ring3: LooseMesh, flash3: LooseMesh, pick3:
 /** Frames the board for the layout: a phone's square view stands the camera a little further back. */
 export function aimCamera() {
   camera.aspect = L.bw / L.bh;
-  if (L.phone) { // a phone: steeper, so the board's far side is not squeezed, and back far enough to fit the width
-    const tilt = PHONE_CAM_TILT, d = PHONE_CAM_DIST * Math.max(1, 1 / camera.aspect);
-    camera.position.set(0, d * Math.sin(tilt), d * Math.cos(tilt) + 0.3); camera.lookAt(0, 0, 0.3);
-  } else { camera.position.set(0, 19.7, 13.75); camera.lookAt(0, 0, 0.5); }
+  view.aim(camera);
   camera.updateProjectionMatrix();
 }
+/** The usual camera: a wide screen from (0, 19.7, 13.75) looking at (0, 0, 0.5); a phone steeper, so the board's
+ * far side is not squeezed, and back far enough to fit the width. The point looked at turns with the board. */
+function usualCamera(yaw: number): { dist: number; tx: number; tz: number } {
+  const off = L.phone ? 0.3 : 0.5, dist = L.phone ? PHONE_CAM_DIST * Math.max(1, 1 / (L.bw / L.bh)) : Math.hypot(19.7, 13.75 - 0.5);
+  return { dist, tx: Math.sin(yaw) * off, tz: Math.cos(yaw) * off };
+}
+/** The player's own view of the table: turned, tilted, zoomed, panned (src/three/orbitView.ts). */
+export const view = new OrbitView(() => (L.phone ? PHONE_CAM_TILT : Math.atan2(19.7, 13.75 - 0.5)), yaw => usualCamera(yaw), BOARD_SIZE / 2, 0);
 /** The phone camera: its angle above the table (radians) and its distance on a square view. */
 const PHONE_CAM_TILT = 1.24, PHONE_CAM_DIST = 24.6;
 function sizeRenderer() {

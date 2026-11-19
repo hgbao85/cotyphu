@@ -1,4 +1,5 @@
-// The tilted board of Cá Ngựa and Rắn và Thang: the flat board seen from a camera above its near side,
+// The tilted board without WebGL (Cá Ngựa, Rắn và Thang, Cờ Caro; with WebGL they are real 3D boards,
+// src/three/board3d.ts, which also takes its usual camera angle from here): the flat board seen from a camera above its near side,
 // as Cờ Tỷ Phú's 3D table is (src/three/scene3d.ts aimCamera: about 55° on a wide screen, steeper on a
 // phone). The board is still drawn flat once (each game's own canvas); this file projects points of it to
 // the screen and draws that canvas as the tilted plane, strip by strip (canvas 2D has no perspective).
@@ -11,7 +12,7 @@ export interface Spot { x: number; y: number; k: number }
 const ANGLE_WIDE = Math.atan2(19.7, 13.75), ANGLE_PHONE = 1.24;
 /** The camera's distance, in board widths (Cờ Tỷ Phú's table: about 24 units from a board of about 11). */
 const DIST = 2.2;
-/** The camera's angle above the table, for pictures seen from it (the 3D pieces, src/three/figureSprites.ts). */
+/** The camera's angle above the table: the usual view of the 3D boards (src/three/board3d.ts). */
 export const tiltAngle = (phone: boolean): number => (phone ? ANGLE_PHONE : ANGLE_WIDE);
 
 /** A tilted view of a square board drawn in rect (its flat square on the screen). */

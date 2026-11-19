@@ -131,6 +131,8 @@ export interface GameState {
   diceSpin?: Loose[];
   diceShow?: Loose;
   shaking?: Loose;
+  /** The sweet zone of the throw to come, shown on the power gauge before the button is held (src/game/dice.ts). */
+  zone?: { a: number; b: number };
   rolledDouble: boolean;
   moveLeft: number;
   moveDir: number;

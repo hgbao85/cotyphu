@@ -39,6 +39,8 @@ export interface CaroGame {
   /** The last throw's dice, the shake in the hand, the dice tumbling, the total shown as they stop. */
   dice: number[];
   shake: { t: number; ai: boolean; holdFor: number; remote?: boolean; released?: boolean; zone?: Zone; power?: number } | null; // zone: the sweet zone; power: a friend's let-go power
+  /** The sweet zone of the throw to come, made when the throw comes: the gauge shows it before the button is held. */
+  zone?: Zone;
   throwAt: { t: number; dur: number; power: number; faces: number[][]; spin: number } | null;
   show: { t: number; dice: number[] } | null;
   /** The piece falling onto its cell. */
@@ -129,7 +131,7 @@ export function newGame(seed?: number, names: (string | undefined)[] = [], anima
 /** Starts shaking the dice for the order (a person holds; the computer holds for a moment of its own). */
 export function startShake(ai = false, aim?: number): void { // aim: the power a computer that aims wants (Khó)
   if (G.phase !== 'roll') return;
-  const zone = makeZone(); // the sweet zone of this shake (src/game/dice.ts)
+  const zone = G.zone ?? makeZone(); // the sweet zone shown since the throw came (src/game/dice.ts)
   G.shake = { t: 0, ai, holdFor: ai ? aiHold(curP().kind === 'ai' ? curP().lv : 1, zone, aim) : 0, zone };
   G.phase = 'shake';
 }
@@ -142,7 +144,7 @@ export const orderDice = (): number => (tune.caro_order_dice >= 2 ? 2 : 1);
 export function throwDice(): void {
   const power = shakePower(), n = orderDice();
   const hit = inZone(power, G.shake?.zone);
-  G.shake = null;
+  G.shake = null; G.zone = undefined; // the next throw gets a new zone
   if (hit) log(`${curP().name} thả trúng vùng đẹp!`);
   G.dice = throwWithZone(n, power, hit, (d: number[]) => d.reduce((a, b) => a + b, 0)); // a hard throw tends high, a soft one low; the sweet zone a little luckier (src/game/dice.ts)
   const dur = tune.dice_time * (0.75 + 0.6 * power);
@@ -223,6 +225,7 @@ export function step(dt: number, held: boolean, peerOnline: (id?: number) => boo
   if (G.show) G.show.t += dt;
   switch (G.phase) {
     case 'roll':
+      if (!G.zone) G.zone = makeZone(); // the throw's sweet zone, shown on the gauge before the button is held
       if (autoPlays(curP(), peerOnline) && G.timer >= tune.caro_ai_delay) startShake(true, curP().kind === 'ai' && curP().lv >= 2 ? 1 : undefined); // Khó shakes hard: the highest goes first
       break;
     case 'shake': {

@@ -45,6 +45,8 @@ export interface LudoGame {
    * brings a horse out spends both). */
   use: number[];
   shake: { t: number; ai: boolean; holdFor: number; remote?: boolean; released?: boolean; zone?: Zone; power?: number } | null; // zone: the sweet zone; power: a friend's let-go power
+  /** The sweet zone of the throw to come, made when the throw comes: the gauge shows it before the button is held. */
+  zone?: Zone;
   /** The throw in the air: how long it tumbles, how hard it was thrown, the faces it flickers through. */
   throwAt: { t: number; dur: number; power: number; faces: number[][]; spin: number } | null;
   /** The big numbers over the dice once they stop. */
@@ -139,7 +141,7 @@ function throwWorth(d: number[]): number {
 /** Starts shaking the die (a person holds; the computer holds for a moment of its own). */
 export function startShake(ai = false, aim?: number): void { // aim: the power a computer that aims wants (Khó)
   if (G.phase !== 'roll') return;
-  const zone = makeZone(); // the sweet zone of this shake (src/game/dice.ts)
+  const zone = G.zone ?? makeZone(); // the sweet zone shown since the throw came (src/game/dice.ts)
   G.shake = { t: 0, ai, holdFor: ai ? aiHold(curP().kind === 'ai' ? curP().lv : 1, zone, aim) : 0, zone };
   G.phase = 'shake';
 }
@@ -152,7 +154,7 @@ export const diceText = (d: number[]): string => d.join(' + ');
 export function throwDie(): void {
   const power = shakePower();
   const hit = inZone(power, G.shake?.zone);
-  G.shake = null;
+  G.shake = null; G.zone = undefined; // the next throw gets a new zone
   if (hit) floatDie('Trúng vùng đẹp!', '#c98f0a');
   const n = rulesNow().dice;
   G.dice = throwWithZone(n, power, hit, (d: number[]) => (G.order ? d[0] + (d[1] ?? 0) : throwWorth(d))); // a hard throw tends high, a soft one low; the sweet zone a little luckier (src/game/dice.ts)
@@ -265,6 +267,7 @@ export function step(dt: number, held: boolean, peerOnline: (id?: number) => boo
   const p = curP(), auto = autoPlays(p, peerOnline);
   switch (G.phase) {
     case 'roll':
+      if (!G.zone) G.zone = makeZone(); // the throw's sweet zone, shown on the gauge before the button is held
       if (auto && G.timer >= tune.ludo_ai_delay) startShake(true, aimPower(p));
       break;
     case 'shake': {

@@ -18,7 +18,7 @@ import { openPicker, buildPicker, drawPicker } from '../ui/setupScreen';
 import { openPage } from '../ui/pages';
 import { openSettings } from '../ui/settings';
 import { LEAVE_LOCAL, CHANGE_PLAYERS } from '../ui/words';
-import { wideSpeedSpot, phoneRow, resultsBox, mostOf, drawSummary, drawOrderMark, drawMeter, METER_W } from '../ui/gameChrome';
+import { wideSpeedSpot, phoneRow, resultsBox, mostOf, drawSummary, drawOrderMark, drawGauge, GAUGE_R } from '../ui/gameChrome';
 import { makeTips } from '../ui/gameTips';
 import { board3d, type BoardSpot } from '../three/board3d';
 import { buildViewButtons, viewKeys, viewRow } from '../ui/viewButtons';
@@ -280,11 +280,6 @@ function drawDie(): void {
     ctx.lineWidth = 8; ctx.strokeStyle = '#fff6e2'; ctx.strokeText(label, 0, 0);
     ctx.fillStyle = d.includes(6) ? '#d9442b' : '#4a3020'; ctx.fillText(label, 0, 0); ctx.restore();
   }
-  if (G.phase === 'shake' && G.shake && !G.shake.ai && (myTurn() || (!on.isGuest() && curP().kind === 'human'))) { // the power bar under the button
-    const c = controls(), w = c.bw, h = 10, pw = shakePower();
-    const own = on.isGuest() && on.guestShaking; // a friend: its own clock, no lag
-    drawMeter(c.bx + (c.bw - (rulesNow().dice > 1 ? 136 : 92) - METER_W) / 2, c.by + 68, METER_W, h, own ? on.guestPower() : pw, G.shake.zone, 0, false, false); // centred under the shake button, one length in every game; its words are on the button
-  }
 }
 
 // ---- Words -------------------------------------------------------------------------------------
@@ -340,6 +335,15 @@ function handleTaps(): void {
   if (F.picker && (pressed('Escape') || pressed('Enter'))) { F.picker = null; return; }
   if (pressed('Space') || pressed('Enter')) { const b = F.ui.find(x => x.role === 'primary' && x.enabled); if (b) press(b); }
   if (pressed('Escape') || pressed('KeyN')) { const b = F.ui.find(x => (x.role === 'secondary' || x.role === 'menuSecondary') && x.enabled); if (b) press(b); } // N / Esc: "bỏ qua", as in Cờ Tỷ Phú (and "Ở lại" under the leave menu)
+}
+/** The power gauge in the middle of the board, over everything: shown as soon as it is this screen's throw
+ * (the sweet zone to see before holding), and while it shakes (src/ui/gameChrome.ts drawGauge). */
+function drawPowerGauge(): void {
+  const mine = (myTurn() || (!on.isGuest() && curP().kind === 'human')), c = at(5, 5), gx = c.x, gy = c.y + GAUGE_R * 0.35;
+  if (G.phase === 'shake' && G.shake && !G.shake.ai && mine) {
+    const own = on.isGuest() && on.guestShaking, t = own ? on.guestShakeT() : G.shake.t; // a friend: its own clock, no lag
+    drawGauge(gx, gy, own ? on.guestPower() : shakePower(), G.shake.zone, false, tune.shake_max_time - t);
+  } else if (G.phase === 'roll' && G.zone && mine) drawGauge(gx, gy, 0, G.zone, true, 0);
 }
 /** The shake button's words while shaking: "let go now" over the sweet zone, else the seconds left. */
 function shakeLabel(): string {
@@ -549,6 +553,7 @@ function drawPlay(): void {
   drawBoard();
   drawPieces();
   if (phone()) drawPhonePanel(); else drawWidePanel();
+  drawPowerGauge();
   if (G.phase !== 'over') drawDie(); // a game over: the panel shows "Tổng kết ván" where the die sat
   else drawResults();
   F.ui.forEach(b => { if (b.role !== 'menu' && b.role !== 'menuSecondary') drawButton(b); });

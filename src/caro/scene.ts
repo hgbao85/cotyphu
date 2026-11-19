@@ -18,7 +18,7 @@ import { openPicker, buildPicker, drawPicker } from '../ui/setupScreen';
 import { openPage } from '../ui/pages';
 import { openSettings } from '../ui/settings';
 import { LEAVE_LOCAL, CHANGE_PLAYERS } from '../ui/words';
-import { wideSpeedSpot, phoneRow, resultsBox, drawSummary, drawOrderMark, drawMeter, METER_W } from '../ui/gameChrome';
+import { wideSpeedSpot, phoneRow, resultsBox, drawSummary, drawOrderMark, drawGauge, GAUGE_R } from '../ui/gameChrome';
 import { makeTips } from '../ui/gameTips';
 import { board3d, type BoardSpot } from '../three/board3d';
 import { buildViewButtons, viewKeys, viewRow } from '../ui/viewButtons';
@@ -239,11 +239,15 @@ function drawOrderDice(): void {
     ctx.lineWidth = 8; ctx.strokeStyle = '#fff6e2'; ctx.strokeText(String(total), 0, 0);
     ctx.fillStyle = '#4a3020'; ctx.fillText(String(total), 0, 0); ctx.restore();
   }
-  if (G.phase === 'shake' && G.shake && !G.shake.ai && myTurn()) { // the power bar under the button
-    const w = c.bw, h = 10, pw = shakePower();
-    const own = on.isGuest() && on.guestShaking; // a friend: its own clock, no lag
-    drawMeter(c.bx + (c.bw - (orderDice() > 1 ? 136 : 92) - METER_W) / 2, c.by + 68, METER_W, h, own ? on.guestPower() : pw, G.shake.zone, 0, false, false); // centred under the shake button, one length in every game; its words are on the button
-  }
+}
+/** The power gauge in the middle of the board, over everything: shown as soon as it is this screen's throw
+ * (the sweet zone to see before holding), and while it shakes (src/ui/gameChrome.ts drawGauge). */
+function drawPowerGauge(): void {
+  const mine = myTurn(), c = at(N() / 2, N() / 2), gx = c.x, gy = c.y + GAUGE_R * 0.35;
+  if (G.phase === 'shake' && G.shake && !G.shake.ai && mine) {
+    const own = on.isGuest() && on.guestShaking, t = own ? on.guestShakeT() : G.shake.t; // a friend: its own clock, no lag
+    drawGauge(gx, gy, own ? on.guestPower() : shakePower(), G.shake.zone, false, tune.shake_max_time - t);
+  } else if (G.phase === 'roll' && G.zone && mine) drawGauge(gx, gy, 0, G.zone, true, 0);
 }
 /** The shake button's words while shaking: "let go now" over the sweet zone, else the seconds left. */
 function shakeLabel(): string {
@@ -515,6 +519,7 @@ function drawPlay(): void {
   drawMarks();
   drawPieces();
   if (phone()) drawPhonePanel(); else drawWidePanel();
+  drawPowerGauge();
   drawOrderDice();
   if (resultsShown() && !resultsHidden) drawResults();
   F.ui.forEach(b => { if (b.role !== 'menu' && b.role !== 'menuSecondary') drawButton(b); });

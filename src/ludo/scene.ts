@@ -18,7 +18,7 @@ import { openPicker, buildPicker, drawPicker } from '../ui/setupScreen';
 import { openPage } from '../ui/pages';
 import { openSettings } from '../ui/settings';
 import { LEAVE_LOCAL, CHANGE_PLAYERS } from '../ui/words';
-import { wideSpeedSpot, phoneRow, resultsBox, mostOf, drawSummary, drawOrderMark, drawMeter, METER_W } from '../ui/gameChrome';
+import { wideSpeedSpot, phoneRow, resultsBox, mostOf, drawSummary, drawOrderMark, drawGauge, GAUGE_R } from '../ui/gameChrome';
 import { makeTips } from '../ui/gameTips';
 import { board3d, type BoardSpot } from '../three/board3d';
 import { buildViewButtons, viewKeys, viewRow } from '../ui/viewButtons';
@@ -327,12 +327,6 @@ function drawDiceTop(): void {
     ctx.fillStyle = dbl || (d.length === 1 && d[0] === 6) ? '#d9442b' : '#4a3020'; ctx.fillText(label, 0, 0); ctx.restore();
   }
 }
-/** The power bar while this screen's player shakes: under the shake button, over the panel (drawn after it). */
-function drawShakeMeter(): void {
-  if (!(G.phase === 'shake' && G.shake && !G.shake.ai && (myTurn() || (!on.isGuest() && curP().kind === 'human')))) return;
-  const ph = phone(), bx = ph ? 16 : PX + 40, bw = ph ? W - 32 : PWD - 80, by = ph ? H - 176 : 404, own = on.isGuest() && on.guestShaking; // a friend: its own clock, no lag
-  drawMeter(bx + (bw - METER_W) / 2, by + 68, METER_W, 10, own ? on.guestPower() : shakePower(), G.shake.zone, 0, false, false); // its words are on the shake button
-}
 
 // ---- Words: whose turn, what to do --------------------------------------------------------------
 /** The last throw in words. */
@@ -629,6 +623,15 @@ function shakeLabel(): string {
   if (inZone(pos, G.shake?.zone)) return 'Thả ngay: vùng đẹp!';
   return `Thả ra để thảy! · còn ${Math.max(0, Math.ceil(tune.shake_max_time - (own ? on.guestShakeT() : G.shake?.t ?? 0)))} giây`;
 }
+/** The power gauge in the middle of the board, over everything: shown as soon as it is this screen's throw
+ * (the sweet zone to see before holding), and while it shakes (src/ui/gameChrome.ts drawGauge). */
+function drawPowerGauge(): void {
+  const mine = (myTurn() || (!on.isGuest() && curP().kind === 'human')), c = at(7.5, 7.5), gx = c.x, gy = c.y + GAUGE_R * 0.35;
+  if (G.phase === 'shake' && G.shake && !G.shake.ai && mine) {
+    const own = on.isGuest() && on.guestShaking, t = own ? on.guestShakeT() : G.shake.t; // a friend: its own clock, no lag
+    drawGauge(gx, gy, own ? on.guestPower() : shakePower(), G.shake.zone, false, tune.shake_max_time - t);
+  } else if (G.phase === 'roll' && G.zone && mine) drawGauge(gx, gy, 0, G.zone, true, 0);
+}
 /** A friend's screen, or a check's: G arrives or is made before the first draw. */
 const ready = (): boolean => !!G && !!G.players && G.players.length > 0;
 function drawPlay(): void {
@@ -639,7 +642,7 @@ function drawPlay(): void {
   drawHorses();
   drawDiceTop();
   if (phone()) drawPhonePanel(); else drawWidePanel();
-  drawShakeMeter();
+  drawPowerGauge();
   if (G.phase === 'over') drawResults(); // the card first, its buttons over it
   F.ui.forEach(b => { if (b.role !== 'menu' && b.role !== 'menuSecondary') drawButton(b); });
   tips.draw(phone(), PX, F.ui);

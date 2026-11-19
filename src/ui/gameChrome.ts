@@ -46,29 +46,38 @@ export function drawOrderMark(o: OrderState, i: number, cur: boolean, x: number,
   if (v === best) icon.crown(ctx, cx, cy - s / 2 - 4, 16);
 }
 
-/** The power bar's length in every game, so aiming is as hard in each (a longer bar is a wider sweet zone). */
-export const METER_W = 300;
+/** The power gauge's radius in every game, so aiming is as hard in each (a bigger gauge is a wider sweet zone). */
+export const GAUGE_R = 110;
 /**
- * The power bar while a throw is being shaken (all four games): the track, the bar up to where it stands
- * now (pos 0..1, running up and down), the sweet zone outlined in gold (src/game/dice.ts makeZone), and
- * under it what to do and the seconds left before the dice go by themselves.
+ * The power gauge, in the middle of the board while this screen's player throws (all four games): a half
+ * circle from the left (no power) over the top to the right (full power), the sweet zone a gold stretch on it,
+ * the power a coloured stretch from the left up to where it stands (no needle: asked 19/11/2026). It shows as soon as it is the player's throw (idle: the needle at the
+ * start, "Giữ nút để lắc"), so the zone can be seen before the button is held; held, the colour runs up
+ * and down and the words say "Thả ngay!" over the zone, else the seconds left.
  */
-export function drawMeter(x: number, y: number, w: number, h: number, pos: number, zone: { a: number; b: number } | null | undefined, left: number, dark = false, label = true): void {
+export function drawGauge(cx: number, cy: number, pos: number, zone: { a: number; b: number } | null | undefined, idle: boolean, left: number): void {
+  const r = GAUGE_R, lw = r * 0.2, ang = (p: number) => Math.PI + Math.max(0, Math.min(1, p)) * Math.PI;
   ctx.save();
-  ctx.fillStyle = dark ? 'rgba(20,10,6,0.85)' : 'rgba(255,249,234,0.96)'; rrect(ctx, x - 4, y - 4, w + 8, h + 8, 8); ctx.fill();
-  ctx.strokeStyle = dark ? '#6a4a2a' : '#e8c9a0'; ctx.lineWidth = 1.5; ctx.stroke();
-  const g = ctx.createLinearGradient(x, 0, x + w, 0); g.addColorStop(0, '#8fd16a'); g.addColorStop(0.6, '#ffd84a'); g.addColorStop(1, '#ff7b6b');
-  ctx.fillStyle = g; rrect(ctx, x, y, Math.max(6, w * pos), h, Math.min(6, h / 2)); ctx.fill();
-  if (zone) { // the sweet zone: a gold frame with a soft glow
-    const zx = x + w * zone.a, zw = w * (zone.b - zone.a);
-    ctx.fillStyle = 'rgba(255,236,120,0.35)'; ctx.fillRect(zx, y - 3, zw, h + 6);
-    ctx.strokeStyle = '#d4a017'; ctx.lineWidth = 2.5; ctx.strokeRect(zx, y - 3, zw, h + 6);
+  ctx.fillStyle = 'rgba(255,249,234,0.88)'; // a soft half disc behind it, so it reads on any board
+  ctx.beginPath(); ctx.arc(cx, cy, r + lw * 0.9, Math.PI, 2 * Math.PI); ctx.lineTo(cx + r + lw * 0.9, cy + 26); ctx.lineTo(cx - r - lw * 0.9, cy + 26); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#e8c9a0'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = '#efe2c8'; ctx.lineWidth = lw; ctx.beginPath(); ctx.arc(cx, cy, r, Math.PI, 2 * Math.PI); ctx.stroke(); // the track
+  if (zone) { // the sweet zone: gold, outlined
+    ctx.lineCap = 'butt';
+    ctx.strokeStyle = '#c98f0a'; ctx.lineWidth = lw + 8; ctx.beginPath(); ctx.arc(cx, cy, r, ang(zone.a), ang(zone.b)); ctx.stroke();
+    ctx.strokeStyle = '#ffe27a'; ctx.lineWidth = lw + 2; ctx.beginPath(); ctx.arc(cx, cy, r, ang(zone.a), ang(zone.b)); ctx.stroke();
+    ctx.lineCap = 'round';
   }
-  const mx = x + w * pos; // where the bar stands: a marker over it
-  ctx.fillStyle = dark ? '#fff8e6' : '#4a3020';
-  ctx.beginPath(); ctx.moveTo(mx - 6, y - 9); ctx.lineTo(mx + 6, y - 9); ctx.lineTo(mx, y - 1); ctx.closePath(); ctx.fill();
+  if (!idle && pos > 0.005) { // how far the power has come: green to red, over the track and the zone, its tip marked
+    const g = ctx.createLinearGradient(cx - r, 0, cx + r, 0); g.addColorStop(0, '#8fd16a'); g.addColorStop(0.6, '#ffd84a'); g.addColorStop(1, '#ff7b6b');
+    ctx.strokeStyle = g; ctx.lineWidth = lw * 0.7; ctx.beginPath(); ctx.arc(cx, cy, r, Math.PI, ang(pos)); ctx.stroke();
+    const a = ang(pos);
+    ctx.fillStyle = '#fff8e6'; ctx.strokeStyle = '#4a3020'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(cx + Math.cos(a) * r, cy + Math.sin(a) * r, lw * 0.42, 0, 7); ctx.fill(); ctx.stroke();
+  }
   ctx.restore();
-  if (!label) return; // the game says it elsewhere (on its shake button)
-  const hit = zone && pos >= zone.a && pos <= zone.b;
-  text(hit ? 'Thả ngay: đang ở vùng đẹp!' : `Thả ra để ném · còn ${Math.max(0, Math.ceil(left))} giây`, x + w / 2, y + h + 16, 14, hit ? '#c98f0a' : dark ? '#fff8e6' : '#6a4a32', 'center', 'bold');
+  const hit = !idle && zone && pos >= zone.a && pos <= zone.b;
+  text(idle ? 'Giữ nút để lắc' : hit ? 'Thả ngay!' : `còn ${Math.max(0, Math.ceil(left))} giây`, cx, cy - r * 0.3, idle ? 17 : 20, hit ? '#c98f0a' : '#4a3020', 'center', 'bold');
+  if (idle && zone) text('thả trúng vùng vàng: may hơn', cx, cy - r * 0.3 + 22, 13, '#8a6a4a', 'center');
 }

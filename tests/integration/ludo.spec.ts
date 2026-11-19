@@ -274,7 +274,7 @@ test('in a game, a full shake throws higher than a flick (the dice follow the sh
       if (v.winner >= 0) { newGame(); continue; }
       if (v.phase !== 'roll') { g.step(5, false); continue; }
       const who = v.cur;
-      g.press('Space'); g.hold('Space', true); g.step(who === 0 ? 59 : 2, false); g.hold('Space', false); // seat 1: let go at the top of the bar (it climbs for 1 s, then falls); seat 2: a flick
+      g.press('Space'); g.hold('Space', true); g.step(who === 0 ? 95 : 2, false); g.hold('Space', false); // seat 1: let go at the top of the bar (it climbs for 1.6 s, dice_meter_sweep, then falls); seat 2: a flick
       for (let k = 0; k < 400 && (g.snake.phase === 'shake' || g.snake.phase === 'dice'); k++) g.step(1, false); // until the dice land
       sums[who].push(g.snake.dice.reduce((a, b) => a + b, 0));
       g.step(5, false);

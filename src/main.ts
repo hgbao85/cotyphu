@@ -3,6 +3,7 @@
 // canvas each frame; the HUD, popups and buttons are drawn on top in 2D.
 // Design record: design/game-brief.md. Rules with no browser live in src/game/.
 
+import { makeZone } from './game/dice';
 import { CONFIG, tune } from './config';
 import { clock, install, params } from './hook';
 import { startAudio, setMuted, isMuted, sfx } from './audio';
@@ -209,6 +210,15 @@ function buildUI() {
   }
   if (humanTurn()) buildTurnUI();
 }
+/** True while this screen's throw shows its shake button(s): on wide they sit at the panel's foot, off the board. */
+export const shakeShown = (): boolean => humanTurn() && (state.phase === 'order' || state.phase === 'roll' || state.phase === 'jail');
+/** Where shake button k of n (1 or 2) sits: wide, at the foot of the right panel (the board keeps the gauge);
+ * phone, in the strip under the players, centred. */
+export function shakeSpot(k: number, n: number): { x: number; y: number; w: number; h: number } {
+  const x0 = L.phone ? 16 : PX + 16, w0 = L.phone ? W - 32 : PW - 32, y = L.phone ? L.rollY : H - 74, gap = 10;
+  const w = n > 1 ? (w0 - gap) / 2 : Math.min(w0, 320);
+  return { x: n > 1 ? x0 + k * (w + gap) : x0 + (w0 - w) / 2, y, w, h: 58 };
+}
 /** The buttons of the current player's turn: drawn when they play here, built unseen on the host
  * when a friend online plays, so the friend's act finds the same button. */
 export function buildTurnUI() {
@@ -217,13 +227,12 @@ export function buildTurnUI() {
   // several people on this screen: the shake button says whose turn it is
   const named = !isGuest() && state.players.filter(q => q.kind === 'human' && !q.bankrupt).length > 1;
   const shakeLabel = (alone: string) => state.shaking ? 'Thả ra để ném!' : named ? `${p.name}: giữ để lắc` : alone;
-  const sw = named ? 300 : 260;
   switch (state.phase) {
-    case 'order': btn(ax - sw / 2, ay, sw, 58, shakeLabel('Giữ để lắc chọn lượt'), () => startShake(), 'primary', true, '#c8201f', 'shake'); break;
-    case 'roll': btn(ax - sw / 2, ay, sw, 58, shakeLabel('Giữ để lắc xúc xắc'), () => startShake(), 'primary', true, '#c8201f', 'shake'); break;
-    case 'jail': {
-      btn(ax - 230, ay, 220, 54, state.shaking ? 'Thả ra để ném!' : 'Giữ lắc tìm đôi', () => startShake(), 'primary', true, '#c8201f', 'shake');
-      if (p.freeCards.length > 0) btn(ax + 10, ay, 220, 54, 'Dùng thẻ ra tù', payJail, '', true, undefined, 'jailCard');
+    case 'order': case 'roll': { const r = shakeSpot(0, 1); btn(r.x, r.y, r.w, r.h, shakeLabel(state.phase === 'order' ? 'Giữ để lắc chọn lượt' : 'Giữ để lắc xúc xắc'), () => startShake(), 'primary', true, '#c8201f', 'shake'); break; }
+    case 'jail': { // the free-card button beside it only when there is a card: the shake button alone stands in the middle
+      const two = p.freeCards.length > 0 && !state.shaking, a = shakeSpot(0, two ? 2 : 1);
+      btn(a.x, a.y, a.w, a.h, state.shaking ? 'Thả ra để ném!' : 'Giữ lắc tìm đôi', () => startShake(), 'primary', true, '#c8201f', 'shake');
+      if (two) { const b = shakeSpot(1, 2); btn(b.x, b.y, b.w, b.h, 'Dùng thẻ ra tù', payJail, '', true, undefined, 'jailCard'); }
       break;
     }
     case 'buy': { const t = TILES[state.popup.tile]; btn(ax - 230, by, 220, 54, `Mua ${money(t.p!)}`, doBuy, 'primary', p.cash >= t.p!, '#2f8a3a', 'buy'); btn(ax + 10, by, 220, 54, 'Bỏ qua', () => { log(`${p.name} bỏ qua ${t.n}.`); skip(); }, 'secondary', true, undefined, 'skip'); break; }
@@ -562,6 +571,8 @@ function updateTurn(dt: number) {
   if (state.vote) return; // the table is voting: the game waits
   state.timer += dt;
   if (state.diceShow) state.diceShow.t += dt;
+  // the next throw's sweet zone, made as soon as it is someone's throw: the gauge shows it before the button is held
+  if (!state.shaking && !state.zone && (state.phase === 'roll' || state.phase === 'order' || state.phase === 'jail')) state.zone = makeZone();
   if (state.shaking) {
     const sh = state.shaking; sh.t += dt; sh.rattle -= dt;
     if (sh.rattle <= 0) { sfx.rattle(sh.t); sh.rattle = 0.09; }

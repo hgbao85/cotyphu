@@ -19,13 +19,13 @@ import { owned, rentOf, shakePower, teamTag, maxRounds, hasKeep, rentPct, drawOr
 
 import { roomCode, isGuest } from '../net/room';
 import { meterPos } from '../game/dice';
-import { drawMeter, METER_W } from './gameChrome';
+import { drawGauge } from './gameChrome';
 import { F } from '../core/flags';
 import { CHIBI, themeCanvas } from '../core/theme';
 
 import { render3D, project, dice3, POT_X, renderer, POT_Z } from '../three/scene3d';
 import { fitText } from '../ui/setupScreen';
-import { muted, L, pointer, PX, PW, humanTurn } from '../main';
+import { muted, L, pointer, PX, PW, humanTurn, shakeShown } from '../main';
 import { rowSpot } from './phone';
 
 // ---- 2D drawing ----------------------------------------------------------------------
@@ -144,7 +144,7 @@ export const propArrowY = (n: number): number => PROP_Y + propRows(n) * PROP_ROW
 const panelLogTop = (n: number): number => PROP_Y + Math.max(1, propRows(n)) * PROP_ROW_H + (n > PROP_MAX_ROWS ? 30 : 0) + 14;
 /** The game's latest lines, newest at the top (as in Cá Ngựa and Rắn và Thang), filling the panel down to its foot. */
 function drawPanelLog(top: number) {
-  const x = PX + 14, w = PW - 28, bottom = H - 16, lineH = 20;
+  const x = PX + 14, w = PW - 28, bottom = H - 16 - (shakeShown() ? 74 : 0), lineH = 20; // above the shake button when it shows
   ctx.save(); ctx.fillStyle = 'rgba(10,5,3,0.35)'; rrect(ctx, x, top, w, bottom - top, 8); ctx.fill(); ctx.restore();
   text('Diễn biến', x + 8, top + 14, 15, '#f2c44a', 'left', 'bold');
   ctx.save(); ctx.font = `14px ${FONT}`;
@@ -157,10 +157,12 @@ function drawPanelLog(top: number) {
   lines.forEach((l, j) => text(l.s, x + 10, top + 38 + j * lineH, 14, l.last ? '#fff8e6' : '#cbb994', 'left'));
 }
 export function drawDiceFeel() {
-  if (state.shaking && !state.shaking.ai) { // the power bar under the shaking dice: it runs up and down, a sweet zone on it
+  // the power gauge in the middle of the board: from the moment it is this screen's throw (its zone to see), and while shaking
+  const gx = L.cx, gy = L.phone ? L.by + L.bh * 0.62 : L.bh * 0.5 + 50; // the half-disc's middle at the board's
+  if (state.shaking && !state.shaking.ai && (humanTurn() || (isGuest() && F.guestShaking))) {
     const own = isGuest() && F.guestShaking, t = own ? performance.now() / 1000 - F.guestShakeAt : state.shaking.t; // a friend's own clock: no lag
-    drawMeter(L.cx - METER_W / 2, L.powerY, METER_W, 16, own ? meterPos(t) : shakePower(), state.shaking.zone, tune.shake_max_time - t, !CHIBI);
-  }
+    drawGauge(gx, gy, own ? meterPos(t) : shakePower(), state.shaking.zone, false, tune.shake_max_time - t);
+  } else if (!state.shaking && state.zone && humanTurn() && (state.phase === 'roll' || state.phase === 'order' || state.phase === 'jail')) drawGauge(gx, gy, 0, state.zone, true, 0);
   const ds = state.diceShow;
   if (!ds || ds.t > 1.6) return;
   const s = project((dice3[0].position.x + dice3[1].position.x) / 2, BOARD_TOP + 1.1, (dice3[0].position.z + dice3[1].position.z) / 2);

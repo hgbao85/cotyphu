@@ -461,14 +461,14 @@ export function nextTurn() {
 // src/game/dice.ts, data/config.json dice_power_tilt).
 export function startShake(ai = false, aim?: number) { // aim: the power a computer that aims wants (Khó)
   if (state.shaking) return;
-  const zone = makeZone(); // the sweet zone of this shake (src/game/dice.ts)
+  const zone = state.zone ?? makeZone(); // the sweet zone shown since the throw came (src/game/dice.ts)
   state.shaking = { t: 0, ai, holdFor: ai ? aiHold(curP().lv ?? 1, zone, aim) : 0, rattle: 0, zone };
 }
 /** Where the power bar stands: the friend's own let-go power online, else the bar's place now (it runs up and down). */
 export function shakePower() { return state.shaking ? state.shaking.power ?? meterPos(state.shaking.t) : 0; }
 export function throwDice() {
   const pw = shakePower(), hit = inZone(pw, state.shaking?.zone), p = curP(), pi = state.cur;
-  state.shaking = null;
+  state.shaking = null; state.zone = undefined; // the next throw gets a new zone
   if (hit) log(`${p.name} thả trúng vùng đẹp!`);
   // let go in the sweet zone: maybe a second throw, the better one for the thrower kept (as Khó weighs it)
   const worth = (d: number[]) => (state.ordering ? d[0] + d[1] : p.inJail ? (d[0] === d[1] ? 1 : 0) : landingWorth(pi, (p.pos + d[0] + d[1]) % 40, d[0] + d[1]));

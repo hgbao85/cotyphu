@@ -3,14 +3,15 @@
 // through these, so a seed replays a game exactly. Values come from data/config.json (ludo_*).
 //
 // The board is a 15x15 grid. The track is the 52 cells around the cross; each side (0 left, 1 top,
-// 2 right, 3 bottom) starts 13 cells after the last, walks 50 cells to its gate (the cell at the
-// end of its own arm), then climbs its stable's 6 steps toward the centre.
-// A horse's progress p: -1 at home in its corner, 0..50 on the track, 51..56 on stable step 1..6.
+// 2 right, 3 bottom) comes out on the outer corner cell of its own arm, by its yard, walks the whole
+// way round to its gate (the middle cell at the end of that arm, the one before its start), then
+// climbs its stable's 6 steps toward the centre.
+// A horse's progress p: -1 at home in its corner, 0..51 on the track, 52..57 on stable step 1..6.
 
 /** One cell of the grid: row, column. */
 export type Cell = [number, number];
 
-/** The 52 track cells, clockwise from side 0's start. */
+/** The 52 track cells, clockwise from the cell after side 0's start (its start is the last). */
 export const TRACK: Cell[] = (() => {
   const t: Cell[] = [];
   for (let c = 1; c <= 5; c++) t.push([6, c]);
@@ -30,16 +31,16 @@ export const TRACK: Cell[] = (() => {
 })();
 /** How many cells the track has. */
 export const TRACK_LEN = TRACK.length; // 52
-/** The last progress on the track: the side's gate. */
-export const GATE = 50;
+/** The last progress on the track: the side's gate, one cell before its start. */
+export const GATE = 51;
 /** The stable's steps. */
 export const STEPS = 6;
 /** The last progress: the stable's top step. */
-export const TOP = GATE + STEPS; // 56
+export const TOP = GATE + STEPS; // 57
 
-/** Where a side's horses enter the track. */
-export const startOf = (side: number): number => side * 13;
-/** The track cell index of a side's progress p (0..50). */
+/** Where a side's horses enter the track: the outer corner cell of its arm, beside its yard. */
+export const startOf = (side: number): number => (side * 13 + 51) % 52;
+/** The track cell index of a side's progress p (0..51). */
 export const trackIndex = (side: number, p: number): number => (startOf(side) + p) % TRACK_LEN;
 /** The stable's step k (1..6) of a side, as a grid cell: from the gate's arm toward the centre. */
 export function stepCell(side: number, k: number): Cell {
@@ -67,12 +68,16 @@ export interface LudoPlayer {
   kicks: number; kicked: number; sixes: number;
 }
 /** What the rules read from data/config.json. */
-export interface LudoRules { horses: number; exitOnOne: boolean; bonusSix: boolean; bonusKick: boolean; noJump: boolean; homeStrict: boolean }
+export interface LudoRules { horses: number; dice: number; exitOnOne: boolean; bonusSix: boolean; bonusKick: boolean; noJump: boolean; homeStrict: boolean }
 /** A legal move: which horse, from and to, and whom it kicks home. */
 export interface LudoMove { h: number; from: number; to: number; kick?: { pi: number; h: number } }
 
-/** The rolls that bring a horse out of its corner. */
+/** The faces that bring a horse out of its corner. */
 export const exitRolls = (R: LudoRules): number[] => (R.exitOnOne ? [1, 6] : [6]);
+/** True when this throw brings a horse out: one die showing an exit face, or (two dice) a double. */
+export const canExit = (dice: number[], R: LudoRules): boolean => dice.some(d => exitRolls(R).includes(d)) || (dice.length === 2 && dice[0] === dice[1]);
+/** True when this throw earns another: a double with two dice, a six with one. */
+export const throwsAgain = (dice: number[]): boolean => (dice.length === 2 ? dice[0] === dice[1] : dice[0] === 6);
 
 /** Who stands on a grid cell (players still racing or not, every horse on the board). */
 export function occupant(players: LudoPlayer[], cell: Cell): { pi: number; h: number } | null {
@@ -83,18 +88,29 @@ export function occupant(players: LudoPlayer[], cell: Cell): { pi: number; h: nu
   return null;
 }
 
-/** Every legal move for player pi with this roll. */
-export function legalMoves(players: LudoPlayer[], pi: number, roll: number, R: LudoRules): LudoMove[] {
-  const p = players[pi], out: LudoMove[] = [];
+/** Every legal move for player pi with this throw (one die or two). On the track a horse goes the
+ * dice's total; on the traditional stable each die counts on its own: from the gate a die showing k
+ * climbs to step k, and from step s a die showing s + 1 climbs one more. A horse may have two moves
+ * (two dice at the gate). */
+export function legalMoves(players: LudoPlayer[], pi: number, dice: number[], R: LudoRules): LudoMove[] {
+  const p = players[pi], out: LudoMove[] = [], sum = dice.reduce((a, d) => a + d, 0);
   p.horses.forEach((from, h) => {
-    let to = -2;
-    if (from < 0) { if (exitRolls(R).includes(roll)) to = 0; }
+    const targets: number[] = [];
+    /** The total, or when the total goes past the last cell, one die on its own (so a horse one cell short is never stuck). */
+    const near = (f: number, last: number) => {
+      if (f + sum <= last) targets.push(f + sum);
+      else if (dice.length > 1) for (const d of new Set(dice)) if (f + d <= last) targets.push(f + d);
+    };
+    if (from < 0) { if (canExit(dice, R)) targets.push(0); }
     else if (R.homeStrict) {
-      if (from < GATE) { if (from + roll <= GATE) to = from + roll; }
-      else if (from === GATE) to = GATE + roll;                    // the gate: roll k climbs to step k
-      else if (from < TOP && roll === from - GATE + 1) to = from + 1; // on step s: only s+1 climbs one more
-    } else if (from + roll <= TOP) to = from + roll;
-    if (to < 0) return;
+      if (from < GATE) near(from, GATE);
+      else if (from === GATE) for (const d of new Set(dice)) targets.push(GATE + d);
+      else if (from < TOP && dice.includes(from - GATE + 1)) targets.push(from + 1);
+    } else near(from, TOP);
+    for (const to of targets) moveTo(h, from, to);
+  });
+  return out;
+  function moveTo(h: number, from: number, to: number): void {
     // the cells passed over: none may hold a horse when jumping is not allowed
     if (R.noJump && from >= 0) {
       for (let q = from + 1; q < to; q++) if (occupant(players, cellOf(p.side, q)!)) return;
@@ -102,8 +118,7 @@ export function legalMoves(players: LudoPlayer[], pi: number, roll: number, R: L
     const at = occupant(players, cellOf(p.side, to)!);
     if (at && at.pi === pi) return; // never onto your own horse
     out.push(at ? { h, from, to, kick: at } : { h, from, to });
-  });
-  return out;
+  }
 }
 
 /** Makes the move: the horse goes, a horse it lands on goes back to its corner. */

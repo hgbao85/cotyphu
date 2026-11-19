@@ -16,7 +16,7 @@ import { openPicker, buildPicker, drawPicker } from '../ui/setupScreen';
 import { openPage } from '../ui/pages';
 import { openSettings } from '../ui/settings';
 import { showOnlinePanel } from '../net/room';
-import { G, SIDES, LV_NAMES, ludoSetup, newGame, startShake, pickHorse, curP, step as gameStep, shakePower, ranking, rulesNow, autoPlays } from './game';
+import { G, diceText, SIDES, LV_NAMES, ludoSetup, newGame, startShake, pickHorse, curP, step as gameStep, shakePower, ranking, rulesNow, autoPlays } from './game';
 import { cellOf, GATE, STEPS, TRACK, startOf, stepCell, exitRolls, type LudoSeat } from './rules';
 import * as on from './online';
 
@@ -183,9 +183,9 @@ function drawHorses(): void {
     const q = f.pi >= 0 ? horsePos(f.pi, f.h) : { ...at(7.5, 7.5), lift: cs * 1.4 };
     ctx.save(); ctx.globalAlpha = 1 - Math.max(0, u - 0.6) / 0.4;
     ctx.font = `bold ${Math.round(cs * 0.55)}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    const y = q.y - q.lift - cs * 0.9 - u * cs;
-    ctx.lineWidth = 6; ctx.strokeStyle = '#fff6e2'; ctx.strokeText(f.text, q.x, y);
-    ctx.fillStyle = f.color; ctx.fillText(f.text, q.x, y); ctx.restore();
+    const y = q.y - q.lift - cs * 0.9 - u * cs, b = boardRect(), x = Math.max(b.x + cs * 1.6, Math.min(b.x + b.s - cs * 1.6, q.x)); // kept on the board
+    ctx.lineWidth = 6; ctx.strokeStyle = '#fff6e2'; ctx.strokeText(f.text, x, y);
+    ctx.fillStyle = f.color; ctx.fillText(f.text, x, y); ctx.restore();
   }
 }
 
@@ -211,27 +211,37 @@ function drawDieFace(x: number, y: number, s: number, n: number, rot: number): v
   ctx.restore();
 }
 function drawDie(): void {
-  const cs = cellSize(), c = at(7.5, 7.5), s = cs * 1.75;
-  let face = G.die || 6, rot = 0, dy = 0, dx = 0;
-  if (G.phase === 'shake' && G.shake) {
-    const t = G.shake.t; face = 1 + (Math.floor(t * 14) % 6);
-    dx = Math.sin(t * 47) * cs * 0.12; dy = Math.cos(t * 39) * cs * 0.1; rot = Math.sin(t * 31) * 0.25;
-  } else if (G.phase === 'dice' && G.throwAt) {
-    const th = G.throwAt, u = Math.min(1, th.t / th.dur);
-    face = u > 0.85 ? G.die : th.faces[Math.min(th.faces.length - 1, Math.floor(u * th.faces.length))];
-    dy = -Math.abs(Math.sin(u * Math.PI * 3)) * (1 - u) * cs * (1.2 + th.power * 1.2);
-    rot = th.spin * (1 - u) * (1 - u) * 3;
-  } else if (prefs.effects) dy = -Math.abs(Math.sin(G.t * 2)) * cs * 0.06;
-  drawDieFace(c.x + dx, c.y + dy, s, face, rot);
-  if (G.show && G.show.t < 1.4 && G.phase !== 'dice') { // the number, big, as the die stops
+  const cs = cellSize(), c = at(7.5, 7.5), n = rulesNow().dice, s = n > 1 ? cs * 1.22 : cs * 1.75;
+  const last = G.dice.length === n ? G.dice : Array(n).fill(6);
+  for (let k = 0; k < n; k++) { // two dice side by side in the centre, each tumbling its own way
+    const ox = n > 1 ? (k ? 1 : -1) * s * 0.62 : 0, ph = k * 1.7;
+    let face = last[k], rot = 0, dy = 0, dx = 0;
+    if (G.phase === 'shake' && G.shake) {
+      const t = G.shake.t; face = 1 + (Math.floor(t * 14 + k * 3) % 6);
+      dx = Math.sin(t * 47 + ph) * cs * 0.12; dy = Math.cos(t * 39 + ph) * cs * 0.1; rot = Math.sin(t * 31 + ph) * 0.25;
+    } else if (G.phase === 'dice' && G.throwAt) {
+      const th = G.throwAt, u = Math.min(1, th.t / th.dur);
+      face = u > 0.85 ? last[k] : th.faces[Math.min(th.faces.length - 1, Math.floor(u * th.faces.length))][k] ?? last[k];
+      dy = -Math.abs(Math.sin(u * Math.PI * (3 + k * 0.5) + ph * 0.3)) * (1 - u) * cs * (1.2 + th.power * 1.2);
+      rot = th.spin * (k ? -1 : 1) * (1 - u) * (1 - u) * 3;
+    } else if (prefs.effects) dy = -Math.abs(Math.sin(G.t * 2 + ph)) * cs * 0.06;
+    drawDieFace(c.x + ox + dx, c.y + dy, s, face, rot + (n > 1 && G.phase !== 'dice' && G.phase !== 'shake' ? (k ? 0.12 : -0.1) : 0));
+  }
+}
+/** Over the horses: the numbers as the dice stop, and the power bar while shaking. */
+function drawDiceTop(): void {
+  const cs = cellSize(), c = at(7.5, 7.5);
+  if (G.show && G.show.t < 1.4 && G.phase !== 'dice') { // the numbers, big, as the dice stop
+    const d = G.show.dice, dbl = d.length === 2 && d[0] === d[1];
+    const label = d.length === 2 ? (dbl ? `Đôi ${d[0]}!` : `${d[0]} + ${d[1]} = ${d[0] + d[1]}`) : String(d[0]);
     const t = G.show.t, pop = t < 0.15 ? 0.5 + t / 0.15 * 0.7 : 1.2 - Math.min(0.2, (t - 0.15) * 0.8), alpha = t > 1 ? 1 - (t - 1) / 0.4 : 1;
-    ctx.save(); ctx.globalAlpha = Math.max(0, alpha); ctx.translate(c.x, c.y - s * 0.95); ctx.scale(pop, pop);
-    ctx.font = `bold ${Math.round(cs * 1.25)}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.lineWidth = 8; ctx.strokeStyle = '#fff6e2'; ctx.strokeText(String(G.show.n), 0, 0);
-    ctx.fillStyle = G.show.n === 6 ? '#d9442b' : '#4a3020'; ctx.fillText(String(G.show.n), 0, 0); ctx.restore();
+    ctx.save(); ctx.globalAlpha = Math.max(0, alpha); ctx.translate(c.x, c.y - cs * 1.75); ctx.scale(pop, pop);
+    ctx.font = `bold ${Math.round(cs * (d.length === 2 && !dbl ? 0.85 : 1.15))}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.lineWidth = 8; ctx.strokeStyle = '#fff6e2'; ctx.strokeText(label, 0, 0);
+    ctx.fillStyle = dbl || (d.length === 1 && d[0] === 6) ? '#d9442b' : '#4a3020'; ctx.fillText(label, 0, 0); ctx.restore();
   }
   if (G.phase === 'shake' && G.shake && !G.shake.ai && (myTurn() || (!on.isGuest() && curP().kind === 'human'))) { // the power bar
-    const w = cs * 4.2, x = c.x - w / 2, y = c.y + s * 0.8, h = cs * 0.32, pw = shakePower();
+    const w = cs * 4.2, x = c.x - w / 2, y = c.y + cs * 1.4, h = cs * 0.32, pw = shakePower();
     ctx.save(); ctx.fillStyle = 'rgba(255,249,234,0.95)'; rrect(ctx, x - 4, y - 4, w + 8, h + 8, 8); ctx.fill();
     const g = ctx.createLinearGradient(x, 0, x + w, 0); g.addColorStop(0, '#8fd16a'); g.addColorStop(0.6, '#ffd84a'); g.addColorStop(1, '#ff7b6b');
     ctx.fillStyle = g; rrect(ctx, x, y, Math.max(8, w * pw), h, 6); ctx.fill(); ctx.restore();
@@ -239,6 +249,8 @@ function drawDie(): void {
 }
 
 // ---- Words: whose turn, what to do --------------------------------------------------------------
+/** The last throw in words. */
+const dt = (): string => diceText(G.dice);
 function turnLine(): string {
   if (!G || !G.players.length) return '';
   const p = curP(), me = myTurn();
@@ -247,9 +259,9 @@ function turnLine(): string {
     case 'roll': return me ? (G.players.filter(q => q.kind === 'human').length > 1 && !on.isGuest() ? `${p.name}: giữ nút để lắc, thả ra để thảy` : 'Giữ nút để lắc xúc xắc, thả ra để thảy') : `${who} chuẩn bị thảy...`;
     case 'shake': return me ? 'Thả ra để thảy!' : `${who} đang lắc...`;
     case 'dice': return 'Xúc xắc đang lăn...';
-    case 'choose': return me ? (G.moves.length > 1 ? `Đổ ${G.die}: chọn một chú ngựa đang sáng` : `Đổ ${G.die}: ngựa tự đi`) : `${who} đổ ${G.die}, đang chọn ngựa...`;
-    case 'move': return `${who} đổ ${G.die}`;
-    case 'nomove': return `${who} đổ ${G.die}: không đi được`;
+    case 'choose': return me ? (new Set(G.moves.map(m => m.h)).size > 1 ? `Đổ ${dt()}: chọn một chú ngựa đang sáng` : `Đổ ${dt()}: ngựa tự đi`) : `${who} đổ ${dt()}, đang chọn ngựa...`;
+    case 'move': return `${who} đổ ${dt()}`;
+    case 'nomove': return `${who} đổ ${dt()}: không đi được`;
     default: return '';
   }
 }
@@ -305,18 +317,18 @@ export const holding = (): boolean => pointerHeld || down.has('Space') || down.h
 
 /** The rules page of Cá Ngựa, numbers from data/config.json. */
 function showLudoRules(): void {
-  const R = rulesNow(), ex = exitRolls(R).join(' hoặc ');
+  const R = rulesNow(), ex = exitRolls(R).join(' hoặc '), two = R.dice > 1;
   openPage('Luật Cá Ngựa', `
     <h3>Mục tiêu</h3><ul><li>Mỗi người <b>${R.horses} chú ngựa</b> trong chuồng ở góc bàn. Ai đưa đủ ngựa lên <b>bậc thang chuồng</b> (6 ô màu ở giữa cánh của mình) trước thì <b>thắng</b>.</li></ul>
-    <h3>Thảy xúc xắc</h3><ul><li><b>Giữ nút</b> để lắc (giữ càng lâu thảy càng mạnh), <b>thả ra</b> để thảy. Một viên xúc xắc.</li>
-    <li>Đổ <b>${ex}</b> thì được <b>ra quân</b>: một ngựa ra ô xuất phát có ngôi sao.</li>
-    ${R.bonusSix ? '<li>Đổ <b>6</b> được <b>thảy thêm</b> một lần.</li>' : ''}
+    <h3>Thảy xúc xắc</h3><ul><li><b>Giữ nút</b> để lắc (giữ càng lâu thảy càng mạnh), <b>thả ra</b> để thảy. ${two ? '<b>Hai viên</b> xúc xắc: ngựa đi theo <b>tổng</b> hai viên.' : 'Một viên xúc xắc.'}</li>
+    <li>${two ? `Có một viên <b>${ex}</b>, hoặc <b>đổ đôi</b>,` : `Đổ <b>${ex}</b>`} thì được <b>ra quân</b>: một ngựa ra ô có ngôi sao ở góc ngoài cánh của mình.</li>
+    ${R.bonusSix ? `<li>${two ? '<b>Đổ đôi</b>' : 'Đổ <b>6</b>'} được <b>thảy thêm</b> một lần.</li>` : ''}
     <li>Không có ngựa nào đi được thì mất lượt.</li></ul>
     <h3>Đi ngựa</h3><ul><li>Ngựa chạy theo chiều kim đồng hồ quanh bàn, đúng số đã đổ. Có nhiều ngựa đi được thì bấm chọn con đang sáng.</li>
     ${R.noJump ? '<li><b>Không được nhảy qua đầu</b> ngựa khác (của ai cũng vậy).</li>' : ''}
     <li>Dừng đúng ô có ngựa người khác: <b>đá</b> ngựa đó về chuồng${R.bonusKick ? ' và được thảy thêm' : ''}. Không được dừng lên ngựa của mình.</li></ul>
     <h3>Lên chuồng</h3><ul>${R.homeStrict
-      ? '<li>Ngựa phải dừng <b>đúng ô cửa chuồng</b> (ô cuối cánh của mình) mới được lên. Đứng ở cửa, đổ <b>k</b> thì lên thẳng <b>bậc k</b>.</li><li>Đang ở bậc <b>s</b>, phải đổ đúng <b>s + 1</b> mới lên thêm một bậc.</li>'
+      ? `<li>Ngựa phải dừng <b>đúng ô cửa chuồng</b> (ô giữa ở cuối cánh của mình, ngay trước ô ra quân) mới được lên. Đứng ở cửa, ${two ? 'có một viên' : 'đổ'} <b>k</b> thì lên thẳng <b>bậc k</b>.</li><li>Đang ở bậc <b>s</b>, phải ${two ? 'có một viên' : 'đổ'} đúng <b>s + 1</b> mới lên thêm một bậc.</li>${two ? '<li>Tổng hai viên vượt quá ô cửa chuồng thì được đi theo <b>một viên</b>.</li>' : ''}`
       : '<li>Đi qua ô cửa chuồng thì vào các bậc theo số đổ, không được đi lố bậc 6.</li>'}</ul>
     <h3>Phím</h3><ul><li>Space / Enter: giữ để lắc, chọn ngựa đầu tiên · 1–4: chọn ngựa số đó · M: tắt tiếng</li></ul>`);
 }
@@ -378,7 +390,7 @@ function drawSetup(): void {
   const cardX = phone() ? 8 : 310, cardW = phone() ? W - 16 : 660, cardY = phone() ? 48 : 40, cardH = phone() ? 620 : 660;
   ctx.save(); ctx.fillStyle = 'rgba(255,249,234,0.97)'; rrect(ctx, cardX, cardY, cardW, cardH, 22); ctx.fill(); ctx.strokeStyle = '#e8a86a'; ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
   text('CÁ NGỰA', T.cx, cardY + (phone() ? 50 : 62), phone() ? 36 : 46, '#d9622b', 'center', 'bold');
-  text('Đua ngựa về chuồng · 2 đến 4 người · một viên xúc xắc', T.cx, cardY + (phone() ? 92 : 112), phone() ? 15 : 18, '#6a4a32');
+  text(`Đua ngựa về chuồng · 2 đến 4 người · ${rulesNow().dice > 1 ? 'hai viên' : 'một viên'} xúc xắc`, T.cx, cardY + (phone() ? 92 : 112), phone() ? 15 : 18, '#6a4a32');
   const hint = on.isGuest() ? (on.lobby ? `Phòng ${on.roomCode} · chờ ${on.lobby.hostName || 'chủ phòng'} bắt đầu ván` : `Đang vào phòng ${on.roomCode}...`)
     : on.isHost() ? (on.roomCode ? `Gửi mã ${on.roomCode} cho bạn bè: họ vào bằng Cá Ngựa › Chơi online` : 'Đang mở phòng, chờ chút nhé...') : 'Bấm vào từng chỗ ngồi để chọn người hoặc máy';
   ctx.font = `15px ${FONT}`;
@@ -451,8 +463,9 @@ function drawPlay(): void {
   clear('#bfe6f5');
   drawWater();
   drawBoard();
+  drawDie();     // the dice under the horses: a horse on its sixth step stands on the centre's petal
   drawHorses();
-  drawDie();
+  drawDiceTop();
   if (phone()) drawPhonePanel(); else drawWidePanel();
   if (G.phase === 'over') drawResults(); // the card first, its buttons over it
   F.ui.forEach(b => { if (b.role !== 'menu' && b.role !== 'menuSecondary') drawButton(b); });
@@ -527,7 +540,7 @@ function drawResults(): void {
     text(`${j + 1}.`, x + 42, ry, 19, '#d9622b', 'center', 'bold');
     drawHorse(x + 76, ry + 2, 32, p.side);
     text(p.name, x + 100, ry, ph ? 16 : 18, '#4a3020', 'left', 'bold');
-    text(`Lên ${p.horses.filter(v => v > GATE).length} · đá ${p.kicks} · bị đá ${p.kicked} · số 6: ${p.sixes}`, x + w - 34, ry, ph ? 13 : 15, '#6a4a32', 'right');
+    text(`Lên ${p.horses.filter(v => v > GATE).length} · đá ${p.kicks} · bị đá ${p.kicked} · ${rulesNow().dice > 1 ? 'đôi' : 'số 6'}: ${p.sixes}`, x + w - 34, ry, ph ? 13 : 15, '#6a4a32', 'right');
   });
 }
 
@@ -555,5 +568,5 @@ export const ludoScenes: Record<string, { update(dt: number): void; draw(): void
 export function ludoNet(): void { on.ludoNetStep(holding()); }
 /** For checks: who plays which side and what they can do, read-only. */
 export function ludoView(): Loose {
-  return G ? { phase: G.phase, cur: G.cur, die: G.die, moves: G.moves.map(m => m.h), horses: G.players.map(p => [...p.horses]), winner: G.winner, auto: G.players.map(p => autoPlays(p, on.peerOnline)) } : null;
+  return G ? { phase: G.phase, cur: G.cur, dice: G.dice, moves: G.moves.map(m => m.h), horses: G.players.map(p => [...p.horses]), winner: G.winner, auto: G.players.map(p => autoPlays(p, on.peerOnline)) } : null;
 }

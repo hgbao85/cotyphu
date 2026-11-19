@@ -69,8 +69,9 @@ holds no comments. The values themselves are in `data/config.json`.
 
 ---- Cá Ngựa (thêm 19/11/2026) ----
 - `ludo_horses`: số ngựa mỗi người (4). Về chuồng đủ bấy nhiêu con thì thắng.
-- `ludo_exit_on_one`: 0 = chỉ đổ 6 mới ra quân; 1 = đổ 1 hoặc 6 đều ra được.
-- `ludo_bonus_six`: 1 = đổ 6 được đổ thêm một lần.
+- `ludo_dice`: số xúc xắc (2 từ 19/11/2026 theo yêu cầu; 1 = kiểu một viên). Hai viên: đi theo tổng; tổng vượt cửa chuồng thì được đi theo một viên; ra quân khi có một viên 6 hoặc đổ đôi; lên chuồng truyền thống thì mỗi viên tính riêng.
+- `ludo_exit_on_one`: 0 = chỉ mặt 6 mới ra quân; 1 = mặt 1 hoặc 6 đều ra được (hai viên: đổ đôi cũng ra được).
+- `ludo_bonus_six`: 1 = được thảy thêm khi đổ đôi (hai viên) hoặc đổ 6 (một viên).
 - `ludo_bonus_kick`: 1 = đá được ngựa người khác thì được đổ thêm.
 - `ludo_no_jump`: 1 = không được nhảy qua đầu ngựa khác (luật Việt Nam); 0 = nhảy qua thoải mái.
 - `ludo_home_strict`: 1 = lên chuồng kiểu truyền thống: đứng ở cửa chuồng đổ k thì lên bậc k, lên bậc tiếp theo phải đổ đúng số bậc đó; 0 = đi thẳng vào chuồng theo số đổ, không được đi lố.

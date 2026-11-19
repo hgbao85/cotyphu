@@ -7,7 +7,7 @@ import { tune } from '../config';
 import { sfx } from '../audio';
 import { rng, setSeed, freshSeed } from '../game/rng';
 import type { Loose } from '../game/types';
-import { legalMoves, applyMove, aiPick, allHome, GATE, type LudoMove, type LudoPlayer, type LudoRules, type LudoSeat } from './rules';
+import { legalMoves, applyMove, aiPick, allHome, throwsAgain, GATE, type LudoMove, type LudoPlayer, type LudoRules, type LudoSeat } from './rules';
 
 /** The four sides' names and colours, seat i plays side i. */
 export const SIDES = [
@@ -30,13 +30,13 @@ export interface LudoGame {
   cur: number;
   phase: 'roll' | 'shake' | 'dice' | 'choose' | 'move' | 'nomove' | 'over';
   t: number; timer: number;
-  /** The die's face; 0 before the first throw. */
-  die: number;
+  /** The dice's faces (one or two, data/config.json ludo_dice); empty before the first throw. */
+  dice: number[];
   shake: { t: number; ai: boolean; holdFor: number; remote?: boolean; released?: boolean } | null;
   /** The throw in the air: how long it tumbles, how hard it was thrown, the faces it flickers through. */
-  throwAt: { t: number; dur: number; power: number; faces: number[]; spin: number } | null;
-  /** The big number over the die once it stops. */
-  show: { t: number; n: number } | null;
+  throwAt: { t: number; dur: number; power: number; faces: number[][]; spin: number } | null;
+  /** The big numbers over the dice once they stop. */
+  show: { t: number; dice: number[] } | null;
   moves: LudoMove[];
   hop: Hop | null;
   kicked: Kicked[];
@@ -68,7 +68,7 @@ export function play(k: string, ...a: Loose[]): void {
 
 /** The rules' switches, from data/config.json now. */
 export const rulesNow = (): LudoRules => ({
-  horses: Math.max(1, Math.min(4, Math.round(tune.ludo_horses))),
+  horses: Math.max(1, Math.min(4, Math.round(tune.ludo_horses))), dice: tune.ludo_dice >= 2 ? 2 : 1,
   exitOnOne: tune.ludo_exit_on_one >= 1, bonusSix: tune.ludo_bonus_six >= 1, bonusKick: tune.ludo_bonus_kick >= 1,
   noJump: tune.ludo_no_jump >= 1, homeStrict: tune.ludo_home_strict >= 1,
 });
@@ -91,7 +91,7 @@ export function newGame(seed?: number, names: (string | undefined)[] = []): void
     const name = names[i] || st.name || (st.kind === 'ai' ? `Máy ${SIDES[i].name}` : `Ngựa ${SIDES[i].name}`);
     players.push({ id: players.length, side: i, name, kind: st.kind, lv: st.lv ?? 1, peer: st.peer, horses: Array(R.horses).fill(-1), place: 0, kicks: 0, kicked: 0, sixes: 0 });
   });
-  G = { seed: s, players, cur: Math.floor(rng() * players.length), phase: 'roll', t: 0, timer: 0, die: 0, shake: null, throwAt: null, show: null, moves: [], hop: null, kicked: [], again: false, log: [], winner: -1, floaters: [] };
+  G = { seed: s, players, cur: Math.floor(rng() * players.length), phase: 'roll', t: 0, timer: 0, dice: [], shake: null, throwAt: null, show: null, moves: [], hop: null, kicked: [], again: false, log: [], winner: -1, floaters: [] };
   log(`Ván mới! ${curP().name} đi trước.`);
 }
 
@@ -103,29 +103,32 @@ export function startShake(ai = false): void {
 }
 /** How hard the die will be thrown: 0 to 1, from how long it was shaken. */
 export const shakePower = (): number => (G.shake ? Math.min(1, G.shake.t / tune.shake_full_time) : 0);
-/** Lets go of the die: it tumbles, and lands on its face. */
+/** The throw in words: "5", or "3 + 5". */
+export const diceText = (d: number[]): string => d.join(' + ');
+/** Lets go of the dice: they tumble, and land on their faces. */
 export function throwDie(): void {
   const power = shakePower();
   G.shake = null;
-  G.die = 1 + Math.floor(rng() * 6);
+  const n = rulesNow().dice;
+  G.dice = Array.from({ length: n }, () => 1 + Math.floor(rng() * 6));
   const dur = tune.dice_time * (0.75 + 0.6 * power);
-  const faces = Array.from({ length: 8 + Math.round(power * 6) }, () => 1 + Math.floor(rng() * 6));
+  const faces = Array.from({ length: 8 + Math.round(power * 6) }, () => Array.from({ length: n }, () => 1 + Math.floor(rng() * 6)));
   G.throwAt = { t: 0, dur, power, faces, spin: (rng() < 0.5 ? -1 : 1) * (2 + power * 3) };
   G.phase = 'dice'; G.timer = 0; G.show = null;
   play('dice');
 }
 /** The die has stopped: which horses may move, and what happens next. */
 function afterDie(): void {
-  const p = curP(), R = rulesNow(), n = G.die;
-  G.show = { t: 0, n };
-  if (n === 6) { p.sixes++; play('double'); } else play('land');
-  G.again = n === 6 && R.bonusSix;
-  G.moves = legalMoves(G.players, G.cur, n, R);
+  const p = curP(), R = rulesNow(), d = G.dice, again = throwsAgain(d);
+  G.show = { t: 0, dice: [...d] };
+  if (again) { p.sixes++; play('double'); } else play('land');
+  G.again = again && R.bonusSix;
+  G.moves = legalMoves(G.players, G.cur, d, R);
   G.timer = 0;
   if (!G.moves.length) {
     G.phase = 'nomove';
     floatDie(p.horses.every(x => x < 0) ? 'Chưa ra quân được' : 'Không đi được', '#d9442b');
-    log(`${p.name} đổ ${n}: không đi được.`);
+    log(`${p.name} đổ ${diceText(d)}: không đi được.`);
     return;
   }
   G.phase = 'choose';
@@ -133,18 +136,22 @@ function afterDie(): void {
 /** Words floating up over the die. */
 function floatDie(text: string, color: string): void { G.floaters.push({ text, color, pi: -1, h: -1, t: 0 }); }
 
-/** Moves horse h of the current player for this roll, if that move is legal. */
+/** Moves horse h of the current player for this throw, if it has a legal move; with two moves (two
+ * dice at the gate) it climbs the higher step. */
 export function pickHorse(h: number): void {
-  if (G.phase !== 'choose') return;
-  const m = G.moves.find(x => x.h === h);
-  if (!m) return;
+  const mine = G.phase === 'choose' ? G.moves.filter(x => x.h === h) : [];
+  if (mine.length) pickMove(mine.reduce((a, b) => (b.to > a.to ? b : a)));
+}
+/** Makes one of the legal moves (the computer's choice). */
+function pickMove(m: LudoMove): void {
+  const h = m.h;
   const path: number[] = [];
   if (m.from < 0) path.push(0);
   else if (m.to > GATE && rulesNow().homeStrict && m.from === GATE) path.push(m.to); // leaps from the gate onto its step
   else for (let q = m.from + 1; q <= m.to; q++) path.push(q);
   G.hop = { pi: G.cur, h, path, t: 0, move: m };
   G.phase = 'move'; G.moves = [];
-  if (m.from < 0) log(`${curP().name} đổ ${G.die}: ra quân!`);
+  if (m.from < 0) log(`${curP().name} đổ ${diceText(G.dice)}: ra quân!`);
 }
 
 /** The hop finished: the move counts, a kicked horse flies home, then the turn goes on or passes. */
@@ -214,8 +221,8 @@ export function step(dt: number, held: boolean, peerOnline: (id?: number) => boo
     case 'choose': {
       // one choice (or every choice the same horse's): it moves by itself after a beat
       const only = new Set(G.moves.map(m => `${m.from}>${m.to}`)).size === 1; // one move, or the same move for any horse (all coming out)
-      if (only && G.timer >= 0.45) pickHorse(G.moves[0].h);
-      else if (auto && G.timer >= tune.ludo_ai_delay * 0.7) pickHorse(aiPick(G.players, G.cur, G.moves, p.kind === 'ai' ? p.lv : 1, rulesNow(), rng).h);
+      if (only && G.timer >= 0.45) pickMove(G.moves[0]);
+      else if (auto && G.timer >= tune.ludo_ai_delay * 0.7) pickMove(aiPick(G.players, G.cur, G.moves, p.kind === 'ai' ? p.lv : 1, rulesNow(), rng));
       break;
     }
     case 'move': {

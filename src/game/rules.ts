@@ -2,7 +2,7 @@
 // game state and the tuning values, no browser, so Vitest runs them in Node.
 // Design record: design/game-brief.md (Core loop; Features: rent, building, mortgage).
 import { tune } from '../config';
-import { EVENTS, GROUPS, LEVEL_NAMES, TILES } from './data';
+import { EVENTS, GROUPS, LEVEL_NAMES, TILES, OWNABLE } from './data';
 import type { GameState, Player } from './types';
 
 /** Money as players read it: thousands of đồng in, "1.500.000 đ" out. */
@@ -158,4 +158,24 @@ export function settleOrder(past: number[][], thrown: number[]): { tied: number[
   // the tied throw again; everyone else keeps their latest throw where it is, so it is not counted twice
   if (tied.length) return { tied, past: keys.map((k, i) => tied.includes(i) ? k : k.slice(0, -1)) };
   return { order: keys.map((_, i) => i).sort((a, b) => cmp(keys[a], keys[b])) };
+}
+
+// ---- What a throw is worth to the thrower: Khó's aim and the sweet zone's better throw -----------------
+
+/** How good landing on tile i is for player pi (a rough sum in đồng): minus the rent it would pay there
+ * (none on a mortgaged tile or a partner's), part of a free tile's price it could buy, minus a lot for Đi Tù. */
+export function landingWorth(s: GameState, pi: number, i: number, sum: number): number {
+  const t = TILES[i], o = s.owner[i], p = s.players[pi];
+  if (t.t === 'gojail') return -1500;
+  // a partner's land costs nothing (Bug 19/11/2026: counted as rent, so Khó aimed away and the zone threw away a free landing)
+  if (o >= 0 && o !== pi) return s.mort[i] || (s.teams && s.players[o].team === p.team) ? 0 : -rentOf(s, i, sum);
+  if (o < 0 && OWNABLE(t) && (p.laps || 0) >= tune.first_lap_count && p.cash >= t.p!) return t.p! * 0.2;
+  return 0;
+}
+/** How good a throw of two dice is for player pi out of jail: where it lands, and a third double in a row is
+ * jail, as bad as Đi Tù (Bug 19/11/2026: the lucky zone could keep a third double over paying a rent). */
+export function throwWorth(s: GameState, pi: number, d: number[]): number {
+  const p = s.players[pi];
+  if (d[0] === d[1] && p.doubles >= 2) return -1500;
+  return landingWorth(s, pi, (p.pos + d[0] + d[1]) % 40, d[0] + d[1]);
 }

@@ -2,7 +2,7 @@
 // middle one is fair, and every face can still come up. Values from data/config.json dice_power_tilt.
 import { describe, expect, it } from 'vitest';
 import config from '../../data/config.json';
-import { faceChances, rollFace, bestPower, throwChances, meterPos, makeZone, inZone, aiHold, throwWithZone, rollDice, friendPower } from '../../src/game/dice';
+import { faceChances, rollFace, bestPower, throwChances, meterPos, makeZone, inZone, aiHold, throwWithZone, rollDice, friendPower, letGoPower } from '../../src/game/dice';
 import { setSeed } from '../../src/game/rng';
 
 const TILT = config.dice_power_tilt.value;
@@ -107,5 +107,21 @@ describe('the power bar (asked for 19/11/2026: it runs up and down, a sweet zone
     expect(friendPower(0, 0.9 * sweep)).toBeCloseTo(meterPos(0.9 * sweep - slack), 6);              // or an earlier one
     expect(friendPower('1', 0.5)).toBeUndefined();
     expect(friendPower(NaN, 0.5)).toBeUndefined();
+  });
+  it("lets a computer go where it aimed at any game speed, a person where the bar stands", () => {
+    // Regression (full review 19/11/2026): at ×4 a step is 4/60 s; the let-go read the bar one step past the aim,
+    // so some aimed zone hits fell outside it and some aimed misses inside.
+    setSeed(9);
+    for (const dt of [1 / 60, 2 / 60, 4 / 60]) {
+      for (let k = 0; k < 400; k++) {
+        const zone = makeZone(), holdFor = aiHold(2, zone, 0.5);
+        let t = 0; while (t < holdFor) t += dt;                       // the game's step: it lets go on the first step at or past holdFor
+        const aimed = meterPos(holdFor), got = letGoPower({ t, ai: true, holdFor });
+        expect(got).toBeCloseTo(aimed, 9);
+        expect(inZone(got, zone)).toBe(inZone(aimed, zone));
+      }
+    }
+    expect(letGoPower({ t: 0.7, ai: false, holdFor: 0 })).toBeCloseTo(meterPos(0.7), 9); // a person: the bar now
+    expect(letGoPower({ t: 0.7, ai: false, holdFor: 0, power: 0.3 })).toBe(0.3);         // a friend: as the host worked it out
   });
 });

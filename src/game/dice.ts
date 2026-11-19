@@ -65,6 +65,13 @@ export function meterPos(t: number): number {
   const s = Math.max(0, t) / tune.dice_meter_sweep, f = s % 2;
   return f <= 1 ? f : 2 - f;
 }
+/**
+ * Where a shake lets go: a friend's power as the host worked it out, a computer's aimed stop (not the step
+ * past it: at ×4 a step is 4/60 s, and the bar had run on by up to 4% of its length, in or out of the
+ * zone; Bug 19/11/2026), else where the bar stands now.
+ */
+export const letGoPower = (sh: { t: number; ai: boolean; holdFor: number; power?: number }): number =>
+  sh.power ?? meterPos(sh.ai ? Math.min(sh.t, sh.holdFor) : sh.t);
 /** True when a throw of this power let go inside the zone. */
 export const inZone = (power: number, z?: Zone | null): boolean => !!z && power >= z.a && power <= z.b;
 /** How often a computer of this level lets go inside the zone (data/config.json ai_zone_hit_*). */

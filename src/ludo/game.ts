@@ -3,7 +3,7 @@
 // themselves are in ./rules.ts; the screens in ./scene.ts; online play in ./online.ts.
 // Online, only the host runs this; a friend's screen draws the G the host sends.
 
-import { rollDice, bestPower, makeZone, meterPos, inZone, aiHold, throwWithZone, type Zone } from '../game/dice';
+import { letGoPower, rollDice, bestPower, makeZone, meterPos, inZone, aiHold, throwWithZone, type Zone } from '../game/dice';
 import { startOrder, recordOrder, nextOrder, type OrderState } from '../game/orderRoll';
 import { ANIMALS } from '../game/data';
 import type { Bubble, Vote } from '../net/roomExtras';
@@ -159,8 +159,7 @@ export function startShake(ai = false, aim?: number): void { // aim: the power a
 }
 /** How hard the die will be thrown: 0 to 1, from how long it was shaken. */
 /** Where the power bar stands: a friend's own let-go power online, else the bar's place now (it runs up and down). */
-// a computer's let-go is where it meant to stop, not one step past it (Bug: at ×4 a step overshot by 4% of the bar)
-export const shakePower = (): number => (G.shake ? G.shake.power ?? meterPos(G.shake.ai ? Math.min(G.shake.t, G.shake.holdFor) : G.shake.t) : 0);
+export const shakePower = (): number => (G.shake ? letGoPower(G.shake) : 0); // src/game/dice.ts
 /** The throw in words: "5", or "3 + 5". */
 export const diceText = (d: number[]): string => d.join(' + ');
 /** Lets go of the dice: they tumble, and land on their faces. */

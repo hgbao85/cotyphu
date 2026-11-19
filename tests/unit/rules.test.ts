@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import config from '../../data/config.json';
 import { EVENTS, TILES } from '../../src/game/data';
-import { buildCost, buyHint, eventRentMult, money, netWorth, ownsGroup, propertyTax, rentHint, rentOf, settleOrder } from '../../src/game/rules';
+import { buildCost, buyHint, eventRentMult, landingWorth, money, netWorth, ownsGroup, propertyTax, rentHint, rentOf, settleOrder, throwWorth } from '../../src/game/rules';
 import { rng, setSeed, shuffled } from '../../src/game/rng';
 import type { GameState, Player } from '../../src/game/types';
 
@@ -280,5 +280,29 @@ describe('settleOrder', () => {
   it('keeps throwing again while the tied players still tie', () => {
     expect(settleOrder([[], [7], [7]], [10, 9, 9])).toEqual({ tied: [1, 2], past: [[], [7, 9], [7, 9]] });
     expect(settleOrder([[], [7, 9], [7, 9]], [10, 2, 6])).toEqual({ order: [0, 2, 1] });
+  });
+});
+
+describe('throwWorth and landingWorth (what Khó aims for, and which throw the sweet zone keeps)', () => {
+  it('counts a third double in a row as jail, worse than paying a rent', () => {
+    // Regression (full review 19/11/2026): only the landing tile was weighed, so the zone could keep 4+4 (jail) over 2+3 (a rent).
+    const s = board(); s.owner[PORTS[0]] = 1;                // 2+3 from Xuất Phát lands on P1's port
+    s.players[0].doubles = 2;
+    expect(throwWorth(s, 0, [2, 3])).toBe(-rentOf(s, PORTS[0], 5));
+    expect(throwWorth(s, 0, [4, 4])).toBe(-1500);
+    expect(throwWorth(s, 0, [4, 4])).toBeLessThan(throwWorth(s, 0, [2, 3]));
+  });
+  it('weighs a first or second double by where it lands', () => {
+    const s = board(); s.players[0].doubles = 1;
+    expect(throwWorth(s, 0, [4, 4])).toBe(landingWorth(s, 0, 8, 8));
+  });
+  it("costs nothing on a partner's land in a team game, a rent on a rival's", () => {
+    // Regression (full review 19/11/2026): a partner's land was weighed as rent to pay.
+    const s = board(); s.owner[HA_NOI] = 1;
+    expect(landingWorth(s, 0, HA_NOI, 7)).toBe(-rentOf(s, HA_NOI, 7));
+    (s as { teams?: boolean }).teams = true; s.players[0].team = 0; s.players[1].team = 0;
+    expect(landingWorth(s, 0, HA_NOI, 7)).toBe(0);
+    s.players[1].team = 1;
+    expect(landingWorth(s, 0, HA_NOI, 7)).toBe(-rentOf(s, HA_NOI, 7));
   });
 });

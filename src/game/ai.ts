@@ -3,6 +3,7 @@
 // Design record: design/balance/self-play-2026-11-16.md (Máy Khó chơi khôn hơn).
 
 import { tune } from '../config';
+import * as R from './rules';
 
 import { rng } from '../game/rng';
 import { bestPower } from './dice';
@@ -133,22 +134,9 @@ function aimPower(p: Player): number | undefined {
   const pi = state.players.indexOf(p);
   return bestPower(2, d => throwWorth(pi, d));
 }
-/** How good a throw of two dice is for player pi out of jail: where it lands, and a third double in a row
- * is jail, as bad as Đi Tù (Bug 19/11/2026: the lucky zone could keep a third double over paying a rent). */
-export function throwWorth(pi: number, d: number[]): number {
-  const p = state.players[pi];
-  if (d[0] === d[1] && p.doubles >= 2) return -1500;
-  return landingWorth(pi, (p.pos + d[0] + d[1]) % 40, d[0] + d[1]);
-}
-/** How good landing on tile i is for player pi (a rough sum in đồng): minus the rent it would pay there,
- * part of a free tile's price it could buy, minus a lot for Đi Tù. */
-export function landingWorth(pi: number, i: number, sum: number): number {
-  const t = TILES[i], o = state.owner[i], p = state.players[pi];
-  if (t.t === 'gojail') return -1500;
-  if (o >= 0 && o !== pi) return state.mort[i] || (state.teams && state.players[o].team === p.team) ? 0 : -rentOf(i, sum); // a partner's land costs nothing
-  if (o < 0 && OWNABLE(t) && !firstLap(p) && p.cash >= t.p!) return t.p! * 0.2;
-  return 0;
-}
+/** What a throw, or a landing, is worth to player pi now (src/game/rules.ts: pure, so Vitest runs them). */
+export const throwWorth = (pi: number, d: number[]): number => R.throwWorth(state, pi, d);
+export const landingWorth = (pi: number, i: number, sum: number): number => R.landingWorth(state, pi, i, sum);
 export function aiAct() { // one decision for the computer player, after its think delay
   const pi = state.cur, p = curP();
   switch (state.phase) {

@@ -3,7 +3,7 @@
 // round events. The money arithmetic lives in game/rules.ts; this file moves the game along.
 // Design record: design/game-brief.md (Core loop, Features, After play).
 
-import { rollFace, makeZone, meterPos, inZone, aiHold, throwWithZone } from './dice';
+import { letGoPower, rollFace, makeZone, meterPos, inZone, aiHold, throwWithZone } from './dice';
 import { CONFIG, tune } from '../config';
 import { params } from '../hook';
 import { sfx } from '../audio';
@@ -465,8 +465,7 @@ export function startShake(ai = false, aim?: number) { // aim: the power a compu
   state.shaking = { t: 0, ai, holdFor: ai ? aiHold(curP().lv ?? 1, zone, aim) : 0, rattle: 0, zone };
 }
 /** Where the power bar stands: the friend's own let-go power online, else the bar's place now (it runs up and down). */
-// a computer's let-go is where it meant to stop, not one step past it (Bug: at ×4 a step overshot by 4% of the bar)
-export function shakePower() { const sh = state.shaking; return sh ? sh.power ?? meterPos(sh.ai ? Math.min(sh.t, sh.holdFor) : sh.t) : 0; }
+export function shakePower() { return state.shaking ? letGoPower(state.shaking) : 0; } // src/game/dice.ts
 export function throwDice() {
   const pw = shakePower(), hit = inZone(pw, state.shaking?.zone), p = curP(), pi = state.cur;
   state.shaking = null; state.zone = undefined; // the next throw gets a new zone

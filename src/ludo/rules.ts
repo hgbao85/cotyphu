@@ -69,8 +69,8 @@ export interface LudoPlayer {
 }
 /** What the rules read from data/config.json. */
 export interface LudoRules { horses: number; dice: number; exitOnOne: boolean; bonusSix: boolean; bonusKick: boolean; noJump: boolean; homeStrict: boolean }
-/** A legal move: which horse, from and to, and whom it kicks home. */
-export interface LudoMove { h: number; from: number; to: number; kick?: { pi: number; h: number } }
+/** A legal move: which horse, from and to, the dice it spends, and whom it kicks home. */
+export interface LudoMove { h: number; from: number; to: number; dice: number[]; kick?: { pi: number; h: number } }
 
 /** The faces that bring a horse out of its corner. */
 export const exitRolls = (R: LudoRules): number[] => (R.exitOnOne ? [1, 6] : [6]);
@@ -88,38 +88,49 @@ export function occupant(players: LudoPlayer[], cell: Cell): { pi: number; h: nu
   return null;
 }
 
-/** Every legal move for player pi with this throw (one die or two). On the track a horse goes the
- * dice's total; on the traditional stable each die counts on its own: from the gate a die showing k
- * climbs to step k, and from step s a die showing s + 1 climbs one more. A horse may have two moves
- * (two dice at the gate). */
-export function legalMoves(players: LudoPlayer[], pi: number, dice: number[], R: LudoRules): LudoMove[] {
-  const p = players[pi], out: LudoMove[] = [], sum = dice.reduce((a, d) => a + d, 0);
+/** Every legal move for player pi with the dice still to use. Each die moves one horse on its own:
+ * a die showing an exit face (6, or 1 too) brings a horse out; a double of other faces brings one out
+ * with both dice; any other die moves a horse that many cells. On the traditional stable a die showing
+ * k climbs from the gate to step k, and one showing s + 1 climbs from step s. With both dice unused a
+ * horse may also go their total in one move. Each move says which dice it spends. */
+export function legalMoves(players: LudoPlayer[], pi: number, use: number[], R: LudoRules): LudoMove[] {
+  const p = players[pi], out: LudoMove[] = [], ex = exitRolls(R);
+  const pair = use.length === 2 && use[0] === use[1] && !ex.includes(use[0]);
   p.horses.forEach((from, h) => {
-    const targets: number[] = [];
-    /** The total, or when the total goes past the last cell, one die on its own (so a horse one cell short is never stuck). */
-    const near = (f: number, last: number) => {
-      if (f + sum <= last) targets.push(f + sum);
-      else if (dice.length > 1) for (const d of new Set(dice)) if (f + d <= last) targets.push(f + d);
-    };
-    if (from < 0) { if (canExit(dice, R)) targets.push(0); }
-    else if (R.homeStrict) {
-      if (from < GATE) near(from, GATE);
-      else if (from === GATE) for (const d of new Set(dice)) targets.push(GATE + d);
-      else if (from < TOP && dice.includes(from - GATE + 1)) targets.push(from + 1);
-    } else near(from, TOP);
-    for (const to of targets) moveTo(h, from, to);
+    if (from < 0) {
+      for (const d of new Set(use)) if (ex.includes(d)) moveTo(h, from, 0, [d]);
+      if (pair) moveTo(h, from, 0, [use[0], use[1]]);
+      return;
+    }
+    for (const d of new Set(use)) {
+      let to = -2;
+      if (R.homeStrict) {
+        if (from < GATE) { if (from + d <= GATE) to = from + d; }
+        else if (from === GATE) to = GATE + d;
+        else if (from < TOP && d === from - GATE + 1) to = from + 1;
+      } else if (from + d <= TOP) to = from + d;
+      if (to >= 0) moveTo(h, from, to, [d]);
+    }
+    if (use.length === 2) { // both dice on one horse, in one go: the total, passing the middle cell without stopping
+      const sum = use[0] + use[1], last = R.homeStrict ? GATE : TOP;
+      if (from < last && from + sum <= last) moveTo(h, from, from + sum, [use[0], use[1]]);
+    }
   });
   return out;
-  function moveTo(h: number, from: number, to: number): void {
+  function moveTo(h: number, from: number, to: number, dice: number[]): void {
     // the cells passed over: none may hold a horse when jumping is not allowed
     if (R.noJump && from >= 0) {
       for (let q = from + 1; q < to; q++) if (occupant(players, cellOf(p.side, q)!)) return;
     }
     const at = occupant(players, cellOf(p.side, to)!);
     if (at && at.pi === pi) return; // never onto your own horse
-    out.push(at ? { h, from, to, kick: at } : { h, from, to });
+    out.push(at ? { h, from, to, dice, kick: at } : { h, from, to, dice });
   }
 }
+
+/** How far a move goes, as the player picks it: one die's face, or the total when it spends both on a
+ * horse already out (a double of 2 to 5 bringing a horse out counts as its face). */
+export const moveValue = (m: LudoMove): number => (m.dice.length > 1 && m.from >= 0 ? m.dice[0] + m.dice[1] : m.dice[0]);
 
 /** Makes the move: the horse goes, a horse it lands on goes back to its corner. */
 export function applyMove(players: LudoPlayer[], pi: number, m: LudoMove): void {

@@ -7,7 +7,7 @@ import { tune } from '../config';
 import { sfx } from '../audio';
 import { rng, setSeed, freshSeed } from '../game/rng';
 import type { Loose } from '../game/types';
-import { legalMoves, applyMove, aiPick, allHome, throwsAgain, GATE, type LudoMove, type LudoPlayer, type LudoRules, type LudoSeat } from './rules';
+import { legalMoves, applyMove, aiPick, allHome, throwsAgain, moveValue, GATE, type LudoMove, type LudoPlayer, type LudoRules, type LudoSeat } from './rules';
 
 /** The four sides' names and colours, seat i plays side i. */
 export const SIDES = [
@@ -32,6 +32,9 @@ export interface LudoGame {
   t: number; timer: number;
   /** The dice's faces (one or two, data/config.json ludo_dice); empty before the first throw. */
   dice: number[];
+  /** The dice still to use this throw: both at first; each move spends one (a double of 2 to 5 that
+   * brings a horse out spends both). */
+  use: number[];
   shake: { t: number; ai: boolean; holdFor: number; remote?: boolean; released?: boolean } | null;
   /** The throw in the air: how long it tumbles, how hard it was thrown, the faces it flickers through. */
   throwAt: { t: number; dur: number; power: number; faces: number[][]; spin: number } | null;
@@ -91,7 +94,7 @@ export function newGame(seed?: number, names: (string | undefined)[] = []): void
     const name = names[i] || st.name || (st.kind === 'ai' ? `Máy ${SIDES[i].name}` : `Ngựa ${SIDES[i].name}`);
     players.push({ id: players.length, side: i, name, kind: st.kind, lv: st.lv ?? 1, peer: st.peer, horses: Array(R.horses).fill(-1), place: 0, kicks: 0, kicked: 0, sixes: 0 });
   });
-  G = { seed: s, players, cur: Math.floor(rng() * players.length), phase: 'roll', t: 0, timer: 0, dice: [], shake: null, throwAt: null, show: null, moves: [], hop: null, kicked: [], again: false, log: [], winner: -1, floaters: [] };
+  G = { seed: s, players, cur: Math.floor(rng() * players.length), phase: 'roll', t: 0, timer: 0, dice: [], use: [], shake: null, throwAt: null, show: null, moves: [], hop: null, kicked: [], again: false, log: [], winner: -1, floaters: [] };
   log(`Ván mới! ${curP().name} đi trước.`);
 }
 
@@ -123,7 +126,8 @@ function afterDie(): void {
   G.show = { t: 0, dice: [...d] };
   if (again) { p.sixes++; play('double'); } else play('land');
   G.again = again && R.bonusSix;
-  G.moves = legalMoves(G.players, G.cur, d, R);
+  G.use = [...d];
+  G.moves = legalMoves(G.players, G.cur, G.use, R);
   G.timer = 0;
   if (!G.moves.length) {
     G.phase = 'nomove';
@@ -136,12 +140,16 @@ function afterDie(): void {
 /** Words floating up over the die. */
 function floatDie(text: string, color: string): void { G.floaters.push({ text, color, pi: -1, h: -1, t: 0 }); }
 
-/** Moves horse h of the current player for this throw, if it has a legal move; with two moves (two
- * dice at the gate) it climbs the higher step. */
-export function pickHorse(h: number): void {
+/** Moves horse h of the current player d cells (one die's face, or both dice's total), if that is a
+ * legal move; with no d, or no move for it, the horse's farthest move. */
+export function pickHorse(h: number, d?: number): void {
   const mine = G.phase === 'choose' ? G.moves.filter(x => x.h === h) : [];
-  if (mine.length) pickMove(mine.reduce((a, b) => (b.to > a.to ? b : a)));
+  const withD = mine.filter(x => moveValue(x) === d);
+  const pool = withD.length ? withD : mine;
+  if (pool.length) pickMove(pool.reduce((a, b) => (b.to > a.to ? b : a)));
 }
+/** The dice values a move can still be made with, largest first. */
+export const usableDice = (): number[] => [...new Set(G.moves.map(moveValue))].sort((a, b) => b - a);
 /** Makes one of the legal moves (the computer's choice). */
 function pickMove(m: LudoMove): void {
   const h = m.h;
@@ -151,7 +159,8 @@ function pickMove(m: LudoMove): void {
   else for (let q = m.from + 1; q <= m.to; q++) path.push(q);
   G.hop = { pi: G.cur, h, path, t: 0, move: m };
   G.phase = 'move'; G.moves = [];
-  if (m.from < 0) log(`${curP().name} đổ ${diceText(G.dice)}: ra quân!`);
+  for (const d of m.dice) { const k = G.use.indexOf(d); if (k >= 0) G.use.splice(k, 1); } // the dice it spends
+  if (m.from < 0) log(`${curP().name} ra quân${m.dice.length > 1 ? ` bằng đôi ${m.dice[0]}` : ` bằng viên ${m.dice[0]}`}!`);
 }
 
 /** The hop finished: the move counts, a kicked horse flies home, then the turn goes on or passes. */
@@ -178,6 +187,13 @@ function landed(): void {
     log(`${p.name} đưa đủ ngựa lên chuồng: THẮNG!`);
     play('win');
     return;
+  }
+  if (G.use.length) { // a die left: another move, with the same horse or another
+    G.moves = legalMoves(G.players, G.cur, G.use, rulesNow());
+    G.timer = 0;
+    if (G.moves.length) { G.phase = 'choose'; return; }
+    floatDie(`Viên ${G.use[0]} không đi được`, '#d9442b');
+    G.use = [];
   }
   endRoll();
 }
@@ -220,7 +236,7 @@ export function step(dt: number, held: boolean, peerOnline: (id?: number) => boo
       break;
     case 'choose': {
       // one choice (or every choice the same horse's): it moves by itself after a beat
-      const only = new Set(G.moves.map(m => `${m.from}>${m.to}`)).size === 1; // one move, or the same move for any horse (all coming out)
+      const only = new Set(G.moves.map(m => `${m.from}>${m.to}:${m.dice.join()}`)).size === 1; // one move, or the same move for any horse (all coming out)
       if (only && G.timer >= 0.45) pickMove(G.moves[0]);
       else if (auto && G.timer >= tune.ludo_ai_delay * 0.7) pickMove(aiPick(G.players, G.cur, G.moves, p.kind === 'ai' ? p.lv : 1, rulesNow(), rng));
       break;

@@ -63,7 +63,7 @@
   "hop_time": { "value": 0.17, "min": 0.05, "max": 0.6, "step": 0.01 },
   "ludo_horses": { "value": 4, "min": 1, "max": 4, "step": 1 },
   "ludo_dice": { "value": 2, "min": 1, "max": 2, "step": 1 },
-  "ludo_exit_on_one": { "value": 0, "min": 0, "max": 1, "step": 1 },
+  "ludo_exit_on_one": { "value": 1, "min": 0, "max": 1, "step": 1 },
   "ludo_bonus_six": { "value": 1, "min": 0, "max": 1, "step": 1 },
   "ludo_bonus_kick": { "value": 0, "min": 0, "max": 1, "step": 1 },
   "ludo_no_jump": { "value": 1, "min": 0, "max": 1, "step": 1 },

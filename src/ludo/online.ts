@@ -6,7 +6,7 @@
 //                     { k: 'ludoYou', seat }                       which seat is yours
 //                     { k: 'ludo', scene, g, sfx }                 the game, and the sounds since the last
 //                     { k: 'ludoFull', msg }
-//   friend -> host    { k: 'ludoAct', act: 'shake' | 'throw' | 'pick' | 'again', h? }
+//   friend -> host    { k: 'ludoAct', act: 'shake' | 'throw' | 'pick' | 'again', h?, d? }   (pick: horse h with die d)
 
 import * as net from '../net/net';
 import { tune, CONFIG } from '../config';
@@ -122,11 +122,11 @@ function onAct(from: number, a: Loose): void {
   if (p.kind !== 'remote' || p.peer !== from) return;
   if (a.act === 'shake' && G.phase === 'roll') { startShake(); if (G.shake) G.shake.remote = true; }
   else if (a.act === 'throw' && G.shake?.remote) G.shake.released = true;
-  else if (a.act === 'pick' && Number.isInteger(a.h)) pickHorse(a.h);
+  else if (a.act === 'pick' && Number.isInteger(a.h)) pickHorse(a.h, Number.isInteger(a.d) ? a.d : undefined);
 }
 /** Friend: a press for the host. */
-export function sendAct(act: string, h?: number): void {
-  net.toHost({ k: 'ludoAct', act, h });
+export function sendAct(act: string, h?: number, d?: number): void {
+  net.toHost({ k: 'ludoAct', act, h, d });
   if (act === 'shake') guestShaking = true;
 }
 

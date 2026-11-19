@@ -17,7 +17,7 @@ import { openPage } from '../ui/pages';
 import { openSettings } from '../ui/settings';
 import { showOnlinePanel } from '../net/room';
 import { G, diceText, SIDES, LV_NAMES, ludoSetup, newGame, startShake, pickHorse, curP, step as gameStep, shakePower, ranking, rulesNow, autoPlays } from './game';
-import { cellOf, GATE, STEPS, TRACK, startOf, stepCell, exitRolls, type LudoSeat } from './rules';
+import { cellOf, moveValue, GATE, STEPS, TRACK, startOf, stepCell, exitRolls, type LudoSeat } from './rules';
 import * as on from './online';
 
 /** The horse's face on every piece: Ngựa, the seventh of the twelve animals. */
@@ -164,9 +164,45 @@ function myTurn(): boolean {
   if (on.isGuest()) return p.side === on.mySeat && p.kind === 'remote';
   return p.kind === 'human';
 }
-/** The horses this screen may tap now. */
-function movable(): number[] { return G.phase === 'choose' && myTurn() ? G.moves.map(m => m.h) : []; }
+/** The horse this screen tapped that can go two ways (two different dice): the buttons ask how far. -1: none. */
+let pickedHorse = -1;
+/** How far horse h can go now (each die's face, and both dice's total), farthest first. */
+function horseDice(h: number): number[] { return [...new Set(G.moves.filter(m => m.h === h).map(moveValue))].sort((a, b) => b - a); }
+/** The horses this screen may tap now: every horse with a move. */
+function movable(): number[] { if (G.phase !== 'choose' || !myTurn()) return []; return [...new Set(G.moves.map(m => m.h))]; }
+/** The tapped horse, while it can still go two ways. */
+function picked(): number { return movable().includes(pickedHorse) && horseDice(pickedHorse).length > 1 ? pickedHorse : -1; }
+/** Which dice of the throw are spent (a die value no longer in G.use). */
+function spentDice(): boolean[] {
+  const left = [...(G.use || [])];
+  return G.dice.map(d => { const k = left.indexOf(d); if (k >= 0) { left.splice(k, 1); return false; } return true; });
+}
+/** The colours of the two "how far" buttons, and of the band each paints to its cell. */
+const HINT = ['#ff8a5c', '#5aa2ec', '#7cc95a'];
+/** The tapped horse's ways to go: a band of its colour over the cells it passes, its end cell ringed and numbered. */
+function drawHints(): void {
+  const h = picked(); if (h < 0) return;
+  const p = curP(), cs = cellSize(), pulse = 0.75 + 0.25 * Math.sin(G.t * 5);
+  horseDice(h).forEach((d, k) => {
+    const ms = G.moves.filter(m => m.h === h && moveValue(m) === d); if (!ms.length) return;
+    const m = ms.reduce((a, b) => (b.to > a.to ? b : a));
+    const path: number[] = m.from === GATE && m.to > GATE && rulesNow().homeStrict ? [m.to] : Array.from({ length: m.to - m.from }, (_, j) => m.from + 1 + j);
+    ctx.save();
+    path.forEach((q, j) => {
+      const c = cellOf(p.side, q)!, o = at(c[0], c[1]), last = j === path.length - 1;
+      ctx.globalAlpha = last ? 0.55 * pulse : 0.32;
+      ctx.fillStyle = HINT[k]; rrect(ctx, o.x + cs * 0.08, o.y + cs * 0.08, cs * 0.84, cs * 0.84, cs * 0.22); ctx.fill();
+      if (last) {
+        ctx.globalAlpha = 1; ctx.strokeStyle = HINT[k]; ctx.lineWidth = Math.max(3, cs * 0.12);
+        rrect(ctx, o.x + cs * 0.02, o.y + cs * 0.02, cs * 0.96, cs * 0.96, cs * 0.26); ctx.stroke();
+        text(String(d), o.x + cs * 0.82, o.y + cs * 0.14, Math.round(cs * 0.42), HINT[k], 'center', 'bold');
+      }
+    });
+    ctx.restore();
+  });
+}
 function drawHorses(): void {
+  drawHints();
   const cs = cellSize(), mv = movable();
   const list: { pi: number; h: number; x: number; y: number; lift: number }[] = [];
   G.players.forEach((p, pi) => p.horses.forEach((_, h) => list.push({ pi, h, ...horsePos(pi, h) })));
@@ -175,7 +211,8 @@ function drawHorses(): void {
     const p = G.players[it.pi], mine = it.pi === G.cur && mv.includes(it.h);
     const bob = mine && prefs.effects ? Math.abs(Math.sin(G.t * 5 + it.h)) * cs * 0.18 : 0;
     const breathe = prefs.effects && it.pi === G.cur && !mine ? Math.sin(G.t * 3 + it.h) * cs * 0.03 : 0;
-    drawHorse(it.x, it.y, cs * 0.95, p.side, it.lift + bob + breathe, mine ? 0.5 + 0.5 * Math.sin(G.t * 6) : 0);
+    const chosen = mine && it.h === picked(); // the tapped horse, waiting for how far
+    drawHorse(it.x, it.y, cs * (chosen ? 1.12 : 0.95), p.side, it.lift + bob + breathe + (chosen ? cs * 0.2 : 0), mine ? (chosen ? 1 : 0.5 + 0.5 * Math.sin(G.t * 6)) : 0);
     if (mine && mv.length > 1) text(String(it.h + 1), it.x + cs * 0.38, it.y - it.lift - bob - cs * 0.4, Math.round(cs * 0.36), '#4a3020', 'center', 'bold');
   }
   for (const f of G.floaters) {
@@ -225,7 +262,10 @@ function drawDie(): void {
       dy = -Math.abs(Math.sin(u * Math.PI * (3 + k * 0.5) + ph * 0.3)) * (1 - u) * cs * (1.2 + th.power * 1.2);
       rot = th.spin * (k ? -1 : 1) * (1 - u) * (1 - u) * 3;
     } else if (prefs.effects) dy = -Math.abs(Math.sin(G.t * 2 + ph)) * cs * 0.06;
+    const busy = G.phase === 'choose' || G.phase === 'move', spent = busy && spentDice()[k]; // a die already moved with fades
+    ctx.save(); if (spent) ctx.globalAlpha = 0.35;
     drawDieFace(c.x + ox + dx, c.y + dy, s, face, rot + (n > 1 && G.phase !== 'dice' && G.phase !== 'shake' ? (k ? 0.12 : -0.1) : 0));
+    ctx.restore();
   }
 }
 /** Over the horses: the numbers as the dice stop, and the power bar while shaking. */
@@ -259,7 +299,11 @@ function turnLine(): string {
     case 'roll': return me ? (G.players.filter(q => q.kind === 'human').length > 1 && !on.isGuest() ? `${p.name}: giữ nút để lắc, thả ra để thảy` : 'Giữ nút để lắc xúc xắc, thả ra để thảy') : `${who} chuẩn bị thảy...`;
     case 'shake': return me ? 'Thả ra để thảy!' : `${who} đang lắc...`;
     case 'dice': return 'Xúc xắc đang lăn...';
-    case 'choose': return me ? (new Set(G.moves.map(m => m.h)).size > 1 ? `Đổ ${dt()}: chọn một chú ngựa đang sáng` : `Đổ ${dt()}: ngựa tự đi`) : `${who} đổ ${dt()}, đang chọn ngựa...`;
+    case 'choose': {
+      const left = G.use.length < G.dice.length ? `Còn viên ${G.use.join(', ')}` : `Đổ ${dt()}`;
+      if (!me) return `${who} ${left.toLowerCase()}, đang chọn ngựa...`;
+      return picked() >= 0 ? `${left}: ngựa số ${picked() + 1} đi mấy?` : `${left}: bấm ngựa đang sáng`;
+    }
     case 'move': return `${who} đổ ${dt()}`;
     case 'nomove': return `${who} đổ ${dt()}: không đi được`;
     default: return '';
@@ -303,14 +347,22 @@ function handleTaps(): void {
   if (F.picker && (pressed('Escape') || pressed('Enter'))) { F.picker = null; return; }
   if (scene === 'ludo' && movable().length) {
     for (let k = 0; k < 4; k++) if (pressed('Digit' + (k + 1)) && movable().includes(k)) { choose(k); return; }
-    if (pressed('Space') || pressed('Enter')) { choose(movable()[0]); return; }
+    if ((pressed('Space') || pressed('Enter')) && picked() < 0) { choose(movable()[0]); return; }
   }
   if (pressed('Space') || pressed('Enter')) { const b = F.ui.find(x => x.role === 'primary' && x.enabled); if (b) press(b); }
   if (pressed('Escape')) { const b = F.ui.find(x => x.role === 'secondary' && x.enabled); if (b) press(b); }
 }
+/** A horse tapped: it goes at once when it has one way to go; with two (two different dice) the buttons ask how far. */
 function choose(h: number): void {
   sfx.click();
-  if (on.isGuest()) on.sendAct('pick', h); else pickHorse(h);
+  const ds = horseDice(h);
+  if (ds.length > 1) { pickedHorse = h; return; }
+  go(h, ds[0]);
+}
+/** Moves horse h with die d (a friend online sends it to the host). */
+function go(h: number, d: number): void {
+  pickedHorse = -1;
+  if (on.isGuest()) on.sendAct('pick', h, d); else pickHorse(h, d);
 }
 /** The person shaking still holds the die (a finger, the mouse, Space or Enter). */
 export const holding = (): boolean => pointerHeld || down.has('Space') || down.has('Enter');
@@ -320,15 +372,15 @@ function showLudoRules(): void {
   const R = rulesNow(), ex = exitRolls(R).join(' hoặc '), two = R.dice > 1;
   openPage('Luật Cá Ngựa', `
     <h3>Mục tiêu</h3><ul><li>Mỗi người <b>${R.horses} chú ngựa</b> trong chuồng ở góc bàn. Ai đưa đủ ngựa lên <b>bậc thang chuồng</b> (6 ô màu ở giữa cánh của mình) trước thì <b>thắng</b>.</li></ul>
-    <h3>Thảy xúc xắc</h3><ul><li><b>Giữ nút</b> để lắc (giữ càng lâu thảy càng mạnh), <b>thả ra</b> để thảy. ${two ? '<b>Hai viên</b> xúc xắc: ngựa đi theo <b>tổng</b> hai viên.' : 'Một viên xúc xắc.'}</li>
-    <li>${two ? `Có một viên <b>${ex}</b>, hoặc <b>đổ đôi</b>,` : `Đổ <b>${ex}</b>`} thì được <b>ra quân</b>: một ngựa ra ô có ngôi sao ở góc ngoài cánh của mình.</li>
+    <h3>Thảy xúc xắc</h3><ul><li><b>Giữ nút</b> để lắc (giữ càng lâu thảy càng mạnh), <b>thả ra</b> để thảy. ${two ? '<b>Hai viên</b> xúc xắc, <b>mỗi viên đi riêng</b>: bấm ngựa đang sáng; ngựa đi được cả hai số thì chọn <b>đi số nào</b>, xong rồi chọn ngựa cho số còn lại. Một ngựa đi cả hai số (đi <b>tổng</b> một mạch, hoặc từng số một), hay hai ngựa mỗi con một số, tùy bạn. Đi tổng thì không dừng ở ô giữa.' : 'Một viên xúc xắc.'}</li>
+    <li>${two ? `Một viên <b>${ex}</b> ra được <b>một ngựa</b> (đôi ${exitRolls(R).join(', đôi ')} ra được hai). <b>Đôi 2, 3, 4, 5</b>: dùng cả hai viên để ra một ngựa, hoặc đi như thường.` : `Đổ <b>${ex}</b> thì được ra quân.`} Ngựa ra ô có ngôi sao ở góc ngoài cánh của mình.</li>
     ${R.bonusSix ? `<li>${two ? '<b>Đổ đôi</b>' : 'Đổ <b>6</b>'} được <b>thảy thêm</b> một lần.</li>` : ''}
     <li>Không có ngựa nào đi được thì mất lượt.</li></ul>
     <h3>Đi ngựa</h3><ul><li>Ngựa chạy theo chiều kim đồng hồ quanh bàn, đúng số đã đổ. Có nhiều ngựa đi được thì bấm chọn con đang sáng.</li>
     ${R.noJump ? '<li><b>Không được nhảy qua đầu</b> ngựa khác (của ai cũng vậy).</li>' : ''}
     <li>Dừng đúng ô có ngựa người khác: <b>đá</b> ngựa đó về chuồng${R.bonusKick ? ' và được thảy thêm' : ''}. Không được dừng lên ngựa của mình.</li></ul>
     <h3>Lên chuồng</h3><ul>${R.homeStrict
-      ? `<li>Ngựa phải dừng <b>đúng ô cửa chuồng</b> (ô giữa ở cuối cánh của mình, ngay trước ô ra quân) mới được lên. Đứng ở cửa, ${two ? 'có một viên' : 'đổ'} <b>k</b> thì lên thẳng <b>bậc k</b>.</li><li>Đang ở bậc <b>s</b>, phải ${two ? 'có một viên' : 'đổ'} đúng <b>s + 1</b> mới lên thêm một bậc.</li>${two ? '<li>Tổng hai viên vượt quá ô cửa chuồng thì được đi theo <b>một viên</b>.</li>' : ''}`
+      ? `<li>Ngựa phải dừng <b>đúng ô cửa chuồng</b> (ô giữa ở cuối cánh của mình, ngay trước ô ra quân) mới được lên. Đứng ở cửa, ${two ? 'có một viên' : 'đổ'} <b>k</b> thì lên thẳng <b>bậc k</b>.</li><li>Đang ở bậc <b>s</b>, phải ${two ? 'có một viên' : 'đổ'} đúng <b>s + 1</b> mới lên thêm một bậc.</li>`
       : '<li>Đi qua ô cửa chuồng thì vào các bậc theo số đổ, không được đi lố bậc 6.</li>'}</ul>
     <h3>Phím</h3><ul><li>Space / Enter: giữ để lắc, chọn ngựa đầu tiên · 1–4: chọn ngựa số đó · M: tắt tiếng</li></ul>`);
 }
@@ -453,6 +505,11 @@ function buildPlay(): void {
     }
     return;
   }
+  if (picked() >= 0) { // the tapped horse can go two ways: how far
+    const h = picked(), u = horseDice(h), gap = 12, w = (bw - gap) / u.length;
+    const both = (d: number) => G.moves.some(m => m.h === h && m.dice.length > 1 && m.from >= 0 && moveValue(m) === d);
+    u.forEach((d, k) => btn(bx + k * (w + gap), by, w, 56, both(d) ? `Đi ${d} (cả 2)` : u.length > 2 ? `Đi ${d}` : `Ngựa ${h + 1} đi ${d}`, () => go(h, d), k ? '' : 'primary', true, HINT[k])); // the same colours as the bands on the board
+  }
   if (myTurn() && (G.phase === 'roll' || G.phase === 'shake')) {
     btn(bx, by, bw, 62, G.phase === 'shake' ? 'Thả ra để thảy!' : 'Giữ để lắc xúc xắc', () => startShake(), 'primary', G.phase === 'roll', '#c8201f', 'shake');
   }
@@ -568,5 +625,5 @@ export const ludoScenes: Record<string, { update(dt: number): void; draw(): void
 export function ludoNet(): void { on.ludoNetStep(holding()); }
 /** For checks: who plays which side and what they can do, read-only. */
 export function ludoView(): Loose {
-  return G ? { phase: G.phase, cur: G.cur, dice: G.dice, moves: G.moves.map(m => m.h), horses: G.players.map(p => [...p.horses]), winner: G.winner, auto: G.players.map(p => autoPlays(p, on.peerOnline)) } : null;
+  return G ? { phase: G.phase, cur: G.cur, dice: G.dice, use: G.use, moves: G.moves.map(m => m.h), horses: G.players.map(p => [...p.horses]), winner: G.winner, auto: G.players.map(p => autoPlays(p, on.peerOnline)) } : null;
 }

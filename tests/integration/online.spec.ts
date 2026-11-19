@@ -3,9 +3,13 @@
 // browser context, so their storage is apart, like two phones. The game runs on its own loop and the
 // test waits for what each screen shows through window.game (src/hook.ts), tapping the canvas where
 // the buttons are in the wide 1280x720 layout.
-import { expect, test, type Browser, type Page } from '@playwright/test';
+import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
+
+/** The browser contexts this file opened, closed after each test (Bug: left open, they slowed the files after it). */
+const opened: BrowserContext[] = [];
+test.afterEach(async () => { await Promise.all(opened.splice(0).map(c => c.close())); });
 
 const PORT = 8790;
 const BASE = `http://localhost:${PORT}/`;
@@ -29,13 +33,14 @@ let server: ChildProcess;
 test.beforeAll(async () => {
   if (!existsSync('dist/index.html')) throw new Error('dist/ is missing: npm run build first (npm run test:e2e does)');
   server = spawn(process.execPath, ['server/server.mjs'], { env: { ...process.env, PORT: String(PORT), STATIC_DIR: 'dist' }, stdio: 'ignore' });
-  await expect.poll(async () => { try { return (await fetch(`${BASE}health`)).ok; } catch { return false; } }, { timeout: 10000 }).toBe(true);
+  await expect.poll(async () => { try { return (await fetch(`${BASE}health`)).ok; } catch { return false; } }, { timeout: 25000 }).toBe(true); // a busy machine starts node slowly
 });
 test.afterAll(() => { server?.kill(); });
 
 /** A screen of its own: a fresh browser context with the game open, and its page errors collected. */
 async function screen(browser: Browser): Promise<{ page: Page; errors: string[] }> {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+  opened.push(ctx); // closed after the test: left open, its 3D pages kept drawing through later files and starved them
   const page = await ctx.newPage();
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));

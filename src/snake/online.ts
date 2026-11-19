@@ -8,13 +8,14 @@
 //                     { k: 'snakeFull', msg }
 //   friend -> host    { k: 'snakeAct', act: 'shake' | 'throw' | 'animal' }   (animal: the next animal for my seat)
 
-import { meterPos, safePower } from '../game/dice';
+import { meterPos, friendPower } from '../game/dice';
+import { rngState } from '../game/rng';
 import * as net from '../net/net';
 import { tune, CONFIG } from '../config';
 import { rawSfx } from '../net/room';
 import { scene, setScene } from '../core/store';
 import type { Loose } from '../game/types';
-import { G, setG, snakeSetup, newGame, startShake, curP, sounds, recordSounds, RULE_KEYS, history, log } from './game';
+import { G, setG, restoreKept, snakeSetup, newGame, startShake, curP, sounds, recordSounds, RULE_KEYS, history, log } from './game';
 import { makeRoomExtras, type RoomGame } from '../net/roomExtras';
 import { showHistory } from '../ui/pages';
 import type { SnakeSeat } from './rules';
@@ -54,7 +55,7 @@ const handlers: net.NetHandlers = {
     if (isHost() && restoring) { // a host back after a reload: the game kept for this room, if the server still had it
       restoring = false;
       const k = hostGame(code);
-      if (k) { setG(k.g); snakeSetup.seats = k.seats.map(s => ({ ...s })); snakeSetup.seats[0] = { ...snakeSetup.seats[0], kind: 'human', name: myName }; setScene('snake'); }
+      if (k) { restoreKept(k.g, k.rng, k.history); snakeSetup.seats = k.seats.map(s => ({ ...s })); snakeSetup.seats[0] = { ...snakeSetup.seats[0], kind: 'human', name: myName }; setScene('snake'); }
       else if (restoringCode && restoringCode !== code) note = `Phòng ${restoringCode} đã đóng: đây là phòng mới ${code}, gửi mã mới cho bạn bè nhé.`;
     }
     if (isHost()) sendLobby();
@@ -176,7 +177,7 @@ function onAct(from: number, a: Loose): void {
   const p = curP();
   if (p.kind !== 'remote' || p.peer !== from) return;
   if (a.act === 'shake' && G.phase === 'roll') { startShake(); if (G.shake) G.shake.remote = true; }
-  else if (a.act === 'throw' && G.shake?.remote) { G.shake.released = true; G.shake.power = safePower(a.power); } // the bar where the friend let go, on their screen
+  else if (a.act === 'throw' && G.shake?.remote) { G.shake.released = true; G.shake.power = friendPower(a.held, G.shake.t); } // how long the friend held, on their screen, checked against this clock
 }
 /** Friend: a press for the host. */
 /** "Lịch sử": the whole game's lines (a friend asks the host, who keeps them). */
@@ -204,24 +205,27 @@ function onHostMsg(d: Loose): void {
   }
 }
 
-let keepEvery = 0;
+let keepEvery = 0, overKept = false;
 /** About once a second: the room is remembered as still in use, the host's game and a game on one
  * screen are kept (a game over is forgotten). */
 function keepStep(): void {
+  const over = G?.phase === 'over';
+  if (over && !overKept) keepEvery = 60; // a game just won is forgotten at once (Bug: left within a second, the last keep offered the won game back)
+  overKept = over;
   if (++keepEvery < 60) return;
   keepEvery = 0;
   if (active && roomCode) keepRoom({ code: roomCode, role: isHost() ? 'host' : 'guest', name: myName, at: Date.now() });
   if (scene !== 'snake' || !G?.players) return;
-  if (isHost()) keepHostGame(G.phase === 'over' ? null : { code: roomCode, g: G, seats: snakeSetup.seats.map(s => ({ ...s })), at: Date.now() });
-  else if (!active) keepLocal(G.phase === 'over' ? null : { g: G, seats: snakeSetup.seats.map(s => ({ ...s })) });
+  if (isHost()) keepHostGame(G.phase === 'over' ? null : { code: roomCode, g: G, rng: rngState(), history: [...history], seats: snakeSetup.seats.map(s => ({ ...s })), at: Date.now() });
+  else if (!active) keepLocal(G.phase === 'over' ? null : { g: G, rng: rngState(), history: [...history], seats: snakeSetup.seats.map(s => ({ ...s })) });
 }
 /** Every step: the host sends the game; a friend lets go of the die when the finger lifts; the game is kept. */
 export function snakeNetStep(held: boolean): void {
   keepStep();
   if (isHost()) {
     if (scene === 'snake' && G?.players) {
-      if (++sendEvery >= 3 || sounds.length) { sendEvery = 0; net.toAll({ k: 'snake', scene, g: G, sfx: sounds.splice(0) }); }
+      if (++sendEvery >= 3 || sounds.length) { sendEvery = 0; net.toAll({ k: 'snake', scene, g: { ...G, seed: 0 }, sfx: sounds.splice(0) }); } // seed 0: the seed stays here (Bug: sent, it let a friend's screen work out the dice to come)
     } else if (++sendEvery >= 30) { sendEvery = 0; sendLobby(); }
   }
-  if (isGuest() && guestShaking && !held) { guestShaking = false; net.toHost({ k: 'snakeAct', act: 'throw', power: guestPower() }); } // where the bar stood on this screen: no lag
+  if (isGuest() && guestShaking && !held) { guestShaking = false; net.toHost({ k: 'snakeAct', act: 'throw', held: guestShakeT() }); } // how long this screen held: the host works out the power
 }

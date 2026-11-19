@@ -8,7 +8,7 @@ import { W, H, ctx, text, rrect, wrapLines } from '../screen';
 import { BOARD_TOP } from '../game/board';
 
 import { state } from '../core/store';
-import { cleanChat } from '../game/chat';
+import { cleanChat, since } from '../game/chat';
 
 import { showHistory } from '../ui/pages';
 import { showChat, setChatSender } from '../ui/chatBox';
@@ -49,7 +49,7 @@ const emoteSeen = new Set<string>();  // the bubbles already heard here, so each
 /** Host: a player sends a quick emote; it shows over their piece for everyone. */
 export function hostEmote(seat: number, i: unknown) {
   if (typeof i !== 'number' || !Number.isInteger(i) || i < 0 || i >= EMOTES.length) return;
-  if (state.t - (emoteLast[seat] ?? -99) < tune.emote_gap) return;
+  if (since(emoteLast[seat], state.t) < tune.emote_gap) return;
   emoteLast[seat] = state.t;
   (state.emotes ||= []).push({ seat, i, t: 0, id: `${seat}:${state.t.toFixed(2)}` });
 }
@@ -61,8 +61,8 @@ const chatPrev: string[] = []; // host: each seat's last line, so the same line 
 export function hostChat(seat: number, raw: unknown) {
   const text = cleanChat(raw, tune.chat_max_len), p = state.players.find(q => q.id === seat);
   if (!text || !p) return;
-  if (state.t - (chatLast[seat] ?? -99) < tune.chat_gap) return;   // too soon after the last one
-  if (text === chatPrev[seat] && state.t - (chatLast[seat] ?? -99) < 30) return; // the same line again
+  if (since(chatLast[seat], state.t) < tune.chat_gap) return;   // too soon after the last one
+  if (text === chatPrev[seat] && since(chatLast[seat], state.t) < 30) return; // the same line again
   chatLast[seat] = state.t; chatPrev[seat] = text;
   (state.emotes ||= []).push({ seat, i: -1, text, t: 0, id: `c${seat}:${state.t.toFixed(2)}` });
   log(`${p.name}: ${text}`);

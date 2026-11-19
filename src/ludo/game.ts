@@ -73,6 +73,18 @@ export const animalName = (a: number): string => ANIMALS[a]?.name ?? 'Ngựa';
 /** The game being played (null before the first). */
 export let G: LudoGame = null as unknown as LudoGame;
 /** Puts a whole game in place (a friend's screen, from the host). */
+/**
+ * A kept game back on the table (on one screen, or a host's after a reload): its random numbers go on
+ * where they stopped, its history comes back, and a shake a person was holding when it was kept becomes
+ * the throw not yet made, its zone kept (Bug 19/11/2026: the reload threw it at once, at a power a
+ * second old; every resumed game drew the same dice, from the page's first seed; Lịch sử came back empty).
+ */
+export function restoreKept(g: LudoGame, rngAt?: number, past?: string[]): void {
+  if (g.phase === 'shake' && g.shake && !g.shake.ai) { g.zone = g.shake.zone; g.shake = null; g.phase = 'roll'; g.timer = 0; }
+  if (typeof rngAt === 'number' && Number.isFinite(rngAt)) setSeed(rngAt);
+  if (Array.isArray(past)) { history.length = 0; history.push(...past.filter(x => typeof x === 'string').slice(-300)); }
+  setG(g);
+}
 export function setG(g: LudoGame): void { G = g; }
 
 /** Sounds played since the host last sent the game, for the friends' screens. */
@@ -147,7 +159,8 @@ export function startShake(ai = false, aim?: number): void { // aim: the power a
 }
 /** How hard the die will be thrown: 0 to 1, from how long it was shaken. */
 /** Where the power bar stands: a friend's own let-go power online, else the bar's place now (it runs up and down). */
-export const shakePower = (): number => (G.shake ? G.shake.power ?? meterPos(G.shake.t) : 0);
+// a computer's let-go is where it meant to stop, not one step past it (Bug: at ×4 a step overshot by 4% of the bar)
+export const shakePower = (): number => (G.shake ? G.shake.power ?? meterPos(G.shake.ai ? Math.min(G.shake.t, G.shake.holdFor) : G.shake.t) : 0);
 /** The throw in words: "5", or "3 + 5". */
 export const diceText = (d: number[]): string => d.join(' + ');
 /** Lets go of the dice: they tumble, and land on their faces. */

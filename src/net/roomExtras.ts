@@ -6,7 +6,7 @@
 import { tune } from '../config';
 import { W, H, ctx, text, rrect, wrapLines, FONT } from '../screen';
 import { F } from '../core/flags';
-import { cleanChat } from '../game/chat';
+import { cleanChat, since } from '../game/chat';
 import { showChat, setChatSender } from '../ui/chatBox';
 import { drawButton } from '../ui/draw';
 import { EMOTES } from '../ui/words';
@@ -57,15 +57,15 @@ export function makeRoomExtras(A: RoomAdapter) {
   function hostEmote(slot: number, i: unknown): void {
     const g = A.G();
     if (!g || typeof i !== 'number' || !Number.isInteger(i) || i < 0 || i >= EMOTES.length || !g.players[slot]) return;
-    if (g.t - (emoteLast[slot] ?? -99) < tune.emote_gap) return; // nobody floods the table
+    if (since(emoteLast[slot], g.t) < tune.emote_gap) return; // nobody floods the table
     emoteLast[slot] = g.t;
     (g.emotes ||= []).push({ slot, i, t: 0, id: `${slot}:${g.t.toFixed(2)}` });
   }
   function hostChat(slot: number, raw: unknown): void {
     const g = A.G(), line = cleanChat(raw, tune.chat_max_len), p = g?.players[slot];
     if (!g || !line || !p) return;
-    if (g.t - (chatLast[slot] ?? -99) < tune.chat_gap) return;                  // too soon after the last one
-    if (line === chatPrev[slot] && g.t - (chatLast[slot] ?? -99) < 30) return; // the same line again
+    if (since(chatLast[slot], g.t) < tune.chat_gap) return;                  // too soon after the last one
+    if (line === chatPrev[slot] && since(chatLast[slot], g.t) < 30) return; // the same line again
     chatLast[slot] = g.t; chatPrev[slot] = line;
     (g.emotes ||= []).push({ slot, i: -1, text: line, t: 0, id: `c${slot}:${g.t.toFixed(2)}` });
     A.log(`${p.name}: ${line}`);

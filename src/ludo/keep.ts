@@ -34,7 +34,7 @@ export function restoreRules(r: Record<string, number> | undefined): void {
 }
 
 /** A game on one screen, with the seats it was set up with and its picked rules. */
-export interface KeptGame { g: LudoGame; seats: LudoSeat[]; rules?: Record<string, number> }
+export interface KeptGame { g: LudoGame; rng?: number; history?: string[]; seats: LudoSeat[]; rules?: Record<string, number> }
 /** The game on one screen left unfinished, if any. */
 export function localGame(): KeptGame | null {
   const k = read<KeptGame>(LOCAL);

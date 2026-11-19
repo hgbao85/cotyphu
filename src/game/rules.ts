@@ -86,7 +86,7 @@ export function buyHint(s: GameState, pi: number, i: number): string {
     if (mine > 0) return `${s.teams ? 'Đội bạn' : 'Bạn'} sẽ có ${mine + 1}/${group.length} ô nhóm ${name}`;
     return `Nhóm ${name} có ${group.length} ô: gom đủ thì thuê × ${tune.full_group_mult}`;
   }
-  const n = TILES.filter((u, j) => u.t === t.t && s.owner[j] === pi).length + 1;
+  const n = TILES.filter((u, j) => u.t === t.t && s.owner[j] === pi && !s.mort[j]).length + 1; // mortgaged ones earn nothing, as in rentOf
   if (t.t === 'port') return `Có ${n} bến: thuê mỗi bến ${money(Math.round(tune.port_rent * Math.pow(2, n - 1) * tune.rent_scale))}`;
   return `Có ${n} công ty: thuê = tổng xúc xắc × ${money(Math.round((n >= 2 ? tune.util_mult_two : tune.util_mult_one) * tune.rent_scale))}`;
 }

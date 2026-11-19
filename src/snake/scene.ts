@@ -31,7 +31,7 @@ const tips = makeTips('snake:', {
 });
 import { speedNow, cycleSpeed } from '../core/speed';
 import { showOnlinePanel } from '../net/room';
-import { G, setG, diceText, SEATS, snakeSetup, newGame, startShake, curP, step as gameStep, shakePower, rulesNow, autoPlays } from './game';
+import { G, setG, restoreKept, diceText, SEATS, snakeSetup, newGame, startShake, curP, step as gameStep, shakePower, rulesNow, autoPlays } from './game';
 import { gridOf, LINKS, LAST, rank, type Link, type SnakeSeat } from './rules';
 import * as on from './online';
 import { localGame, lastRoom, type KeptGame } from './keep';
@@ -359,7 +359,7 @@ function showSnakeRules(): void {
   const R = rulesNow(), lad = LINKS.filter(l => l.kind === 'ladder'), sn = LINKS.filter(l => l.kind === 'snake');
   openPage('Luật Rắn và Thang', `
     <h3>Mục tiêu</h3><ul><li>Bàn <b>100 ô</b>, đi từ ô 1 ở góc dưới, ngoằn ngoèo lên tới <b>ô 100</b> ở góc trên. Ai tới ô 100 trước thì <b>thắng</b>.</li></ul>
-    <h3>Thảy xúc xắc</h3><ul><li><b>Giữ nút</b> để lắc, <b>thả ra</b> để thảy: khi giữ, <b>thanh lực chạy lên xuống</b>; thả lúc thanh cao thì dễ ra số lớn, thấp thì dễ ra số nhỏ (mặt nào cũng vẫn có thể ra). Thả trúng <b>vùng vàng</b> trên thanh thì <b>may hơn một chút</b>. Có 10 giây để canh. ${R.dice > 1 ? 'Hai viên, đi <b>tổng</b> hai viên.' : 'Một viên, ra mấy đi mấy ô.'}</li>
+    <h3>Thảy xúc xắc</h3><ul><li><b>Giữ nút</b> để lắc, <b>thả ra</b> để thảy: khi giữ, <b>thanh lực chạy lên xuống</b>; thả lúc thanh cao thì dễ ra số lớn, thấp thì dễ ra số nhỏ (mặt nào cũng vẫn có thể ra). Thả trúng <b>vùng vàng</b> trên thanh thì <b>may hơn một chút</b>. Có ${Math.round(tune.shake_max_time)} giây để canh. ${R.dice > 1 ? 'Hai viên, đi <b>tổng</b> hai viên.' : 'Một viên, ra mấy đi mấy ô.'}</li>
     <li>${R.sixToStart ? `Phải đổ <b>${enterFace()}</b> mới được vào bàn${R.dice > 1 ? ' (một viên 6 không tính)' : ''}.` : 'Thảy được bao nhiêu thì vào bàn bấy nhiêu ô.'}</li>
     ${R.bonusSix ? `<li>Đổ <b>${R.dice > 1 ? 'đôi' : '6'}</b> được <b>thảy thêm</b> một lần.</li>` : ''}</ul>
     <h3>Thang và rắn</h3><ul><li>Dừng đúng <b>chân thang</b> thì leo lên đầu thang (${lad.length} cây: ${lad.map(l => `${l.from}→${l.to}`).join(', ')}).</li>
@@ -425,7 +425,7 @@ function buildSetup(): void {
 function resumeLocal(k: KeptGame): void {
   F.picker = null; on.setNote('');
   snakeSetup.seats = k.seats.map(x => ({ ...x }));
-  setG(k.g); setScene('snake');
+  restoreKept(k.g, k.rng, k.history); setScene('snake');
 }
 function startSnake(): void {
   F.picker = null;

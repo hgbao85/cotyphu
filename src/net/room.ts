@@ -1,6 +1,7 @@
 // Online play from the host's side and the friend's: the room, seats, the state sent 20 times a second, coming back after a drop, the vote for a new game. The relay is net/net.ts.
 
-import { meterPos, safePower } from '../game/dice';
+import { friendPower } from '../game/dice';
+import { rngState } from '../game/rng';
 import { tune } from '../config';
 
 import { sfx } from '../audio';
@@ -123,7 +124,7 @@ function onGuestAct(from: number, a: Loose) {
   if (scene !== 'play' || !state.players) return;
   const p = curP();
   if (p.kind !== 'remote' || p.peer !== from) return;
-  if (a.act === 'throw') { if (state.shaking && state.shaking.remote) { state.shaking.released = true; state.shaking.power = safePower(a.i); } return; } // the bar where the friend let go, on their screen
+  if (a.act === 'throw') { if (state.shaking && state.shaking.remote) { state.shaking.released = true; state.shaking.power = friendPower(a.i, state.shaking.t); } return; } // how long the friend held, on their screen, checked against this clock
   if (a.act === 'pick') { if (state.phase === 'pick' && Number.isInteger(a.i) && a.i >= 0 && a.i < 40) state.pick = a.i; return; }
   const row = /^(sell|mort|unmort):(\d+)$/.exec(String(a.act));
   if (row) { // the property list: allowed while the turn's buttons show it
@@ -137,8 +138,9 @@ function onGuestAct(from: number, a: Loose) {
   const b = F.ui.find(x => x.act === a.act && x.enabled);
   F.ui = saved;
   if (!b) return;
+  const before = state.shaking;
   b.fn();
-  if (a.act === 'shake' && state.shaking) state.shaking.remote = true;
+  if (a.act === 'shake' && state.shaking && !before) state.shaking.remote = true; // only a shake this act began (Bug: a friend back mid-way through the computer's shake on their seat took it over)
 }
 
 /** Guest: a message from the host. */
@@ -178,7 +180,7 @@ export function netStep() {
   } else pendingSfx = []; // another game's room (src/ludo/net.ts) sends its own sounds
 
   if (isGuest() && F.guestShaking && !(pointerHeld || down.has('Space') || down.has('Enter'))) {
-    F.guestShaking = false; sendAct('throw', meterPos(performance.now() / 1000 - F.guestShakeAt)); // where the bar stood on this screen: no lag
+    F.guestShaking = false; sendAct('throw', performance.now() / 1000 - F.guestShakeAt); // how long this screen held: the host works out the power
   }
 }
 
@@ -291,7 +293,7 @@ let keepEvery = 0;
 function keepHostGame() {
   if (++keepEvery < 60) return;
   keepEvery = 0;
-  try { store()?.setItem('tpdv-host-game', JSON.stringify({ code: roomCode, at: Date.now(), scene, setup, state })); } catch { /* full or blocked: the game just is not kept */ }
+  try { store()?.setItem('tpdv-host-game', JSON.stringify({ code: roomCode, at: Date.now(), scene, setup, state, rng: rngState() })); } catch { /* full or blocked: the game just is not kept */ }
 }
 // ---- The vote for a new game (online) ----------------------------------------------------
 // Anyone at the table can ask for a new game, mid-game from the room menu or from the results

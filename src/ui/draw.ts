@@ -111,10 +111,14 @@ export function drawPanel() {
     ctx.fillStyle = p.color; rrect(ctx, PX + 14, y, 8, 64, 4); ctx.fill();
     ctx.fillStyle = '#f4ead2'; ctx.beginPath(); ctx.arc(PX + 52, y + 32, 22, 0, 7); ctx.fill();
     drawTokenIcon(p.token, PX + 52, y + 34, 38, p.color, faceOf(p));
-    text(p.name, PX + 84, y + 18, 18, '#fff8e6', 'left', 'bold');
+    const cash = money(p.cash);
+    ctx.font = `bold 18px ${FONT}`; const cashW = ctx.measureText(cash).width;
+    text(clipText(p.name, PW - 84 - 26 - cashW - 12, `bold 18px ${FONT}`), PX + 84, y + 18, 18, '#fff8e6', 'left', 'bold'); // clear of the money (Bug: a long name ran under it)
     const sub = (state.teams ? `${teamTag(p.team)} · ` : '') + (isAI(p) ? `Máy ${AI_LEVELS[p.lv]}` : p.kind === 'remote' ? (p.offline ? 'Online · mất kết nối' : 'Online') : 'Người chơi') + ` · ${owned(pi).length} ô` + (firstLap(p) && !p.bankrupt ? ' · vòng đầu' : '') + (p.inJail ? ' · trong tù' : '') + (p.noSalary ? ' · mất lương' : '') + (p.freeCards.length ? ' · có thẻ ra tù' : '') + (hasKeep(p, 'norent') ? ' · thẻ miễn thuê' : '') + (hasKeep(p, 'reroll') ? ' · thẻ đổ lại' : '') + (p.bankrupt ? ' · phá sản' : '');
-    text(sub, PX + 84, y + 45, 15, '#d9c8a6', 'left');
-    text(money(p.cash), PX + PW - 26, y + 18, 18, p.cash < 0 ? '#ff8a7a' : '#f2c44a', 'right', 'bold');
+    const subW = PW - 84 - 22; let subSz = 15; // the status line inside the card: smaller, then cut (Bug: "· có thẻ ra tù" fell off the panel)
+    ctx.font = `${subSz}px ${FONT}`; while (subSz > 12 && ctx.measureText(sub).width > subW) { subSz--; ctx.font = `${subSz}px ${FONT}`; }
+    text(clipText(sub, subW, `${subSz}px ${FONT}`), PX + 84, y + 45, subSz, '#d9c8a6', 'left');
+    text(cash, PX + PW - 26, y + 18, 18, p.cash < 0 ? '#ff8a7a' : '#f2c44a', 'right', 'bold');
     ctx.restore();
   });
   // the property list for the person whose turn it is
@@ -137,11 +141,14 @@ export function drawPanel() {
  * (more scroll), so the log under it keeps room. */
 export const PROP_Y = 400, PROP_ROW_H = 30, PROP_MAX_ROWS = 6;
 /** How many property rows the panel shows for a player with n lands. */
-export const propRows = (n: number): number => Math.min(n, PROP_MAX_ROWS);
+/** At most how many property rows show now: fewer while the shake button sits at the panel's foot, so the log
+ * keeps a few lines (Bug 19/11/2026: with 6 lands and the button, the log was 6 px tall and its lines gone). */
+export const propMaxRows = (): number => (shakeShown() ? 3 : PROP_MAX_ROWS);
+export const propRows = (n: number): number => Math.min(n, propMaxRows());
 /** Where the scroll arrows sit: under the last row. */
 export const propArrowY = (n: number): number => PROP_Y + propRows(n) * PROP_ROW_H + 4;
 /** Where the log starts: under the list (or its empty note) and its arrows. */
-const panelLogTop = (n: number): number => PROP_Y + Math.max(1, propRows(n)) * PROP_ROW_H + (n > PROP_MAX_ROWS ? 30 : 0) + 14;
+const panelLogTop = (n: number): number => PROP_Y + Math.max(1, propRows(n)) * PROP_ROW_H + (n > propMaxRows() ? 30 : 0) + 14;
 /** The game's latest lines, newest at the top (as in Cá Ngựa and Rắn và Thang), filling the panel down to its foot. */
 function drawPanelLog(top: number) {
   const x = PX + 14, w = PW - 28, bottom = H - 16 - (shakeShown() ? 74 : 0), lineH = 20; // above the shake button when it shows
@@ -224,11 +231,21 @@ function tileCard(i: number, cx: number, cy: number, extra?: (x: number, y: numb
   if (extra) extra(x, y, w, h);
   ctx.restore();
 }
-export function messageBox(lines: string[], cx: number, cy: number, w: number) {
+/** s cut to fit maxW in this font, ending in "…" when cut. */
+export function clipText(s: string, maxW: number, font: string): string {
+  ctx.save(); ctx.font = font;
+  let out = s;
+  if (ctx.measureText(out).width > maxW) { while (out.length > 1 && ctx.measureText(out + '…').width > maxW) out = out.slice(0, -1); out += '…'; }
+  ctx.restore();
+  return out;
+}
+/** A dark box of lines centred on (cx, cy); anchored at its 'foot', cy is its bottom edge (it grows up), at its 'top', its top edge. */
+export function messageBox(lines: string[], cx: number, cy: number, w: number, anchor: 'mid' | 'foot' | 'top' = 'mid') {
   w = Math.min(w, L.maxW);
   ctx.save(); ctx.font = `bold 19px ${FONT}`;
   const all = lines.flatMap((l: string) => wrapLines(ctx, l, w - 40));
   const h = all.length * 28 + 26;
+  if (anchor === 'foot') cy -= h / 2; else if (anchor === 'top') cy += h / 2;
   ctx.fillStyle = 'rgba(20,10,6,0.82)'; rrect(ctx, cx - w / 2, cy - h / 2, w, h, 14); ctx.fill();
   ctx.strokeStyle = '#c9a24a'; ctx.lineWidth = 2; ctx.stroke();
   all.forEach((l: string, j: number) => text(l, cx, cy - h / 2 + 26 + j * 28, 19, '#fff8e6', 'center', 'bold'));
@@ -236,34 +253,41 @@ export function messageBox(lines: string[], cx: number, cy: number, w: number) {
 }
 export function drawPopup() {
   const p = curP(), pop = state.popup, human = humanTurn();
-  const cx = L.cx, cy = L.popCy, my = (y: number): number => L.phone ? L.msgY - 8 : y; // wide: over the board; phone: above the buttons
+  const cx = L.cx, cy = L.popCy;
+  // wide: over the board at y; phone: its foot just above the turn's buttons, growing up (Bug 19/11/2026: centred on
+  // the card strip, a box of 3 or 4 lines covered the players' cards and the shake button)
+  const mb = (lines: string[], y: number, w: number): void => messageBox(lines, cx, L.phone ? L.rollY - 8 : y, w, L.phone ? 'foot' : 'mid');
+  // wide: a note under the gauge, its top just below the gauge's foot however many lines it takes
+  const underGauge = (lines: string[], w: number): void => (L.phone ? mb(lines, 0, w) : messageBox(lines, cx, L.bh * 0.5 + 50 + 10, w, 'top'));
   drawOrder();
   // whose turn it is shows on the player's card and, when several people share this screen, on the button
-  if (state.phase === 'roll' && human && !state.shaking && state.rolledDouble) messageBox([`${p.name}: đổ đôi, được đổ tiếp!`], cx, my(500), 460); // under the gauge (which holds the board's middle)
-  if (state.phase === 'jail' && human && !state.shaking) messageBox([`${p.name} đang ở tù. Đổ được đôi thì ra ngay (lượt ${p.jailTries + 1}/3; ở đủ 3 lượt thì lượt sau được ra).${p.noSalary ? (p.freeCards.length ? ' Dùng Thẻ Ra Tù thì được nhận lương lại!' : ' Lần qua Xuất Phát tới sẽ mất lương.') : ''}`], cx, my(520), 520); // under the gauge
-  if (state.phase === 'end' && human) messageBox([`${p.name}: hết lượt. Quản lý tài sản ${L.phone ? 'ở nút Tài sản' : 'ở bên phải'} nếu cần.`], cx, my(318), 640);
+  if (state.phase === 'roll' && human && !state.shaking && state.rolledDouble) underGauge([`${p.name}: đổ đôi, được đổ tiếp!`], 460);
+  if (state.phase === 'jail' && human && !state.shaking) underGauge([L.phone // a phone: two short lines, clear of the players' cards
+    ? `${p.name} ở tù: đổ đôi thì ra (lượt ${p.jailTries + 1}/3).${p.noSalary ? (p.freeCards.length ? ' Dùng Thẻ Ra Tù: có lương lại.' : ' Qua Xuất Phát tới: mất lương.') : ''}`
+    : `${p.name} đang ở tù. Đổ được đôi thì ra ngay (lượt ${p.jailTries + 1}/3; ở đủ 3 lượt thì lượt sau được ra).${p.noSalary ? (p.freeCards.length ? ' Dùng Thẻ Ra Tù thì được nhận lương lại!' : ' Lần qua Xuất Phát tới sẽ mất lương.') : ''}`], 520);
+  if (state.phase === 'end' && human) mb([`${p.name}: hết lượt. Quản lý tài sản ${L.phone ? 'ở nút Tài sản' : 'ở bên phải'} nếu cần.`], 318, 640);
   if (!pop && state.phase !== 'pick' && state.phase !== 'debt') return;
-  if (state.phase === 'pick') { messageBox([human ? 'Vé máy bay: bấm một ô trên bàn cờ (hoặc dùng phím mũi tên) để bay tới.' : `${p.name} đang chọn nơi bay tới...`], cx, my(545), 600); return; }
+  if (state.phase === 'pick') { mb([human ? 'Vé máy bay: bấm một ô trên bàn cờ (hoặc dùng phím mũi tên) để bay tới.' : `${p.name} đang chọn nơi bay tới...`], 545, 600); return; }
   if (state.phase === 'debt') {
     const d = state.debt; // a phone gets two short lines, clear of the players' cards above
-    if (L.phone) messageBox([`Cần trả ${money(d.total)}, đang có ${money(p.cash)}.`, 'Bán bớt hoặc cầm cố ở nút Tài sản.'], cx, my(0), 620);
+    if (L.phone) mb([`Cần trả ${money(d.total)}, đang có ${money(p.cash)}.`, 'Bán bớt hoặc cầm cố ở nút Tài sản.'], 0, 620);
     else messageBox([`${p.name} cần trả ${money(d.total)}, đang có ${money(p.cash)}.`, 'Bán bớt nhà hoặc cầm cố đất ở danh sách bên phải, rồi bấm Trả nợ.'], cx, 520, 620);
     return;
   }
   if (pop.kind === 'rentChoice' || pop.kind === 'reroll') {
     tileCard(pop.tile, cx, cy - 10);
-    messageBox([pop.kind === 'rentChoice' ? `${p.name} phải trả ${money(pop.rent)}. Dùng Thẻ Miễn Thuê?` : `Sắp dẫm vào ${TILES[pop.tile].n}: trả ${money(pop.rent)}. Dùng Thẻ Đổ Lại?`], cx, my(548), 600);
-    if (!human) messageBox([`${p.name} đang suy nghĩ...`], cx, my(600), 420);
+    mb([pop.kind === 'rentChoice' ? `${p.name} phải trả ${money(pop.rent)}. Dùng Thẻ Miễn Thuê?` : `Sắp dẫm vào ${TILES[pop.tile].n}: trả ${money(pop.rent)}. Dùng Thẻ Đổ Lại?`], 548, 600);
+    if (!human) mb([`${p.name} đang suy nghĩ...`], 600, 420);
     return;
   }
   if (pop.kind === 'notax') { messageBox([`Vòng đầu tiên (chưa qua Xuất Phát): miễn ${TILES[pop.tile].n}!`], cx, L.phone ? L.popCy : 330, 560); return; }
   if (pop.kind === 'buy' || pop.kind === 'build' || pop.kind === 'rent' || pop.kind === 'nobuy') {
     tileCard(pop.tile, cx, cy - 10);
-    if (pop.kind === 'rent') { const why = rentHint(state, pop.tile); messageBox([`${p.name} trả ${state.players[pop.owner].name} ${money(pop.rent)}`, ...(why ? [why] : [])], cx, my(why ? 552 : 548), 560); } // two lines: clear of the card's foot
-    if (pop.kind === 'buy' && human) messageBox([buyHint(state, state.cur, pop.tile)], cx, my(548), 600); // what buying it does for them
-    if (pop.kind === 'build') messageBox([`Đất của bạn! Xây thêm 1 cấp?`], cx, my(548), 420);
-    if (pop.kind === 'nobuy') messageBox([`Vòng đầu tiên (chưa qua Xuất Phát): chưa được mua, chỉ ghé xem.`], cx, my(548), 600);
-    if (!human && pop.kind !== 'rent' && pop.kind !== 'nobuy') messageBox([`${p.name} đang suy nghĩ...`], cx, my(548), 420);
+    if (pop.kind === 'rent') { const why = rentHint(state, pop.tile); mb([`${p.name} trả ${state.players[pop.owner].name} ${money(pop.rent)}`, ...(why ? [why] : [])], why ? 552 : 548, 560); } // two lines: clear of the card's foot
+    if (pop.kind === 'buy' && human) mb([buyHint(state, state.cur, pop.tile)], 548, 600); // what buying it does for them
+    if (pop.kind === 'build') mb([`Đất của bạn! Xây thêm 1 cấp?`], 548, 420);
+    if (pop.kind === 'nobuy') mb([`Vòng đầu tiên (chưa qua Xuất Phát): chưa được mua, chỉ ghé xem.`], 548, 600);
+    if (!human && pop.kind !== 'rent' && pop.kind !== 'nobuy') mb([`${p.name} đang suy nghĩ...`], 548, 420);
   }
   if (pop.kind === 'card') {
     const w = 380, h = 250, x = cx - w / 2, y = cy - h / 2;
@@ -277,12 +301,12 @@ export function drawPopup() {
     ctx.font = `bold 20px ${FONT}`;
     wrapLines(ctx, pop.card.txt, w - 60).forEach((l, j) => text(l, cx, y + 132 + j * 28, 20, co ? '#2b1d12' : '#fff8e6', 'center', 'bold'));
     ctx.restore();
-    if (!human) messageBox([`${p.name} đọc thẻ...`], cx, my(548), 360);
+    if (!human) mb([`${p.name} đọc thẻ...`], 548, 360);
   }
 }
 const SPECIAL_INFO: Record<string, (t: Tile) => string[]> = {
   go: () => [`Đi qua hoặc dừng ở đây: nhận lương ${money(tune.salary)}.`],
-  jail: () => ['Đứng trên mép ô: chỉ ghé thăm, không sao.', `Ở trong tù: mỗi lượt đổ tìm đôi để ra, hoặc dùng Thẻ Ra Tù. Ở đủ 3 lượt mà không ra đôi thì lượt sau được ra, không mất tiền. Vào tù vì rút thẻ thì lần qua Xuất Phát tới mất lương, trừ khi ra tù bằng Thẻ Ra Tù. Sau 3 lần không ra được thì phải nộp phạt.`],
+  jail: () => ['Đứng trên mép ô: chỉ ghé thăm, không sao.', `Ở trong tù: mỗi lượt đổ tìm đôi để ra, hoặc dùng Thẻ Ra Tù. Ở đủ 3 lượt mà không ra đôi thì lượt sau được ra, không mất tiền. Vào tù vì rút thẻ thì lần qua Xuất Phát tới mất lương, trừ khi ra tù bằng Thẻ Ra Tù.`],
   free: () => ['Dừng ở đây: lấy hết tiền trong hũ giữa bàn (tiền 2 ô thuế dồn vào hũ).', `Hũ đang có: ${money(state.pot)}.`],
   gojail: () => ['Dừng ở đây: vào thẳng Nhà Tù, không đi qua Xuất Phát, không nhận lương.'],
   co: () => ['Rút một thẻ Cơ Hội: thường là đi tới đâu đó (về Xuất Phát, bay đi du lịch, lùi lại...), đôi khi được tiền hoặc bị phạt.'],

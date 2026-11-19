@@ -306,3 +306,29 @@ test('a shake held on and on throws by itself after shake_max_time (10 s), where
   });
   expect(r).toEqual({ waited: 'roll', at9: 'shake', at10: expect.stringMatching(/dice|move|nomove|slide|roll/) });
 });
+
+test('Cá Ngựa: a game kept while a person held the shake comes back waiting for the throw, not thrown by itself', async ({ page }) => {
+  // Regression (full review 19/11/2026): the kept shake came back as it was, and with nobody holding, the first step threw it.
+  const errors: string[] = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await page.goto(`${pathToFileURL(resolve(process.env.SPEC_SINGLE || 'dist-single', 'index.html')).href}?manual=1&seed=4`);
+  await expect.poll(() => page.evaluate(() => typeof window.game?.step)).toBe('function');
+  type V = { phase: string; cur: number; auto: boolean[] } | null;
+  const held = await page.evaluate(() => {
+    const g = window.game as unknown as { configureLudo(o: unknown): void; press(c: string): void; hold(c: string, on: boolean): void; step(n?: number, d?: boolean): void; ludo: V };
+    g.configureLudo({ seats: [{ kind: 'human', name: 'Người' }, { kind: 'ai', lv: 1 }, { kind: 'off' }, { kind: 'off' }] });
+    g.press('Enter'); g.step(1, false);
+    for (let k = 0; k < 4000; k++) { const v = g.ludo!; if (v.phase === 'roll' && !v.auto[v.cur]) break; g.step(1, false); } // to this person's throw
+    g.press('Space'); g.hold('Space', true); g.step(90, false);                   // held a second and a half: kept mid-shake
+    return JSON.parse(localStorage.getItem('tpdv-ludo-local') || 'null')?.g?.phase;
+  });
+  expect(held).toBe('shake');
+  await page.reload();
+  await expect.poll(() => page.evaluate(() => typeof window.game?.step)).toBe('function');
+  await page.evaluate(() => (window.game as unknown as { configureLudo(o: unknown): void }).configureLudo({}));
+  const b = (await page.locator('#game').boundingBox())!;
+  await page.mouse.click(b.x + [500, 661][0] * b.width / 1280, b.y + [500, 661][1] * b.height / 720); // "Chơi tiếp ván trước"
+  const after = await page.evaluate(() => { const g = window.game as unknown as { step(n?: number): void; scene: string; ludo: V }; g.step(3); return { scene: g.scene, phase: g.ludo?.phase }; });
+  expect(after).toEqual({ scene: 'ludo', phase: 'roll' });
+  expect(errors).toEqual([]);
+});

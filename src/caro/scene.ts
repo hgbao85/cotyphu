@@ -25,7 +25,7 @@ import { buildViewButtons, viewKeys, viewRow } from '../ui/viewButtons';
 import { useView } from '../ui/viewGestures';
 import { speedNow, cycleSpeed } from '../core/speed';
 import { showOnlinePanel } from '../net/room';
-import { G, setG, SEATS, LV_NAMES, caroSetup, newGame, playAgain, tryPlace, startShake, shakePower, orderDice, curP, step as gameStep, rulesNow, autoPlays, cellName } from './game';
+import { G, setG, restoreKept, SEATS, LV_NAMES, caroSetup, newGame, playAgain, tryPlace, startShake, shakePower, orderDice, curP, step as gameStep, rulesNow, autoPlays, cellName } from './game';
 import { EMPTY, rank, type CaroSeat } from './rules';
 import * as on from './online';
 import { localGame, lastRoom, type KeptGame } from './keep';
@@ -330,7 +330,7 @@ function showCaroRules(): void {
     <h3>Mục tiêu</h3><ul><li>Bàn <b>${R.size}×${R.size}</b> ô, hai người lần lượt đặt quân vào một ô trống. Ai có <b>${R.win} quân liền</b> ngang, dọc hoặc chéo trước thì <b>thắng</b>. Liền nhiều hơn ${R.win} cũng thắng.</li>
     <li>Hết chỗ đặt mà chưa ai thắng thì <b>hoà</b>.</li></ul>
     <h3>Chặn hai đầu</h3><ul><li>${R.blockTwo ? `Luật Việt Nam: ${R.win} quân liền mà <b>bị quân đối thủ chặn cả hai đầu</b> thì <b>không tính thắng</b>. Mép bàn không tính là chặn.` : `Ván này không xét chặn: cứ ${R.win} quân liền là thắng.`}</li></ul>
-    <h3>Ai đi trước</h3><ul><li>Ván đầu hai bên <b>thảy xúc xắc</b>, ai lớn hơn đi trước (khi giữ, <b>thanh lực chạy lên xuống</b>; thả lúc thanh cao thì dễ ra số lớn, thấp thì dễ ra số nhỏ (mặt nào cũng vẫn có thể ra). Thả trúng <b>vùng vàng</b> trên thanh thì <b>may hơn một chút</b>. Có 10 giây để canh). Các ván sau <b>người thua đi trước</b> (hoà thì người đi sau ván trước đi trước).</li></ul>
+    <h3>Ai đi trước</h3><ul><li>Ván đầu hai bên <b>thảy xúc xắc</b>, ai lớn hơn đi trước (khi giữ, <b>thanh lực chạy lên xuống</b>; thả lúc thanh cao thì dễ ra số lớn, thấp thì dễ ra số nhỏ (mặt nào cũng vẫn có thể ra). Thả trúng <b>vùng vàng</b> trên thanh thì <b>may hơn một chút</b>. Có ${Math.round(tune.shake_max_time)} giây để canh). Các ván sau <b>người thua đi trước</b> (hoà thì người đi sau ván trước đi trước).</li></ul>
     <h3>Máy</h3><ul><li><b>Dễ</b> hay đi lung tung · <b>Vừa</b> biết chặn khi bạn sắp có 4 · <b>Khó</b> chặn cả 3 quân mở.</li></ul>
     <h3>Phím</h3><ul><li>Mũi tên: chọn ô · Space / Enter: đặt quân · M: tắt tiếng</li></ul>`);
 }
@@ -384,7 +384,7 @@ function buildSetup(): void {
 function resumeLocal(k: KeptGame): void {
   F.picker = null; on.setNote('');
   caroSetup.seats = k.seats.map(x => ({ ...x }));
-  setG(k.g); resultsHidden = false; setScene('caro');
+  restoreKept(k.g, k.rng, k.history); resultsHidden = false; setScene('caro');
 }
 function startCaro(): void {
   F.picker = null;
@@ -428,7 +428,7 @@ function drawSetup(): void {
   });
   const ry = T.ruleY + T.ruleH / 2;
   text('Chặn hai đầu', T.pieceX - 22, ry - 6, phone() ? 18 : 20, '#4a3020', 'left', 'bold');
-  text(tune.caro_block_two >= 1 ? 'luật Việt Nam' : 'cứ 5 liền là thắng', T.pieceX - 22, ry + 15, 13, '#8a6a4a', 'left');
+  text(tune.caro_block_two >= 1 ? 'luật Việt Nam' : `cứ ${Math.round(tune.caro_win)} liền là thắng`, T.pieceX - 22, ry + 15, 13, '#8a6a4a', 'left');
   if (on.isGuest()) text(blockName(), T.kindX + T.kindW / 2, ry, 17, '#4a3020', 'center', 'bold');
   if (on.roomCode) text(`MÃ PHÒNG  ${on.roomCode}`, T.cx, T.code, phone() ? 30 : 34, '#d9622b', 'center', 'bold');
   F.ui.forEach(drawButton);
@@ -499,7 +499,7 @@ function buildPlay(): void {
       btn(mid - 230, cy, 220, 54, 'Chơi lại', on.extras.startVote, 'primary', true, '#c8201f');
       btn(mid + 10, cy, 220, 54, 'Rời phòng', () => { on.leaveRoom(); setScene('hub'); }, 'secondary', true, '#6a4a2a');
     } else {
-      btn(mid - 230, cy, 220, 54, 'Chơi lại (Enter)', () => { if (on.isHost()) on.extras.startVote(); else { playAgain(); cursor = -1; } }, 'primary', true, '#c8201f');
+      btn(mid - 230, cy, 220, 54, 'Chơi lại (Enter)', () => { if (on.isHost()) on.extras.startVote(); else { playAgain(checkSeed()); cursor = -1; } }, 'primary', true, '#c8201f');
       btn(mid + 10, cy, 220, 54, CHANGE_PLAYERS, () => { setScene('caroSetup'); on.sendLobby(); }, 'secondary', true, '#6a4a2a');
     }
     return;

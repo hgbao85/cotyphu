@@ -30,7 +30,7 @@ const tips = makeTips('ludo:', {
   choose: 'Bấm vào con ngựa đang sáng để đi. Ngựa đi được hai cách thì chọn số bước ở các nút bên dưới.',
 });
 import { showOnlinePanel } from '../net/room';
-import { G, setG, diceText, SIDES, LV_NAMES, ludoSetup, newGame, startShake, pickHorse, curP, step as gameStep, shakePower, ranking, rulesNow, autoPlays, animalOf, animalName } from './game';
+import { G, setG, restoreKept, diceText, SIDES, LV_NAMES, ludoSetup, newGame, startShake, pickHorse, curP, step as gameStep, shakePower, ranking, rulesNow, autoPlays, animalOf, animalName } from './game';
 import { cellOf, moveValue, GATE, STEPS, TRACK, startOf, stepCell, exitRolls, sidesFor, seatOf, type LudoSeat } from './rules';
 import * as on from './online';
 import { localGame, lastRoom, restoreRules, type KeptGame } from './keep';
@@ -419,7 +419,7 @@ function showLudoRules(): void {
   const R = rulesNow(), ex = exitRolls(R).join(' hoặc '), two = R.dice > 1;
   openPage('Luật Cá Ngựa', `
     <h3>Mục tiêu</h3><ul><li>Mỗi người <b>${R.horses} chú ngựa</b> trong chuồng ở góc bàn. Ai đưa đủ ngựa lên <b>bậc thang chuồng</b> (6 ô màu ở giữa cánh của mình) trước thì <b>thắng</b>.</li></ul>
-    <h3>Thảy xúc xắc</h3><ul><li><b>Giữ nút</b> để lắc, <b>thả ra</b> để thảy: khi giữ, <b>thanh lực chạy lên xuống</b>; thả lúc thanh cao thì dễ ra số lớn, thấp thì dễ ra số nhỏ (mặt nào cũng vẫn có thể ra). Thả trúng <b>vùng vàng</b> trên thanh thì <b>may hơn một chút</b>. Có 10 giây để canh. ${two ? '<b>Hai viên</b> xúc xắc, <b>mỗi viên đi riêng</b>: bấm ngựa đang sáng; ngựa đi được cả hai số thì chọn <b>đi số nào</b>, xong rồi chọn ngựa cho số còn lại. Một ngựa đi cả hai số (đi <b>tổng</b> một mạch, hoặc từng số một), hay hai ngựa mỗi con một số, tùy bạn. Đi tổng thì không dừng ở ô giữa.' : 'Một viên xúc xắc.'}</li>
+    <h3>Thảy xúc xắc</h3><ul><li><b>Giữ nút</b> để lắc, <b>thả ra</b> để thảy: khi giữ, <b>thanh lực chạy lên xuống</b>; thả lúc thanh cao thì dễ ra số lớn, thấp thì dễ ra số nhỏ (mặt nào cũng vẫn có thể ra). Thả trúng <b>vùng vàng</b> trên thanh thì <b>may hơn một chút</b>. Có ${Math.round(tune.shake_max_time)} giây để canh. ${two ? '<b>Hai viên</b> xúc xắc, <b>mỗi viên đi riêng</b>: bấm ngựa đang sáng; ngựa đi được cả hai số thì chọn <b>đi số nào</b>, xong rồi chọn ngựa cho số còn lại. Một ngựa đi cả hai số (đi <b>tổng</b> một mạch, hoặc từng số một), hay hai ngựa mỗi con một số, tùy bạn. Đi tổng thì không dừng ở ô giữa.' : 'Một viên xúc xắc.'}</li>
     <li>${two ? `Một viên <b>${ex}</b> ra được <b>một ngựa</b>; viên còn lại đi tiếp (ô ngôi sao đã có ngựa vừa ra, nên đôi ${exitRolls(R).join(', đôi ')} cũng chỉ ra một ngựa, trừ khi viên kia đưa ngựa ấy đi chỗ khác trước). ${R.exitDouble ? '<b>Đôi 2, 3, 4, 5</b>: dùng cả hai viên để ra một ngựa, hoặc đi như thường.' : 'Đôi 2, 3, 4, 5 <b>không</b> ra quân được (vẫn đi và vẫn được thảy thêm).'}` : `Đổ <b>${ex}</b> thì được ra quân.`} Ngựa ra ô có ngôi sao ở góc ngoài cánh của mình.</li>
     ${R.bonusSix ? `<li>${two ? '<b>Đổ đôi</b>' : 'Đổ <b>6</b>'} được <b>thảy thêm</b> một lần.</li>` : ''}
     <li>Không có ngựa nào đi được thì mất lượt.</li></ul>
@@ -486,7 +486,7 @@ function resumeLocal(k: KeptGame): void {
   F.picker = null; on.setNote('');
   ludoSetup.seats = k.seats.map(x => ({ ...x }));
   restoreRules(k.rules); // the rules it was played with, not the ones on the setup screen now
-  setG(k.g); setScene('ludo');
+  restoreKept(k.g, k.rng, k.history); setScene('ludo');
 }
 function startLudo(): void {
   F.picker = null;

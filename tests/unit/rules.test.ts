@@ -244,6 +244,11 @@ describe('the hint under a land card', () => {
     s.owner[BAC_NINH] = 1; s.owner[NAM_DINH] = 0;
     expect(buyHint(s, 0, HA_NOI)).toBe(`Mua ô này là đủ nhóm Bắc · Đồng bằng: thuê × ${mult}`);
   });
+  it('leaves a mortgaged port out of the count, as the rent does', () => {
+    // Regression (full review 19/11/2026): a mortgaged port was counted, so the hint promised a rent the ports do not earn.
+    const s = board(); s.owner[PORTS[0]] = 0; s.owner[PORTS[2]] = 0; s.mort[PORTS[2]] = true;
+    expect(buyHint(s, 0, PORTS[1])).toBe(`Có 2 bến: thuê mỗi bến ${money(config.port_rent.value * 2 * config.rent_scale.value)}`);
+  });
   it('gives the rent per port with one more port', () => {
     const s = board(); s.owner[PORTS[0]] = 0;
     expect(buyHint(s, 0, PORTS[1])).toBe(`Có 2 bến: thuê mỗi bến ${money(config.port_rent.value * 2 * config.rent_scale.value)}`);

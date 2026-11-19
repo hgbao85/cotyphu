@@ -131,14 +131,21 @@ function aimPower(p: Player): number | undefined {
   if (state.phase === 'order') return 1;
   if (p.inJail) return bestPower(2, d => (d[0] === d[1] ? 1 : 0));
   const pi = state.players.indexOf(p);
-  return bestPower(2, d => landingWorth(pi, (p.pos + d[0] + d[1]) % 40, d[0] + d[1]));
+  return bestPower(2, d => throwWorth(pi, d));
+}
+/** How good a throw of two dice is for player pi out of jail: where it lands, and a third double in a row
+ * is jail, as bad as Đi Tù (Bug 19/11/2026: the lucky zone could keep a third double over paying a rent). */
+export function throwWorth(pi: number, d: number[]): number {
+  const p = state.players[pi];
+  if (d[0] === d[1] && p.doubles >= 2) return -1500;
+  return landingWorth(pi, (p.pos + d[0] + d[1]) % 40, d[0] + d[1]);
 }
 /** How good landing on tile i is for player pi (a rough sum in đồng): minus the rent it would pay there,
  * part of a free tile's price it could buy, minus a lot for Đi Tù. */
 export function landingWorth(pi: number, i: number, sum: number): number {
   const t = TILES[i], o = state.owner[i], p = state.players[pi];
   if (t.t === 'gojail') return -1500;
-  if (o >= 0 && o !== pi) return state.mort[i] ? 0 : -rentOf(i, sum);
+  if (o >= 0 && o !== pi) return state.mort[i] || (state.teams && state.players[o].team === p.team) ? 0 : -rentOf(i, sum); // a partner's land costs nothing
   if (o < 0 && OWNABLE(t) && !firstLap(p) && p.cash >= t.p!) return t.p! * 0.2;
   return 0;
 }

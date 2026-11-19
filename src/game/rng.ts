@@ -8,6 +8,9 @@ export function setSeed(s: number): void {
   seed = s;
 }
 
+/** Where the sequence stands now: kept with a game, so a resumed game goes on from there (setSeed). */
+export const rngState = (): number => seed;
+
 /** A new random seed for a new game, from the platform's crypto source. */
 export function freshSeed(): number {
   const u = new Uint32Array(1);

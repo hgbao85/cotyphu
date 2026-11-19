@@ -20,7 +20,7 @@ import { drawSummary } from '../ui/summary';
 import { confetti, partyAnimals } from './celebrate';
 
 import { drawNetBanner, drawPicker, fitText } from '../ui/setupScreen';
-import { lacquer, drawBoardView, drawButton, drawTokenIcon, faceOf } from '../ui/draw';
+import { lacquer, drawBoardView, drawButton, drawTokenIcon, faceOf, clipText } from '../ui/draw';
 import { phoneExtra, roomPill, TITLE, drawSeatAnimal, titleTeams, seatLabel, L, PX, PW, btn, humanTurn, seatAnimal } from '../main';
 import { rulesSpot } from '../app/install';
 
@@ -64,14 +64,13 @@ export function drawPhoneChrome() {
     ctx.fillStyle = p.color; rrect(ctx, c.x, c.y, 7, c.h, 4); ctx.fill();
     ctx.fillStyle = '#f4ead2'; ctx.beginPath(); ctx.arc(c.x + 30, c.y + c.h / 2, 19, 0, 7); ctx.fill();
     drawTokenIcon(p.token, c.x + 30, c.y + c.h / 2 + 2, 32, p.color, faceOf(p));
-    let name = p.name;
-    ctx.font = `bold 16px ${FONT}`;
-    while (name.length > 3 && ctx.measureText(name).width > c.w - 64) name = name.slice(0, -1);
+    const tag = (state.teams ? `Đ${(p.team ?? 0) + 1} · ` : '') + (p.bankrupt ? 'phá sản' : p.inJail ? 'trong tù' : p.kind === 'remote' && p.offline ? 'mất mạng' : `${owned(pi).length} ô`);
+    ctx.font = `13px ${FONT}`; const tagW = ctx.measureText(tag).width;
+    const name = clipText(p.name, c.w - 64 - tagW - 8, `bold 16px ${FONT}`); // clear of the tag, "…" when cut (Bug: a long name ran into it)
     ctx.restore();
     ctx.save(); ctx.globalAlpha = p.bankrupt ? 0.45 : 1;
     text(name, c.x + 56, c.y + 18, 16, '#fff8e6', 'left', 'bold');
     text(money(p.cash), c.x + 56, c.y + 40, 16, p.cash < 0 ? '#ff8a7a' : '#f2c44a', 'left', 'bold');
-    const tag = (state.teams ? `Đ${(p.team ?? 0) + 1} · ` : '') + (p.bankrupt ? 'phá sản' : p.inJail ? 'trong tù' : p.kind === 'remote' && p.offline ? 'mất mạng' : `${owned(pi).length} ô`);
     text(tag, c.x + c.w - 8, c.y + 18, 13, '#d9c8a6', 'right');
     ctx.restore();
   });

@@ -21,7 +21,7 @@ import { F } from '../core/flags';
 
 import { resetCoins, lastPos, tileShown, boardPointAt, tokVis, tokAnim, riseAnims } from '../three/scene3d';
 import { pointer, seatAnimal, PX, clicks, inBoard, pressed, btn, L, PW, humanTurn } from '../main';
-import { drawTokenIcon, messageBox, PROP_Y, PROP_ROW_H, PROP_MAX_ROWS, propArrowY } from './draw';
+import { drawTokenIcon, messageBox, PROP_Y, PROP_ROW_H, propMaxRows, propArrowY } from './draw';
 import { titleSpots } from './phone';
 import { moods, moodPrev } from '../three/moods';
 
@@ -124,7 +124,7 @@ export function drawNetBanner() {
 export function clearVis() { moods.length = 0; moodPrev.length = 0; F.inspect = -1; lastPos.length = 0; tokVis.length = 0; tokAnim.length = 0; for (let i = 0; i < 40; i++) tileShown[i] = -1; riseAnims.length = 0; resetCoins(); }
 export function buildPropUI(pi: number) {
   const mine = owned(pi);
-  const rowH = PROP_ROW_H, y0 = PROP_Y, rows = PROP_MAX_ROWS;
+  const rowH = PROP_ROW_H, y0 = PROP_Y, rows = propMaxRows();
   F.propScroll = Math.max(0, Math.min(F.propScroll, mine.length - rows));
   mine.slice(F.propScroll, F.propScroll + rows).forEach((i, r) => {
     const y = y0 + r * rowH, p = state.players[pi];

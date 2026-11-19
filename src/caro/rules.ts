@@ -97,6 +97,8 @@ export function candidates(b: number[], size: number, reach = 2): number[] {
 
 /** The shapes a piece makes along one line, strongest first. */
 export type Shape = 'five' | 'openFour' | 'four' | 'openThree' | 'three' | 'openTwo' | 'two' | 'none';
+// The shapes are written for five to win: data/config.json pins caro_win to 5 (min = max) until they are
+// made from R.win (a four or six would make the computer misread its fours and threes).
 const PATTERNS: [Shape, string[]][] = [
   ['openFour', ['_xxxx_']],
   ['four', ['xxxx_', '_xxxx', 'xxx_x', 'x_xxx', 'xx_xx']],

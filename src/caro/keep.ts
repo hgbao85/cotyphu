@@ -21,7 +21,7 @@ function write(key: string, v: unknown): void {
 }
 
 /** A game on one screen, with the seats it was set up with. */
-export interface KeptGame { g: CaroGame; seats: CaroSeat[] }
+export interface KeptGame { g: CaroGame; rng?: number; history?: string[]; seats: CaroSeat[] }
 /** The game on one screen left unfinished, if any. */
 export function localGame(): KeptGame | null {
   const k = read<KeptGame>(LOCAL);

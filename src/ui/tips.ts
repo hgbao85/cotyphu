@@ -2,14 +2,14 @@
 
 import { params } from '../hook';
 
-import { W, BW, FONT, ctx, text, rrect, wrapLines } from '../screen';
+import { W, H, BW, FONT, ctx, text, rrect, wrapLines } from '../screen';
 
 import { state, scene } from '../core/store';
 
 import { owned, curP } from '../game/turn';
 
 import { F } from '../core/flags';
-import { humanTurn, L, btn } from '../main';
+import { humanTurn, L, btn, PX, PW } from '../main';
 import { drawButton } from './draw';
 import { CHECKED } from '../core/env';
 
@@ -32,6 +32,7 @@ function keepTipsSeen() { try { localStorage.setItem('tpdv-tips', JSON.stringify
 /** The tip this moment calls for, if this screen has not seen it. */
 function tipFor(): string | null {
   if (!tipsOn || scene !== 'play' || !state.players || state.ordering || !humanTurn()) return null;
+  if (state.vote || F.roomMenu || F.emoteMenu) return null; // not under a menu (Bug: its buttons stayed live under the dim)
   const p = curP(), pi = state.cur;
   const want = state.phase === 'roll' && !state.shaking ? (tipsSeen.has('roll') && owned(pi).length ? 'inspect' : 'roll')
     : state.phase === 'buy' ? 'buy' : state.phase === 'build' ? 'build' : state.phase === 'debt' ? 'debt' : state.phase === 'jail' && p.inJail ? 'jail' : null;
@@ -39,6 +40,11 @@ function tipFor(): string | null {
 }
 /** Where the tip box sits: the board's top right on a wide screen, under the toolbar on a phone. */
 function tipBox(): { x: number; y: number; w: number; h: number } {
+  // a land card on the board (buy, build, rent, or one opened by a tap): the tip goes clear of it, over the
+  // panel's log on a wide screen, just under the board on a phone, over the players' cards until put away
+  // (Bug 19/11/2026: it hid the card's name; on a phone the card fills the board)
+  const card = F.inspect >= 0 || ['buy', 'build', 'rent', 'nobuy', 'rentChoice', 'reroll'].includes(state.popup?.kind);
+  if (card) return L.phone ? { x: 12, y: L.by + L.bh + 4, w: W - 24, h: 104 } : { x: PX + 14, y: H - 138, w: PW - 28, h: 124 };
   return L.phone ? { x: 12, y: L.by + 44, w: W - 24, h: 104 } : { x: BW - 360, y: 64, w: 350, h: 124 };
 }
 export function buildTip() {

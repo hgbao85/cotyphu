@@ -71,6 +71,18 @@ export const caroSetup: { seats: CaroSeat[] } = {
 /** The game being played (null before the first). */
 export let G: CaroGame = null as unknown as CaroGame;
 /** Puts a whole game in place (a friend's screen, from the host, or a kept game). */
+/**
+ * A kept game back on the table (on one screen, or a host's after a reload): its random numbers go on
+ * where they stopped, its history comes back, and a shake a person was holding when it was kept becomes
+ * the throw not yet made, its zone kept (Bug 19/11/2026: the reload threw it at once, at a power a
+ * second old; every resumed game drew the same dice, from the page's first seed; Lịch sử came back empty).
+ */
+export function restoreKept(g: CaroGame, rngAt?: number, past?: string[]): void {
+  if (g.phase === 'shake' && g.shake && !g.shake.ai) { g.zone = g.shake.zone; g.shake = null; g.phase = 'roll'; g.timer = 0; }
+  if (typeof rngAt === 'number' && Number.isFinite(rngAt)) setSeed(rngAt);
+  if (Array.isArray(past)) { history.length = 0; history.push(...past.filter(x => typeof x === 'string').slice(-300)); }
+  setG(g);
+}
 export function setG(g: CaroGame): void {
   G = g;
   for (const k of RULE_KEYS) if (typeof g.rules?.[k] === 'number') CONFIG[k].value = g.rules[k]; // play by the game's own rules
@@ -137,7 +149,8 @@ export function startShake(ai = false, aim?: number): void { // aim: the power a
 }
 /** How hard the dice will be thrown: 0 to 1, from how long they were shaken. */
 /** Where the power bar stands: a friend's own let-go power online, else the bar's place now (it runs up and down). */
-export const shakePower = (): number => (G.shake ? G.shake.power ?? meterPos(G.shake.t) : 0);
+// a computer's let-go is where it meant to stop, not one step past it (Bug: at ×4 a step overshot by 4% of the bar)
+export const shakePower = (): number => (G.shake ? G.shake.power ?? meterPos(G.shake.ai ? Math.min(G.shake.t, G.shake.holdFor) : G.shake.t) : 0);
 /** How many dice a throw for the order uses (data/config.json caro_order_dice). */
 export const orderDice = (): number => (tune.caro_order_dice >= 2 ? 2 : 1);
 /** Lets go of the dice: they tumble, and land. */
@@ -167,11 +180,11 @@ function afterShown(): void {
 }
 /** Another game with the same players: the loser of the last goes first (after a draw, the one who went
  * second), and the wins carry over. */
-export function playAgain(): void {
+export function playAgain(seed?: number): void { // seed: a check's own, so a seeded sitting replays every game; else a fresh one
   if (!G?.players) return;
   const prev = G, first = prev.draw ? 1 - firstOf(prev) : prev.winner >= 0 ? 1 - prev.winner : 0;
   history.length = 0;
-  const s = freshSeed(); setSeed(s);
+  const s = seed ?? freshSeed(); setSeed(s);
   start(s, prev.players.map(p => ({ ...p, moves: 0 })), first, prev.round + 1);
   log(`Ván ${G.round}: ${curP().name} đi trước.`);
 }

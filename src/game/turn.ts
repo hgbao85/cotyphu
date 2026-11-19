@@ -18,7 +18,7 @@ import { state, scene, setup, setState, setScene } from '../core/store';
 
 import { money } from '../game/rules';
 import type { DeckKind, GameState, KeepAct, Loose, Player } from '../game/types';
-import { aiTurnStart, raiseCash, aiPickTile, landingWorth } from '../game/ai';
+import { aiTurnStart, raiseCash, aiPickTile, throwWorth } from '../game/ai';
 import { checkSeed, events, L } from '../main';
 import { forgetLocalGame } from '../core/keepLocal';
 import { isGuest, lobby, sendLobby, peerOnline, isHost, myName } from '../net/room';
@@ -465,13 +465,14 @@ export function startShake(ai = false, aim?: number) { // aim: the power a compu
   state.shaking = { t: 0, ai, holdFor: ai ? aiHold(curP().lv ?? 1, zone, aim) : 0, rattle: 0, zone };
 }
 /** Where the power bar stands: the friend's own let-go power online, else the bar's place now (it runs up and down). */
-export function shakePower() { return state.shaking ? state.shaking.power ?? meterPos(state.shaking.t) : 0; }
+// a computer's let-go is where it meant to stop, not one step past it (Bug: at ×4 a step overshot by 4% of the bar)
+export function shakePower() { const sh = state.shaking; return sh ? sh.power ?? meterPos(sh.ai ? Math.min(sh.t, sh.holdFor) : sh.t) : 0; }
 export function throwDice() {
   const pw = shakePower(), hit = inZone(pw, state.shaking?.zone), p = curP(), pi = state.cur;
   state.shaking = null; state.zone = undefined; // the next throw gets a new zone
   if (hit) log(`${p.name} thả trúng vùng đẹp!`);
   // let go in the sweet zone: maybe a second throw, the better one for the thrower kept (as Khó weighs it)
-  const worth = (d: number[]) => (state.ordering ? d[0] + d[1] : p.inJail ? (d[0] === d[1] ? 1 : 0) : landingWorth(pi, (p.pos + d[0] + d[1]) % 40, d[0] + d[1]));
+  const worth = (d: number[]) => (state.ordering ? d[0] + d[1] : p.inJail ? (d[0] === d[1] ? 1 : 0) : throwWorth(pi, d));
   roll(pw, throwWithZone(2, pw, hit, worth));
 }
 function roll(power = 0.5, dice?: number[]) {

@@ -2,7 +2,7 @@
 // middle one is fair, and every face can still come up. Values from data/config.json dice_power_tilt.
 import { describe, expect, it } from 'vitest';
 import config from '../../data/config.json';
-import { faceChances, rollFace, bestPower, throwChances, meterPos, makeZone, inZone, aiHold, throwWithZone, rollDice, safePower } from '../../src/game/dice';
+import { faceChances, rollFace, bestPower, throwChances, meterPos, makeZone, inZone, aiHold, throwWithZone, rollDice, friendPower } from '../../src/game/dice';
 import { setSeed } from '../../src/game/rng';
 
 const TILT = config.dice_power_tilt.value;
@@ -99,11 +99,13 @@ describe('the power bar (asked for 19/11/2026: it runs up and down, a sweet zone
     for (let k = 0; k < 20000; k++) { sumHit += worth(throwWithZone(2, 0.5, true, worth)); sumMiss += worth(rollDice(2, 0.5)); }
     expect(sumHit / 20000).toBeGreaterThan(sumMiss / 20000 + 0.5); // half the time the better of two: about +0.9
   });
-  it('takes a friend\'s let-go power only as a number from 0 to 1', () => {
-    expect(safePower(0.4)).toBe(0.4);
-    expect(safePower(7)).toBe(1);
-    expect(safePower(-1)).toBe(0);
-    expect(safePower('1')).toBeUndefined();
-    expect(safePower(NaN)).toBeUndefined();
+  it("takes a friend's held time only near the host's own clock of the shake", () => {
+    const sweep = config.dice_meter_sweep.value, slack = config.net_hold_slack.value;
+    expect(friendPower(0.5 * sweep, 0.5 * sweep)).toBeCloseTo(0.5, 6);                                // honest: the bar where they let go
+    expect(friendPower(0.5 * sweep + slack / 2, 0.5 * sweep)).toBeCloseTo(meterPos(0.5 * sweep + slack / 2), 6); // the trip's lag: taken as sent
+    expect(friendPower(0.95 * sweep, 0.2 * sweep)).toBeCloseTo(meterPos(0.2 * sweep + slack), 6);    // a changed screen asking for a later bar: pulled back
+    expect(friendPower(0, 0.9 * sweep)).toBeCloseTo(meterPos(0.9 * sweep - slack), 6);              // or an earlier one
+    expect(friendPower('1', 0.5)).toBeUndefined();
+    expect(friendPower(NaN, 0.5)).toBeUndefined();
   });
 });

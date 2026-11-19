@@ -2,11 +2,15 @@
 // (?manual=1) through the game-state hook (src/hook.ts: configureCaro, caro, caroSpot); online, the room
 // server (server/server.mjs) serves the folder build (dist/) to a host and a friend, each in a browser
 // context of their own, as two phones would be.
-import { expect, test, type Browser, type Page } from '@playwright/test';
+import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
+
+/** The browser contexts this file opened, closed after each test (Bug: left open, they slowed the files after it). */
+const opened: BrowserContext[] = [];
+test.afterEach(async () => { await Promise.all(opened.splice(0).map(c => c.close())); });
 
 const build = (query: string): string => `${pathToFileURL(resolve('dist-single/index.html')).href}?${query}`;
 type View = { phase: string; cur: number; size: number; board: number[]; last: number; moves: number; winner: number; draw: boolean; line: number[] | null; round: number; wins: number[]; names: string[]; bubbles: unknown[]; results: boolean; online: { role: string; code: string; mySeat: number; lobby: { kind: string; name?: string }[] | null } };
@@ -233,12 +237,13 @@ test.describe('online', () => {
   test.beforeAll(async () => {
     if (!existsSync('dist/index.html')) throw new Error('dist/ is missing: npm run build first (npm run test:e2e does)');
     server = spawn(process.execPath, ['server/server.mjs'], { env: { ...process.env, PORT: String(PORT), STATIC_DIR: 'dist' }, stdio: 'ignore' });
-    await expect.poll(async () => { try { return (await fetch(`${BASE}health`)).ok; } catch { return false; } }, { timeout: 10000 }).toBe(true);
+    await expect.poll(async () => { try { return (await fetch(`${BASE}health`)).ok; } catch { return false; } }, { timeout: 25000 }).toBe(true); // a busy machine starts node slowly
   });
   test.afterAll(() => { server?.kill(); });
 
   async function screen(browser: Browser): Promise<{ page: Page; errors: string[] }> {
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+    opened.push(ctx); // closed after the test: left open, its 3D pages kept drawing through later files and starved them
     const page = await ctx.newPage();
     const errors: string[] = [];
     page.on('pageerror', e => errors.push(e.message));

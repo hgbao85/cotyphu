@@ -18,3 +18,10 @@ export function cleanChat(raw: unknown, maxLen: number): string {
   if ([...s].length > maxLen) s = [...s].slice(0, maxLen).join('').trim();
   return s;
 }
+
+/**
+ * Seconds since a player's last line or emote (last), now on the game's clock. A time later than now is from a
+ * game before this one, whose clock started again at 0, so it does not count (Bug 19/11/2026: after "Ván mới" a
+ * player was silenced for as long as the last game ran). Never sent anything: Infinity.
+ */
+export const since = (last: number | undefined, now: number): number => (last === undefined || last > now ? Infinity : now - last);

@@ -9,6 +9,7 @@ import { state, scene, setup, setState, setScene, setSetup } from '../core/store
 import type { Loose } from '../game/types';
 
 import { log } from '../game/turn';
+import { rngState, setSeed } from '../game/rng';
 import { store, ROOM_MEMORY_MS, isHost, isGuest } from '../net/room';
 import { clearVis } from '../ui/setupScreen';
 import { CHEAP } from './env';
@@ -20,7 +21,8 @@ let keepLocalEvery = 0;
 export function keepLocalGame() {
   if (isHost() || isGuest() || CHEAP || scene !== 'play' || ++keepLocalEvery < 60) return; // online games keep their own way; self-play keeps nothing
   keepLocalEvery = 0;
-  try { store()?.setItem(LOCAL_KEY, JSON.stringify({ at: Date.now(), setup, state })); } catch { /* full or blocked: the game just is not kept */ }
+  // rng: where the random numbers stand, so the resumed game goes on from there
+  try { store()?.setItem(LOCAL_KEY, JSON.stringify({ at: Date.now(), setup, state, rng: rngState() })); } catch { /* full or blocked: the game just is not kept */ }
 }
 export function forgetLocalGame() { try { store()?.removeItem(LOCAL_KEY); } catch { /* nothing kept */ } }
 /** The game left unfinished on this screen, if there is one from the last week: its round, for the button. */
@@ -40,6 +42,7 @@ export function resumeLocalGame() {
   if (!setup.rounds) setup.rounds = tune.max_rounds;
   setup.teams = !!setup.teams; if (!Array.isArray(setup.teamOf)) setup.teamOf = [0, 1, 0, 1];
   setState(g.state); state.vote = undefined; state.shaking = undefined;
+  if (typeof g.rng === 'number' && Number.isFinite(g.rng)) setSeed(g.rng); // Bug 19/11/2026: every resumed game drew from the page's first seed, the same dice each time
   clearVis(); setScene('play');
   log(`Chơi tiếp ván trước, vòng ${state.round}.`);
 }
@@ -52,6 +55,7 @@ export function restoreHostGame(code: string) {
   const sameRoom = g.code === code;
   setSetup(g.setup); if (!Array.isArray(setup.animals) || setup.animals.length !== 4) setup.animals = [...DEFAULT_ANIMALS]; if (!setup.rounds) setup.rounds = tune.max_rounds; setState(g.state); setScene(g.scene === 'results' ? 'results' : 'play');
   state.vote = undefined; state.shaking = undefined;
+  if (typeof g.rng === 'number' && Number.isFinite(g.rng)) setSeed(g.rng);
   for (const p of state.players) if (p.kind === 'remote') {
     p.offline = true;
     if (!sameRoom) { delete p.peer; p.wasRemote = true; } // a new room: nobody has an id in it yet

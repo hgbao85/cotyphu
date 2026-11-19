@@ -96,5 +96,15 @@ export function throwWithZone(n: number, power: number, hit: boolean, worth: (di
   const second = rollDice(n, power);
   return worth(second) > worth(first) ? second : first;
 }
-/** A friend's let-go power from their own screen, made safe: a number 0 to 1, or undefined. */
-export const safePower = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : undefined);
+/**
+ * Host: the power of a friend's let-go, from how long they held on their own screen, checked against the
+ * host's own clock of that shake (hostT). The trip to the host delays the shake's start and its let-go
+ * alike, so the two agree within net_hold_slack; a changed screen sending any other time is pulled back
+ * to that window. The friend no longer sends a power (Bug 19/11/2026: any power was taken, so a changed
+ * screen could always let go inside the zone). undefined for a held time that is not a number.
+ */
+export function friendPower(heldFor: unknown, hostT: number): number | undefined {
+  if (typeof heldFor !== 'number' || !Number.isFinite(heldFor)) return undefined;
+  const s = tune.net_hold_slack;
+  return meterPos(Math.min(hostT + s, Math.max(hostT - s, heldFor)));
+}

@@ -71,6 +71,7 @@ holds no comments. The values themselves are in `data/config.json`.
 - `ludo_horses`: số ngựa mỗi người (4). Về chuồng đủ bấy nhiêu con thì thắng.
 - `ludo_dice`: số xúc xắc (2 từ 19/11/2026 theo yêu cầu; 1 = kiểu một viên). Hai viên: mỗi viên đi riêng, người chơi bấm ngựa rồi chọn đi số nào, hoặc đi tổng hai viên một mạch (từ 19/11/2026 theo yêu cầu); một viên 6 (hoặc 1) ra một ngựa; đôi 2–5 dùng cả hai viên ra một ngựa (vẫn thảy thêm); lên chuồng truyền thống thì mỗi viên tính riêng.
 - `ludo_exit_on_one`: 0 = chỉ mặt 6 mới ra quân; 1 = mặt 1 hoặc 6 đều ra được (hai viên: đổ đôi cũng ra được). Là 1 từ 19/11/2026 theo yêu cầu: ra quân khi có một viên 1 hoặc 6, hoặc đổ đôi.
+- `ludo_exit_double`: 1 = đôi 2–5 dùng cả hai viên để ra một ngựa; 0 = không (đôi 1, đôi 6 vẫn ra vì mỗi viên đã là mặt ra quân). Là 0 từ 19/11/2026 theo yêu cầu, sau khi đo: ván 4 máy Khó ngắn đi khoảng 1/3 (trung vị khoảng 71 → 48 phút, 6 ván mỗi bên), 4 máy Vừa gần như không đổi.
 - `ludo_bonus_six`: 1 = được thảy thêm khi đổ đôi (hai viên) hoặc đổ 6 (một viên).
 - `ludo_bonus_kick`: 1 = đá được ngựa người khác thì được đổ thêm.
 - `ludo_no_jump`: 1 = không được nhảy qua đầu ngựa khác (luật Việt Nam); 0 = nhảy qua thoải mái.

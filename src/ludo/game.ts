@@ -72,7 +72,7 @@ export function play(k: string, ...a: Loose[]): void {
 /** The rules' switches, from data/config.json now. */
 export const rulesNow = (): LudoRules => ({
   horses: Math.max(1, Math.min(4, Math.round(tune.ludo_horses))), dice: tune.ludo_dice >= 2 ? 2 : 1,
-  exitOnOne: tune.ludo_exit_on_one >= 1, bonusSix: tune.ludo_bonus_six >= 1, bonusKick: tune.ludo_bonus_kick >= 1,
+  exitOnOne: tune.ludo_exit_on_one >= 1, exitDouble: tune.ludo_exit_double >= 1, bonusSix: tune.ludo_bonus_six >= 1, bonusKick: tune.ludo_bonus_kick >= 1,
   noJump: tune.ludo_no_jump >= 1, homeStrict: tune.ludo_home_strict >= 1,
 });
 

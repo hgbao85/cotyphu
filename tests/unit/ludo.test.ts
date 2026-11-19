@@ -10,7 +10,7 @@ import {
 // ---- Fixtures ---------------------------------------------------------------------------------
 /** The rules as data/config.json sets them (2 dice, a 1 or a 6 comes out, no jumping, traditional stable). */
 function rules(over: Partial<LudoRules> = {}): LudoRules {
-  return { horses: 4, dice: 2, exitOnOne: true, bonusSix: true, bonusKick: false, noJump: true, homeStrict: true, ...over };
+  return { horses: 4, dice: 2, exitOnOne: true, exitDouble: true, bonusSix: true, bonusKick: false, noJump: true, homeStrict: true, ...over };
 }
 /** A table: one player per list, playing sides 0, 1, 2... with their horses' progress (-1: in the yard). */
 function table(...horses: number[][]): LudoPlayer[] {
@@ -73,6 +73,14 @@ describe('coming out', () => {
   it('a double of 2 to 5 brings one horse out with both dice', () => {
     // asked for on 2026-11-19: coming out on such a double spends it, the twin does not move
     expect(ends(legalMoves(table([YARD, YARD, YARD, YARD]), 0, [3, 3], rules()))).toEqual(['0:3+3']);
+  });
+
+  it('a double of 2 to 5 does not bring a horse out when that rule is off, and still moves', () => {
+    // dropped on 2026-11-19 (ludo_exit_double 0): four-player games ran too long
+    const off = rules({ exitDouble: false });
+    expect(legalMoves(table([YARD, YARD, YARD, YARD]), 0, [3, 3], off)).toEqual([]);
+    expect(canExit([3, 3], off)).toBe(false);
+    expect(ends(legalMoves(table([10, YARD, YARD, YARD]), 0, [3, 3], off))).toEqual(['13:3', '16:3+3']);
   });
 
   it('a double 6 brings a horse out with one die and leaves the other', () => {

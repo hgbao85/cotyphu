@@ -375,7 +375,7 @@ function showLudoRules(): void {
   openPage('Luật Cá Ngựa', `
     <h3>Mục tiêu</h3><ul><li>Mỗi người <b>${R.horses} chú ngựa</b> trong chuồng ở góc bàn. Ai đưa đủ ngựa lên <b>bậc thang chuồng</b> (6 ô màu ở giữa cánh của mình) trước thì <b>thắng</b>.</li></ul>
     <h3>Thảy xúc xắc</h3><ul><li><b>Giữ nút</b> để lắc (giữ càng lâu thảy càng mạnh), <b>thả ra</b> để thảy. ${two ? '<b>Hai viên</b> xúc xắc, <b>mỗi viên đi riêng</b>: bấm ngựa đang sáng; ngựa đi được cả hai số thì chọn <b>đi số nào</b>, xong rồi chọn ngựa cho số còn lại. Một ngựa đi cả hai số (đi <b>tổng</b> một mạch, hoặc từng số một), hay hai ngựa mỗi con một số, tùy bạn. Đi tổng thì không dừng ở ô giữa.' : 'Một viên xúc xắc.'}</li>
-    <li>${two ? `Một viên <b>${ex}</b> ra được <b>một ngựa</b> (đôi ${exitRolls(R).join(', đôi ')} ra được hai). <b>Đôi 2, 3, 4, 5</b>: dùng cả hai viên để ra một ngựa, hoặc đi như thường.` : `Đổ <b>${ex}</b> thì được ra quân.`} Ngựa ra ô có ngôi sao ở góc ngoài cánh của mình.</li>
+    <li>${two ? `Một viên <b>${ex}</b> ra được <b>một ngựa</b> (đôi ${exitRolls(R).join(', đôi ')} ra được hai). ${R.exitDouble ? '<b>Đôi 2, 3, 4, 5</b>: dùng cả hai viên để ra một ngựa, hoặc đi như thường.' : 'Đôi 2, 3, 4, 5 <b>không</b> ra quân được (vẫn đi và vẫn được thảy thêm).'}` : `Đổ <b>${ex}</b> thì được ra quân.`} Ngựa ra ô có ngôi sao ở góc ngoài cánh của mình.</li>
     ${R.bonusSix ? `<li>${two ? '<b>Đổ đôi</b>' : 'Đổ <b>6</b>'} được <b>thảy thêm</b> một lần.</li>` : ''}
     <li>Không có ngựa nào đi được thì mất lượt.</li></ul>
     <h3>Đi ngựa</h3><ul><li>Ngựa chạy theo chiều kim đồng hồ quanh bàn, đúng số đã đổ. Có nhiều ngựa đi được thì bấm chọn con đang sáng.</li>

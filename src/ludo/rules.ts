@@ -68,14 +68,14 @@ export interface LudoPlayer {
   kicks: number; kicked: number; sixes: number;
 }
 /** What the rules read from data/config.json. */
-export interface LudoRules { horses: number; dice: number; exitOnOne: boolean; bonusSix: boolean; bonusKick: boolean; noJump: boolean; homeStrict: boolean }
+export interface LudoRules { horses: number; dice: number; exitOnOne: boolean; exitDouble: boolean; bonusSix: boolean; bonusKick: boolean; noJump: boolean; homeStrict: boolean }
 /** A legal move: which horse, from and to, the dice it spends, and whom it kicks home. */
 export interface LudoMove { h: number; from: number; to: number; dice: number[]; kick?: { pi: number; h: number } }
 
 /** The faces that bring a horse out of its corner. */
 export const exitRolls = (R: LudoRules): number[] => (R.exitOnOne ? [1, 6] : [6]);
 /** True when this throw brings a horse out: one die showing an exit face, or (two dice) a double. */
-export const canExit = (dice: number[], R: LudoRules): boolean => dice.some(d => exitRolls(R).includes(d)) || (dice.length === 2 && dice[0] === dice[1]);
+export const canExit = (dice: number[], R: LudoRules): boolean => dice.some(d => exitRolls(R).includes(d)) || (R.exitDouble && dice.length === 2 && dice[0] === dice[1]);
 /** True when this throw earns another: a double with two dice, a six with one. */
 export const throwsAgain = (dice: number[]): boolean => (dice.length === 2 ? dice[0] === dice[1] : dice[0] === 6);
 
@@ -95,7 +95,7 @@ export function occupant(players: LudoPlayer[], cell: Cell): { pi: number; h: nu
  * horse may also go their total in one move. Each move says which dice it spends. */
 export function legalMoves(players: LudoPlayer[], pi: number, use: number[], R: LudoRules): LudoMove[] {
   const p = players[pi], out: LudoMove[] = [], ex = exitRolls(R);
-  const pair = use.length === 2 && use[0] === use[1] && !ex.includes(use[0]);
+  const pair = R.exitDouble && use.length === 2 && use[0] === use[1] && !ex.includes(use[0]);
   p.horses.forEach((from, h) => {
     if (from < 0) {
       for (const d of new Set(use)) if (ex.includes(d)) moveTo(h, from, 0, [d]);

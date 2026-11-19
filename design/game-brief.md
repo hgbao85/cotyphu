@@ -67,6 +67,7 @@ After play: Cho chọn quân đi số nào: mỗi viên đi riêng (ví dụ 2 +
 After play: Chọn ngựa rồi chọn số đi thôi, không cần chọn vào xúc xắc
 After play: Dải màu viền gợi ý điểm đến khi chọn số (cùng màu nút)
 After play: Thêm option đi theo tổng (một quân đi hết 2 viên một lần)
+After play: Bỏ luật đổ đôi 2–5 được ra quân (ván 4 người quá lâu; đo: 4 máy Khó khoảng 71 → 48 phút)
 After play: Giá thu đủ nhóm lệch với bảng giá (Hà Nội 340.000 × 2 mà thu 670.000) → làm tròn trước rồi mới nhân đôi
 After play: Tại sao không nhân số nào để khỏi phải làm tròn → bỏ làm tròn tiền thuê: chính xác tới nghìn đồng (Hà Nội đất trống 336.000 đ, đủ nhóm 672.000 đ)
 After play: Bỏ hết làm tròn → giá xây và Thuế Tài Sản cũng chính xác tới nghìn đồng (10% của 5.763.000 đ là 576.000 đ)
@@ -180,7 +181,7 @@ Trang mở với màn chờ (con giáp nhảy trên đảo, đếm từ 30). Mà
 - [x] Chạy mượt trên điện thoại yếu (đo bằng tools/fps.mjs)
 - [x] Sảnh chọn game khi mở trang (Cờ Tỷ Phú, Cá Ngựa, thẻ "Sắp có thêm"); mỗi game có nút ‹ Sảnh; link thẳng ?game=typhu / ?game=cangua
 - [x] Cá Ngựa: bàn 2D chibi, 2–4 chỗ ngồi (Người, Máy Dễ/Vừa/Khó, Bạn online, Không chơi), 4 ngựa mỗi người, giữ để lắc thả để thảy một viên xúc xắc chấm dấu chân; đổ 6 ra quân và thảy thêm; không nhảy qua đầu; đá ngựa về chuồng; lên chuồng Truyền thống (đổ đúng từng bậc) hoặc Nhanh; màn thắng; luật chơi; chơi online cùng máy chủ phòng
-- [x] Cá Ngựa 2 viên xúc xắc: mỗi viên đi riêng, bấm ngựa, ngựa đi được nhiều cách thì chọn đi số nào hoặc đi tổng cả hai viên; một viên 1 hoặc 6 ra một ngựa; đôi 2–5 dùng cả hai viên ra một ngựa; đổ đôi thảy thêm; lên chuồng truyền thống mỗi viên tính riêng. Ô ra quân ở góc ngoài mỗi cánh, sát chuồng ngựa
+- [x] Cá Ngựa 2 viên xúc xắc: mỗi viên đi riêng, bấm ngựa, ngựa đi được nhiều cách thì chọn đi số nào hoặc đi tổng cả hai viên; một viên 1 hoặc 6 ra một ngựa; đôi 2–5 không ra quân (bỏ từ 19/11/2026); đổ đôi thảy thêm; lên chuồng truyền thống mỗi viên tính riêng. Ô ra quân ở góc ngoài mỗi cánh, sát chuồng ngựa
 - [x] Cá Ngựa giữ ván: tải lại trang vẫn chơi tiếp ván một máy; nút Vào lại phòng (30 phút), chủ phòng tải lại vẫn giữ ván; mỗi game một mã chủ phòng riêng nên không lấy nhầm phòng của game kia
 - [x] Cá Ngựa: nút tua nhanh ×1 / ×2 / ×4 cho lượt máy (chung lựa chọn với Cờ Tỷ Phú); chơi online thì chủ phòng chọn
 - [x] Cá Ngựa: máy Khó tính trước cả hai viên xúc xắc (thắng máy Dễ 19/24, máy Vừa 16/24 ván, 2 người)

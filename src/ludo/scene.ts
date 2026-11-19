@@ -3,6 +3,7 @@
 // island, cream track tiles, a pastel yard in each corner and a lotus in the centre.
 // The turns are in ./game.ts, online play in ./online.ts, the rules in ./rules.ts.
 
+import { inZone } from '../game/dice';
 import { tune, CONFIG } from '../config';
 import { speedNow, cycleSpeed } from '../core/speed';
 import { sfx } from '../audio';
@@ -11,13 +12,13 @@ import { setScene, scene, onSceneChange } from '../core/store';
 import { F } from '../core/flags';
 import { prefs } from '../core/prefs';
 import type { Loose } from '../game/types';
-import { btn, clicks, pointer, pressed, down, pointerHeld, L } from '../main';
+import { btn, clicks, pointer, pressed, down, pointerHeld, L, checkSeed as mainSeed } from '../main';
 import { drawButton, drawTokenIcon, lacquer, messageBox } from '../ui/draw';
 import { openPicker, buildPicker, drawPicker } from '../ui/setupScreen';
 import { openPage } from '../ui/pages';
 import { openSettings } from '../ui/settings';
 import { LEAVE_LOCAL, CHANGE_PLAYERS } from '../ui/words';
-import { wideSpeedSpot, phoneRow, resultsBox, mostOf, drawSummary, drawOrderMark } from '../ui/gameChrome';
+import { wideSpeedSpot, phoneRow, resultsBox, mostOf, drawSummary, drawOrderMark, drawMeter, METER_W } from '../ui/gameChrome';
 import { makeTips } from '../ui/gameTips';
 import { board3d, type BoardSpot } from '../three/board3d';
 import { buildViewButtons, viewKeys, viewRow } from '../ui/viewButtons';
@@ -25,7 +26,7 @@ import { useView } from '../ui/viewGestures';
 
 /** First-game tips, as Cờ Tỷ Phú's: the first throw, the first horse to pick. */
 const tips = makeTips('ludo:', {
-  roll: 'Giữ nút đỏ để lắc xúc xắc, thả ra để thảy. Muốn ra quân phải đổ đúng số: xem "Luật".',
+  roll: 'Giữ nút đỏ: thanh lực chạy lên xuống. Thả lúc cao dễ ra số lớn; trúng vùng vàng thì may hơn. Ra quân: xem "Luật".',
   choose: 'Bấm vào con ngựa đang sáng để đi. Ngựa đi được hai cách thì chọn số bước ở các nút bên dưới.',
 });
 import { showOnlinePanel } from '../net/room';
@@ -325,12 +326,12 @@ function drawDiceTop(): void {
     ctx.lineWidth = 8; ctx.strokeStyle = '#fff6e2'; ctx.strokeText(label, 0, 0);
     ctx.fillStyle = dbl || (d.length === 1 && d[0] === 6) ? '#d9442b' : '#4a3020'; ctx.fillText(label, 0, 0); ctx.restore();
   }
-  if (G.phase === 'shake' && G.shake && !G.shake.ai && (myTurn() || (!on.isGuest() && curP().kind === 'human'))) { // the power bar
-    const w = cs * 4.2, x = c.x - w / 2, y = c.y + cs * 1.4, h = cs * 0.32, pw = shakePower();
-    ctx.save(); ctx.fillStyle = 'rgba(255,249,234,0.95)'; rrect(ctx, x - 4, y - 4, w + 8, h + 8, 8); ctx.fill();
-    const g = ctx.createLinearGradient(x, 0, x + w, 0); g.addColorStop(0, '#8fd16a'); g.addColorStop(0.6, '#ffd84a'); g.addColorStop(1, '#ff7b6b');
-    ctx.fillStyle = g; rrect(ctx, x, y, Math.max(8, w * pw), h, 6); ctx.fill(); ctx.restore();
-  }
+}
+/** The power bar while this screen's player shakes: under the shake button, over the panel (drawn after it). */
+function drawShakeMeter(): void {
+  if (!(G.phase === 'shake' && G.shake && !G.shake.ai && (myTurn() || (!on.isGuest() && curP().kind === 'human')))) return;
+  const ph = phone(), bx = ph ? 16 : PX + 40, bw = ph ? W - 32 : PWD - 80, by = ph ? H - 176 : 404, own = on.isGuest() && on.guestShaking; // a friend: its own clock, no lag
+  drawMeter(bx + (bw - METER_W) / 2, by + 68, METER_W, 10, own ? on.guestPower() : shakePower(), G.shake.zone, 0, false, false); // its words are on the shake button
 }
 
 // ---- Words: whose turn, what to do --------------------------------------------------------------
@@ -424,7 +425,7 @@ function showLudoRules(): void {
   const R = rulesNow(), ex = exitRolls(R).join(' hoặc '), two = R.dice > 1;
   openPage('Luật Cá Ngựa', `
     <h3>Mục tiêu</h3><ul><li>Mỗi người <b>${R.horses} chú ngựa</b> trong chuồng ở góc bàn. Ai đưa đủ ngựa lên <b>bậc thang chuồng</b> (6 ô màu ở giữa cánh của mình) trước thì <b>thắng</b>.</li></ul>
-    <h3>Thảy xúc xắc</h3><ul><li><b>Giữ nút</b> để lắc (giữ càng lâu thảy càng mạnh), <b>thả ra</b> để thảy. ${two ? '<b>Hai viên</b> xúc xắc, <b>mỗi viên đi riêng</b>: bấm ngựa đang sáng; ngựa đi được cả hai số thì chọn <b>đi số nào</b>, xong rồi chọn ngựa cho số còn lại. Một ngựa đi cả hai số (đi <b>tổng</b> một mạch, hoặc từng số một), hay hai ngựa mỗi con một số, tùy bạn. Đi tổng thì không dừng ở ô giữa.' : 'Một viên xúc xắc.'}</li>
+    <h3>Thảy xúc xắc</h3><ul><li><b>Giữ nút</b> để lắc, <b>thả ra</b> để thảy: khi giữ, <b>thanh lực chạy lên xuống</b>; thả lúc thanh cao thì dễ ra số lớn, thấp thì dễ ra số nhỏ (mặt nào cũng vẫn có thể ra). Thả trúng <b>vùng vàng</b> trên thanh thì <b>may hơn một chút</b>. Có 10 giây để canh. ${two ? '<b>Hai viên</b> xúc xắc, <b>mỗi viên đi riêng</b>: bấm ngựa đang sáng; ngựa đi được cả hai số thì chọn <b>đi số nào</b>, xong rồi chọn ngựa cho số còn lại. Một ngựa đi cả hai số (đi <b>tổng</b> một mạch, hoặc từng số một), hay hai ngựa mỗi con một số, tùy bạn. Đi tổng thì không dừng ở ô giữa.' : 'Một viên xúc xắc.'}</li>
     <li>${two ? `Một viên <b>${ex}</b> ra được <b>một ngựa</b>; viên còn lại đi tiếp (ô ngôi sao đã có ngựa vừa ra, nên đôi ${exitRolls(R).join(', đôi ')} cũng chỉ ra một ngựa, trừ khi viên kia đưa ngựa ấy đi chỗ khác trước). ${R.exitDouble ? '<b>Đôi 2, 3, 4, 5</b>: dùng cả hai viên để ra một ngựa, hoặc đi như thường.' : 'Đôi 2, 3, 4, 5 <b>không</b> ra quân được (vẫn đi và vẫn được thảy thêm).'}` : `Đổ <b>${ex}</b> thì được ra quân.`} Ngựa ra ô có ngôi sao ở góc ngoài cánh của mình.</li>
     ${R.bonusSix ? `<li>${two ? '<b>Đổ đôi</b>' : 'Đổ <b>6</b>'} được <b>thảy thêm</b> một lần.</li>` : ''}
     <li>Không có ngựa nào đi được thì mất lượt.</li></ul>
@@ -503,7 +504,11 @@ function startLudo(): void {
   setScene('ludo');
 }
 /** A seed a check set (?seed=), so a check replays the same game. */
-function checkSeed(): number | undefined { const s = new URLSearchParams(location.search).get('seed'); return s ? Number(s) : undefined; }
+/** A check's seed for the next game: one set through window.game.configure (each game its own), else ?seed=. */
+function checkSeed(): number | undefined {
+  if (mainSeed !== null) return mainSeed;
+  const s = new URLSearchParams(location.search).get('seed'); return s ? Number(s) : undefined;
+}
 
 function drawSetup(): void {
   clear('#bfe6f5');
@@ -615,8 +620,14 @@ function buildPlay(): void {
     u.forEach((d, k) => btn(bx + k * (w + gap), by, w, 56, both(d) ? `Đi ${d} (cả 2)` : u.length > 2 ? `Đi ${d}` : `Ngựa ${h + 1} đi ${d}`, () => go(h, d), k ? '' : 'primary', true, HINT[k])); // the same colours as the bands on the board
   }
   if (myTurn() && (G.phase === 'roll' || G.phase === 'shake')) {
-    btn(bx, by, bw, 62, G.phase === 'shake' ? 'Thả ra để thảy!' : G.order ? 'Giữ để lắc chọn lượt' : 'Giữ để lắc xúc xắc', () => startShake(), 'primary', G.phase === 'roll', '#c8201f', 'shake');
+    btn(bx, by, bw, 62, G.phase === 'shake' ? shakeLabel() : G.order ? 'Giữ để lắc chọn lượt' : 'Giữ để lắc xúc xắc', () => startShake(), 'primary', G.phase === 'roll', '#c8201f', 'shake');
   }
+}
+/** The shake button's words while shaking: "let go now" over the sweet zone, else the seconds left. */
+function shakeLabel(): string {
+  const own = on.isGuest() && on.guestShaking, pos = own ? on.guestPower() : shakePower();
+  if (inZone(pos, G.shake?.zone)) return 'Thả ngay: vùng đẹp!';
+  return `Thả ra để thảy! · còn ${Math.max(0, Math.ceil(tune.shake_max_time - (own ? on.guestShakeT() : G.shake?.t ?? 0)))} giây`;
 }
 /** A friend's screen, or a check's: G arrives or is made before the first draw. */
 const ready = (): boolean => !!G && !!G.players && G.players.length > 0;
@@ -628,6 +639,7 @@ function drawPlay(): void {
   drawHorses();
   drawDiceTop();
   if (phone()) drawPhonePanel(); else drawWidePanel();
+  drawShakeMeter();
   if (G.phase === 'over') drawResults(); // the card first, its buttons over it
   F.ui.forEach(b => { if (b.role !== 'menu' && b.role !== 'menuSecondary') drawButton(b); });
   tips.draw(phone(), PX, F.ui);
@@ -663,7 +675,7 @@ function playerCard(i: number, x: number, y: number, w: number, h: number): void
   if (G.order) drawOrderMark(G.order, i, i === G.cur, x, y, w, h); // the throws for the order of play
 }
 /** The wide panel's "Diễn biến" line, its history button beside it. */
-const LOG_Y = 500;
+const LOG_Y = 508;
 /** "Tổng kết ván": who kicked most, who was kicked most, who threw the most doubles (or sixes). */
 function summaryLines(): string[] {
   const k = mostOf(G.players, p => p.kicks), kd = mostOf(G.players, p => p.kicked), sx = mostOf(G.players, p => p.sixes);
@@ -679,7 +691,7 @@ function drawWidePanel(): void {
   if (G.phase === 'over') drawSummary(PX + 24, 360, PWD - 48, summaryLines()); // as Cờ Tỷ Phú's after a game
   else if (line) { ctx.font = `bold 20px ${FONT}`; wrapLines(ctx, line, PWD - 60).slice(0, 2).forEach((l, j) => text(l, PX + PWD / 2, 366 + j * 24, 20, '#4a3020', 'center', 'bold')); }
   text('Diễn biến', PX + 30, LOG_Y, 17, '#b0501f', 'left', 'bold');
-  G.log.slice(0, 7).forEach((l, j) => { ctx.font = `15px ${FONT}`; text(wrapLines(ctx, l, PWD - 60)[0], PX + 30, 528 + j * 25, 15, j ? '#8a6a4a' : '#4a3020', 'left'); });
+  G.log.slice(0, 7).forEach((l, j) => { ctx.font = `15px ${FONT}`; text(wrapLines(ctx, l, PWD - 60)[0], PX + 30, LOG_Y + 28 + j * 25, 15, j ? '#8a6a4a' : '#4a3020', 'left'); });
 }
 function drawPhonePanel(): void {
   lacquer(0, 0, W, 48); // the header and the strip under the board: one sign each, as Cờ Tỷ Phú's

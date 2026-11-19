@@ -3,6 +3,7 @@
 // row, a full board. The rules are in ./rules.ts; the screens in ./scene.ts; online play in ./online.ts.
 // Online, only the host runs this; a friend's screen draws the G the host sends.
 
+import { rollDice, makeZone, meterPos, inZone, aiHold, throwWithZone, type Zone } from '../game/dice';
 import { startOrder, recordOrder, nextOrder, type OrderState } from '../game/orderRoll';
 import type { Bubble, Vote } from '../net/roomExtras';
 import { tune, CONFIG } from '../config';
@@ -37,7 +38,7 @@ export interface CaroGame {
   order?: OrderState;
   /** The last throw's dice, the shake in the hand, the dice tumbling, the total shown as they stop. */
   dice: number[];
-  shake: { t: number; ai: boolean; holdFor: number; remote?: boolean; released?: boolean } | null;
+  shake: { t: number; ai: boolean; holdFor: number; remote?: boolean; released?: boolean; zone?: Zone; power?: number } | null; // zone: the sweet zone; power: a friend's let-go power
   throwAt: { t: number; dur: number; power: number; faces: number[][]; spin: number } | null;
   show: { t: number; dice: number[] } | null;
   /** The piece falling onto its cell. */
@@ -126,20 +127,24 @@ export function newGame(seed?: number, names: (string | undefined)[] = [], anima
 }
 
 /** Starts shaking the dice for the order (a person holds; the computer holds for a moment of its own). */
-export function startShake(ai = false): void {
+export function startShake(ai = false, aim?: number): void { // aim: the power a computer that aims wants (Khó)
   if (G.phase !== 'roll') return;
-  G.shake = { t: 0, ai, holdFor: ai ? 0.35 + rng() * 0.6 : 0 };
+  const zone = makeZone(); // the sweet zone of this shake (src/game/dice.ts)
+  G.shake = { t: 0, ai, holdFor: ai ? aiHold(curP().kind === 'ai' ? curP().lv : 1, zone, aim) : 0, zone };
   G.phase = 'shake';
 }
 /** How hard the dice will be thrown: 0 to 1, from how long they were shaken. */
-export const shakePower = (): number => (G.shake ? Math.min(1, G.shake.t / tune.shake_full_time) : 0);
+/** Where the power bar stands: a friend's own let-go power online, else the bar's place now (it runs up and down). */
+export const shakePower = (): number => (G.shake ? G.shake.power ?? meterPos(G.shake.t) : 0);
 /** How many dice a throw for the order uses (data/config.json caro_order_dice). */
 export const orderDice = (): number => (tune.caro_order_dice >= 2 ? 2 : 1);
 /** Lets go of the dice: they tumble, and land. */
 export function throwDice(): void {
   const power = shakePower(), n = orderDice();
+  const hit = inZone(power, G.shake?.zone);
   G.shake = null;
-  G.dice = Array.from({ length: n }, () => 1 + Math.floor(rng() * 6));
+  if (hit) log(`${curP().name} thả trúng vùng đẹp!`);
+  G.dice = throwWithZone(n, power, hit, (d: number[]) => d.reduce((a, b) => a + b, 0)); // a hard throw tends high, a soft one low; the sweet zone a little luckier (src/game/dice.ts)
   const dur = tune.dice_time * (0.75 + 0.6 * power);
   const faces = Array.from({ length: 8 + Math.round(power * 6) }, () => Array.from({ length: n }, () => 1 + Math.floor(rng() * 6)));
   G.throwAt = { t: 0, dur, power, faces, spin: (rng() < 0.5 ? -1 : 1) * (2 + power * 3) };
@@ -218,7 +223,7 @@ export function step(dt: number, held: boolean, peerOnline: (id?: number) => boo
   if (G.show) G.show.t += dt;
   switch (G.phase) {
     case 'roll':
-      if (autoPlays(curP(), peerOnline) && G.timer >= tune.caro_ai_delay) startShake(true);
+      if (autoPlays(curP(), peerOnline) && G.timer >= tune.caro_ai_delay) startShake(true, curP().kind === 'ai' && curP().lv >= 2 ? 1 : undefined); // Khó shakes hard: the highest goes first
       break;
     case 'shake': {
       const sh = G.shake!, p = curP(); sh.t += dt;

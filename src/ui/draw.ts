@@ -17,7 +17,9 @@ import type { Loose, Player, Tile } from '../game/types';
 
 import { owned, rentOf, shakePower, teamTag, maxRounds, hasKeep, rentPct, drawOrder, ownsGroup, curP, isAI, firstLap } from '../game/turn';
 
-import { roomCode } from '../net/room';
+import { roomCode, isGuest } from '../net/room';
+import { meterPos } from '../game/dice';
+import { drawMeter, METER_W } from './gameChrome';
 import { F } from '../core/flags';
 import { CHIBI, themeCanvas } from '../core/theme';
 
@@ -155,14 +157,9 @@ function drawPanelLog(top: number) {
   lines.forEach((l, j) => text(l.s, x + 10, top + 38 + j * lineH, 14, l.last ? '#fff8e6' : '#cbb994', 'left'));
 }
 export function drawDiceFeel() {
-  if (state.shaking && !state.shaking.ai) { // the power bar under the shaking dice
-    const pw = shakePower(), x = L.cx - 130, y = L.powerY, w = 260, h = 16;
-    ctx.save();
-    ctx.fillStyle = 'rgba(20,10,6,0.8)'; rrect(ctx, x - 4, y - 4, w + 8, h + 8, 8); ctx.fill();
-    const g = ctx.createLinearGradient(x, 0, x + w, 0); g.addColorStop(0, '#3fcf5a'); g.addColorStop(0.6, '#f2c44a'); g.addColorStop(1, '#e8402a');
-    ctx.fillStyle = g; rrect(ctx, x, y, Math.max(8, w * pw), h, 6); ctx.fill();
-    text(pw >= 1 ? 'Lực tối đa!' : 'Lực ném', L.cx, y + 34, 16, '#fff8e6', 'center', 'bold');
-    ctx.restore();
+  if (state.shaking && !state.shaking.ai) { // the power bar under the shaking dice: it runs up and down, a sweet zone on it
+    const own = isGuest() && F.guestShaking, t = own ? performance.now() / 1000 - F.guestShakeAt : state.shaking.t; // a friend's own clock: no lag
+    drawMeter(L.cx - METER_W / 2, L.powerY, METER_W, 16, own ? meterPos(t) : shakePower(), state.shaking.zone, tune.shake_max_time - t, !CHIBI);
   }
   const ds = state.diceShow;
   if (!ds || ds.t > 1.6) return;

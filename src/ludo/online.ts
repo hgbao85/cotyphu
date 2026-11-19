@@ -8,6 +8,7 @@
 //                     { k: 'ludoFull', msg }
 //   friend -> host    { k: 'ludoAct', act: 'shake' | 'throw' | 'pick' | 'again', h?, d? }   (pick: horse h with die d)
 
+import { meterPos, safePower } from '../game/dice';
 import * as net from '../net/net';
 import { tune, CONFIG } from '../config';
 import { rawSfx } from '../net/room';
@@ -35,6 +36,11 @@ export const peerOnline = (id?: number): boolean => id !== undefined && !!peers.
 let sendEvery = 0;
 /** Friend: holding the shake button, waiting to let go. */
 export let guestShaking = false;
+/** Friend: when this screen began shaking (seconds), so its power bar runs on its own clock. */
+let shakeAt = 0;
+/** Friend: where this screen's power bar stands now. */
+export const guestShakeT = (): number => performance.now() / 1000 - shakeAt;
+export const guestPower = (): number => meterPos(guestShakeT());
 
 const handlers: net.NetHandlers = {
   onRoom(code) {
@@ -169,7 +175,7 @@ function onAct(from: number, a: Loose): void {
   const p = curP();
   if (p.kind !== 'remote' || p.peer !== from) return;
   if (a.act === 'shake' && G.phase === 'roll') { startShake(); if (G.shake) G.shake.remote = true; }
-  else if (a.act === 'throw' && G.shake?.remote) G.shake.released = true;
+  else if (a.act === 'throw' && G.shake?.remote) { G.shake.released = true; G.shake.power = safePower(a.power); } // the bar where the friend let go, on their screen
   else if (a.act === 'pick' && Number.isInteger(a.h)) pickHorse(a.h, Number.isInteger(a.d) ? a.d : undefined);
 }
 /** "Lịch sử": the whole game's lines (a friend asks the host, who keeps them). */
@@ -177,7 +183,7 @@ export function openHistory(): void { if (isGuest()) sendAct('history'); else sh
 /** Friend: a press for the host. */
 export function sendAct(act: string, h?: number, d?: number): void {
   net.toHost({ k: 'ludoAct', act, h, d });
-  if (act === 'shake') guestShaking = true;
+  if (act === 'shake') { guestShaking = true; shakeAt = performance.now() / 1000; }
 }
 
 /** Friend: a message from the host. */
@@ -214,5 +220,5 @@ export function ludoNetStep(held: boolean): void {
       if (++sendEvery >= 3 || sounds.length) { sendEvery = 0; net.toAll({ k: 'ludo', scene, g: G, sfx: sounds.splice(0) }); }
     } else if (++sendEvery >= 30) { sendEvery = 0; sendLobby(); }
   }
-  if (isGuest() && guestShaking && !held) { guestShaking = false; sendAct('throw'); }
+  if (isGuest() && guestShaking && !held) { guestShaking = false; net.toHost({ k: 'ludoAct', act: 'throw', power: guestPower() }); } // where the bar stood on this screen: no lag
 }

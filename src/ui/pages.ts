@@ -22,7 +22,7 @@ function rulesHtml(): string {
       ...(tune.order_roll ? ['Đầu ván mỗi người tung xúc xắc một lần: <b>ai cao nhất đi trước, thấp nhất đi cuối</b>. Hòa điểm thì những người hòa tung lại.'] : []),
     ]),
     sec('Mỗi lượt', [
-      'Giữ nút (hoặc Space) để lắc xúc xắc, thả ra để ném.',
+      `Giữ nút (hoặc Space) để lắc xúc xắc, thả ra để ném. ${tune.dice_power_tilt > 0 ? 'Khi giữ, <b>thanh lực chạy lên xuống</b>: thả lúc thanh cao thì dễ ra số lớn, thấp thì dễ ra số nhỏ. Thả trúng <b>vùng vàng</b> thì may hơn một chút. Có 10 giây để canh.' : ''}`,
       'Đổ đôi: được đổ tiếp. Đôi 3 lần liền: vào tù.',
       `Đi qua hoặc dừng ở Xuất Phát: nhận lương ${money(tune.salary)}.`,
     ]),

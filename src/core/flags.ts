@@ -15,5 +15,6 @@ export const F = {
   propScroll: 0,
   netError: '',
   guestShaking: false, // guest: holding the shake button, waiting to let go
+  guestShakeAt: 0, // guest: when it began (seconds), for the power bar on this screen
   drawingMenu: false,
 };

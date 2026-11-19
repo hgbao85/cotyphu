@@ -33,6 +33,9 @@ export default defineConfig({
   // One test at a time: the online test runs two screens drawing 3D in software, and beside it a
   // timing check (the loop starts on its own) would starve.
   workers: 1,
+  // A test alone takes seconds; the whole suite (3D pages in software, two browsers online) runs five minutes
+  // and slowed single tests past the 30 s default. A real hang still fails, a minute later.
+  timeout: 60000,
   forbidOnly: !!process.env.CI,
   use: {
     viewport: { width: 1280, height: 720 },

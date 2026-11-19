@@ -45,3 +45,30 @@ export function drawOrderMark(o: OrderState, i: number, cur: boolean, x: number,
   text(String(v), cx, cy + 1, Math.round(s * 0.55), '#d9622b', 'center', 'bold');
   if (v === best) icon.crown(ctx, cx, cy - s / 2 - 4, 16);
 }
+
+/** The power bar's length in every game, so aiming is as hard in each (a longer bar is a wider sweet zone). */
+export const METER_W = 300;
+/**
+ * The power bar while a throw is being shaken (all four games): the track, the bar up to where it stands
+ * now (pos 0..1, running up and down), the sweet zone outlined in gold (src/game/dice.ts makeZone), and
+ * under it what to do and the seconds left before the dice go by themselves.
+ */
+export function drawMeter(x: number, y: number, w: number, h: number, pos: number, zone: { a: number; b: number } | null | undefined, left: number, dark = false, label = true): void {
+  ctx.save();
+  ctx.fillStyle = dark ? 'rgba(20,10,6,0.85)' : 'rgba(255,249,234,0.96)'; rrect(ctx, x - 4, y - 4, w + 8, h + 8, 8); ctx.fill();
+  ctx.strokeStyle = dark ? '#6a4a2a' : '#e8c9a0'; ctx.lineWidth = 1.5; ctx.stroke();
+  const g = ctx.createLinearGradient(x, 0, x + w, 0); g.addColorStop(0, '#8fd16a'); g.addColorStop(0.6, '#ffd84a'); g.addColorStop(1, '#ff7b6b');
+  ctx.fillStyle = g; rrect(ctx, x, y, Math.max(6, w * pos), h, Math.min(6, h / 2)); ctx.fill();
+  if (zone) { // the sweet zone: a gold frame with a soft glow
+    const zx = x + w * zone.a, zw = w * (zone.b - zone.a);
+    ctx.fillStyle = 'rgba(255,236,120,0.35)'; ctx.fillRect(zx, y - 3, zw, h + 6);
+    ctx.strokeStyle = '#d4a017'; ctx.lineWidth = 2.5; ctx.strokeRect(zx, y - 3, zw, h + 6);
+  }
+  const mx = x + w * pos; // where the bar stands: a marker over it
+  ctx.fillStyle = dark ? '#fff8e6' : '#4a3020';
+  ctx.beginPath(); ctx.moveTo(mx - 6, y - 9); ctx.lineTo(mx + 6, y - 9); ctx.lineTo(mx, y - 1); ctx.closePath(); ctx.fill();
+  ctx.restore();
+  if (!label) return; // the game says it elsewhere (on its shake button)
+  const hit = zone && pos >= zone.a && pos <= zone.b;
+  text(hit ? 'Thả ngay: đang ở vùng đẹp!' : `Thả ra để ném · còn ${Math.max(0, Math.ceil(left))} giây`, x + w / 2, y + h + 16, 14, hit ? '#c98f0a' : dark ? '#fff8e6' : '#6a4a32', 'center', 'bold');
+}

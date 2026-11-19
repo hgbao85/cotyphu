@@ -3,6 +3,7 @@
 // the end of the game drawn over it. The turns are in ./game.ts, online play in ./online.ts, the rules
 // in ./rules.ts.
 
+import { inZone } from '../game/dice';
 import { tune, CONFIG } from '../config';
 import { sfx } from '../audio';
 import { W, H, FONT, ctx, text, rrect, clear, screenScale, wrapLines } from '../screen';
@@ -11,13 +12,13 @@ import { F } from '../core/flags';
 import { prefs } from '../core/prefs';
 import type { Loose } from '../game/types';
 import { ANIMALS } from '../game/data';
-import { btn, clicks, pressed, down, pointerHeld, L } from '../main';
+import { btn, clicks, pressed, down, pointerHeld, L, checkSeed as mainSeed } from '../main';
 import { drawButton, drawTokenIcon, lacquer, messageBox } from '../ui/draw';
 import { openPicker, buildPicker, drawPicker } from '../ui/setupScreen';
 import { openPage } from '../ui/pages';
 import { openSettings } from '../ui/settings';
 import { LEAVE_LOCAL, CHANGE_PLAYERS } from '../ui/words';
-import { wideSpeedSpot, phoneRow, resultsBox, mostOf, drawSummary, drawOrderMark } from '../ui/gameChrome';
+import { wideSpeedSpot, phoneRow, resultsBox, mostOf, drawSummary, drawOrderMark, drawMeter, METER_W } from '../ui/gameChrome';
 import { makeTips } from '../ui/gameTips';
 import { board3d, type BoardSpot } from '../three/board3d';
 import { buildViewButtons, viewKeys, viewRow } from '../ui/viewButtons';
@@ -25,7 +26,7 @@ import { useView } from '../ui/viewGestures';
 
 /** First-game tips, as Cờ Tỷ Phú's: the first throw, and waiting to come on when that rule is on. */
 const tips = makeTips('snake:', {
-  roll: 'Giữ nút đỏ để lắc xúc xắc, thả ra để thảy. Dừng ở chân thang thì leo lên, dừng ở đầu rắn thì tuột xuống.',
+  roll: 'Giữ nút đỏ: thanh lực chạy lên xuống. Thả lúc cao dễ ra số lớn; trúng vùng vàng thì may hơn. Leo thang, né đầu rắn!',
   enter: 'Ván này phải đổ đúng số mới được vào bàn: một viên cần số 6, hai viên cần đổ đôi.',
 });
 import { speedNow, cycleSpeed } from '../core/speed';
@@ -281,9 +282,8 @@ function drawDie(): void {
   }
   if (G.phase === 'shake' && G.shake && !G.shake.ai && (myTurn() || (!on.isGuest() && curP().kind === 'human'))) { // the power bar under the button
     const c = controls(), w = c.bw, h = 10, pw = shakePower();
-    ctx.save(); ctx.fillStyle = 'rgba(255,249,234,0.95)'; rrect(ctx, c.bx - 3, c.by + 68, w + 6, h + 6, 6); ctx.fill();
-    const g = ctx.createLinearGradient(c.bx, 0, c.bx + w, 0); g.addColorStop(0, '#8fd16a'); g.addColorStop(0.6, '#ffd84a'); g.addColorStop(1, '#ff7b6b');
-    ctx.fillStyle = g; rrect(ctx, c.bx, c.by + 71, Math.max(8, w * pw), h, 5); ctx.fill(); ctx.restore();
+    const own = on.isGuest() && on.guestShaking; // a friend: its own clock, no lag
+    drawMeter(c.bx + (c.bw - (rulesNow().dice > 1 ? 136 : 92) - METER_W) / 2, c.by + 68, METER_W, h, own ? on.guestPower() : pw, G.shake.zone, 0, false, false); // centred under the shake button, one length in every game; its words are on the button
   }
 }
 
@@ -341,6 +341,12 @@ function handleTaps(): void {
   if (pressed('Space') || pressed('Enter')) { const b = F.ui.find(x => x.role === 'primary' && x.enabled); if (b) press(b); }
   if (pressed('Escape') || pressed('KeyN')) { const b = F.ui.find(x => (x.role === 'secondary' || x.role === 'menuSecondary') && x.enabled); if (b) press(b); } // N / Esc: "bỏ qua", as in Cờ Tỷ Phú (and "Ở lại" under the leave menu)
 }
+/** The shake button's words while shaking: "let go now" over the sweet zone, else the seconds left. */
+function shakeLabel(): string {
+  const own = on.isGuest() && on.guestShaking, pos = own ? on.guestPower() : shakePower();
+  if (inZone(pos, G.shake?.zone)) return 'Thả ngay: vùng đẹp!';
+  return `Thả ra để thảy! · còn ${Math.max(0, Math.ceil(tune.shake_max_time - (own ? on.guestShakeT() : G.shake?.t ?? 0)))} giây`;
+}
 /** The person shaking still holds the die (a finger, the mouse, Space or Enter). */
 export const holding = (): boolean => pointerHeld || down.has('Space') || down.has('Enter');
 
@@ -349,7 +355,7 @@ function showSnakeRules(): void {
   const R = rulesNow(), lad = LINKS.filter(l => l.kind === 'ladder'), sn = LINKS.filter(l => l.kind === 'snake');
   openPage('Luật Rắn và Thang', `
     <h3>Mục tiêu</h3><ul><li>Bàn <b>100 ô</b>, đi từ ô 1 ở góc dưới, ngoằn ngoèo lên tới <b>ô 100</b> ở góc trên. Ai tới ô 100 trước thì <b>thắng</b>.</li></ul>
-    <h3>Thảy xúc xắc</h3><ul><li><b>Giữ nút</b> để lắc (giữ càng lâu thảy càng mạnh), <b>thả ra</b> để thảy. ${R.dice > 1 ? 'Hai viên, đi <b>tổng</b> hai viên.' : 'Một viên, ra mấy đi mấy ô.'}</li>
+    <h3>Thảy xúc xắc</h3><ul><li><b>Giữ nút</b> để lắc, <b>thả ra</b> để thảy: khi giữ, <b>thanh lực chạy lên xuống</b>; thả lúc thanh cao thì dễ ra số lớn, thấp thì dễ ra số nhỏ (mặt nào cũng vẫn có thể ra). Thả trúng <b>vùng vàng</b> trên thanh thì <b>may hơn một chút</b>. Có 10 giây để canh. ${R.dice > 1 ? 'Hai viên, đi <b>tổng</b> hai viên.' : 'Một viên, ra mấy đi mấy ô.'}</li>
     <li>${R.sixToStart ? `Phải đổ <b>${enterFace()}</b> mới được vào bàn${R.dice > 1 ? ' (một viên 6 không tính)' : ''}.` : 'Thảy được bao nhiêu thì vào bàn bấy nhiêu ô.'}</li>
     ${R.bonusSix ? `<li>Đổ <b>${R.dice > 1 ? 'đôi' : '6'}</b> được <b>thảy thêm</b> một lần.</li>` : ''}</ul>
     <h3>Thang và rắn</h3><ul><li>Dừng đúng <b>chân thang</b> thì leo lên đầu thang (${lad.length} cây: ${lad.map(l => `${l.from}→${l.to}`).join(', ')}).</li>
@@ -427,7 +433,11 @@ function startSnake(): void {
   setScene('snake');
 }
 /** A seed a check set (?seed=), so a check replays the same game. */
-function checkSeed(): number | undefined { const s = new URLSearchParams(location.search).get('seed'); return s ? Number(s) : undefined; }
+/** A check's seed for the next game: one set through window.game.configure (each game its own), else ?seed=. */
+function checkSeed(): number | undefined {
+  if (mainSeed !== null) return mainSeed;
+  const s = new URLSearchParams(location.search).get('seed'); return s ? Number(s) : undefined;
+}
 
 function drawSetup(): void {
   clear('#bfe6f5');
@@ -529,7 +539,7 @@ function buildPlay(): void {
   }
   const c = controls(), dieW = rulesNow().dice > 1 ? 136 : 92;
   if (myTurn() && (G.phase === 'roll' || G.phase === 'shake')) {
-    btn(c.bx, c.by, c.bw - dieW, 62, G.phase === 'shake' ? 'Thả ra để thảy!' : G.order ? 'Giữ để lắc chọn lượt' : 'Giữ để lắc xúc xắc', () => startShake(), 'primary', G.phase === 'roll', '#c8201f', 'shake');
+    btn(c.bx, c.by, c.bw - dieW, 62, G.phase === 'shake' ? shakeLabel() : G.order ? 'Giữ để lắc chọn lượt' : 'Giữ để lắc xúc xắc', () => startShake(), 'primary', G.phase === 'roll', '#c8201f', 'shake');
   }
 }
 const ready = (): boolean => !!G && !!G.players && G.players.length > 0;

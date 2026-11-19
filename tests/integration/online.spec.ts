@@ -59,6 +59,14 @@ async function throwDice(page: Page) {
   await page.evaluate(() => window.game!.hold('Space', false));
 }
 
+/** Each player's throws for the order, in turn order now, read back from the game's history ("X tung được N"):
+ * a tie is settled by throwing again, so the order follows these lists compared throw by throw. */
+function orderThrows(st: { players: { name: string }[]; history?: string[] }): number[][] {
+  return st.players.map(p => (st.history || []).flatMap(l => { const m = /^V\d+: (.+) tung được (\d+)\.$/.exec(l); return m && m[1] === p.name ? [Number(m[2])] : []; }));
+}
+/** True when each list is above the next, throw by throw (the first that differs decides). */
+const inOrder = (keys: number[][]): boolean => keys.every((k, i) => i === 0 || (() => { const a = keys[i - 1]; for (let j = 0; j < Math.max(a.length, k.length); j++) if ((a[j] ?? -1) !== (k[j] ?? -1)) return (a[j] ?? -1) > (k[j] ?? -1); return false; })());
+
 test('a friend joins a room, picks an animal, throws for the order, sends an emote, reads the history and comes back after leaving', async ({ browser }) => {
   test.setTimeout(240000);
   // The host makes a room. Its chat gap is long for the check below: with the game's 3 s, a busy machine
@@ -107,8 +115,9 @@ test('a friend joins a room, picks an animal, throws for the order, sends an emo
     await host.page.waitForTimeout(400);
   }
   await expect.poll(async () => !!(await state(friend.page)).ordering, { timeout: 20000 }).toBe(false);
-  const rolls = (await state(friend.page)).players.map(p => p.orderRoll ?? -1);
-  expect([...rolls].sort((a, b) => b - a)).toEqual(rolls); // highest first, lowest last, on the friend's screen too
+  const hostState = await host.page.evaluate(() => window.game!.state as { players: { name: string }[]; history?: string[] });
+  expect(inOrder(orderThrows(hostState))).toBe(true); // highest first, lowest last (ties settled among themselves)
+  expect((await state(friend.page)).players.map(p => p.name)).toEqual(hostState.players.map(p => p.name)); // the same order on the friend's screen
 
   // The friend sends an emote: the host's state carries it, over the friend's piece.
   await tap(friend.page, AT.emotes);

@@ -3,6 +3,7 @@
 // round events. The money arithmetic lives in game/rules.ts; this file moves the game along.
 // Design record: design/game-brief.md (Core loop, Features, After play).
 
+import { rollFace, makeZone, meterPos, inZone, aiHold, throwWithZone } from './dice';
 import { CONFIG, tune } from '../config';
 import { params } from '../hook';
 import { sfx } from '../audio';
@@ -17,7 +18,7 @@ import { state, scene, setup, setState, setScene } from '../core/store';
 
 import { money } from '../game/rules';
 import type { DeckKind, GameState, KeepAct, Loose, Player } from '../game/types';
-import { aiTurnStart, raiseCash, aiPickTile } from '../game/ai';
+import { aiTurnStart, raiseCash, aiPickTile, landingWorth } from '../game/ai';
 import { checkSeed, events, L } from '../main';
 import { forgetLocalGame } from '../core/keepLocal';
 import { isGuest, lobby, sendLobby, peerOnline, isHost, myName } from '../net/room';
@@ -456,16 +457,26 @@ export function nextTurn() {
   startTurn();
 }
 // Throwing: hold to shake the dice in the air, let go to throw. The longer the shake, the harder
-// the throw: more spin, higher bounces, a longer tumble. The faces are rolled by rng() either way.
-export function startShake(ai = false) {
+// the throw: more spin, higher bounces, a longer tumble, and the faces tend high (a soft throw: low;
+// src/game/dice.ts, data/config.json dice_power_tilt).
+export function startShake(ai = false, aim?: number) { // aim: the power a computer that aims wants (Khó)
   if (state.shaking) return;
-  state.shaking = { t: 0, ai, holdFor: ai ? 0.35 + rng() * 0.7 : 0, rattle: 0 };
+  const zone = makeZone(); // the sweet zone of this shake (src/game/dice.ts)
+  state.shaking = { t: 0, ai, holdFor: ai ? aiHold(curP().lv ?? 1, zone, aim) : 0, rattle: 0, zone };
 }
-export function shakePower() { return state.shaking ? Math.min(1, state.shaking.t / tune.shake_full_time) : 0; }
-export function throwDice() { const pw = shakePower(); state.shaking = null; roll(pw); }
-function roll(power = 0.5) {
+/** Where the power bar stands: the friend's own let-go power online, else the bar's place now (it runs up and down). */
+export function shakePower() { return state.shaking ? state.shaking.power ?? meterPos(state.shaking.t) : 0; }
+export function throwDice() {
+  const pw = shakePower(), hit = inZone(pw, state.shaking?.zone), p = curP(), pi = state.cur;
+  state.shaking = null;
+  if (hit) log(`${p.name} thả trúng vùng đẹp!`);
+  // let go in the sweet zone: maybe a second throw, the better one for the thrower kept (as Khó weighs it)
+  const worth = (d: number[]) => (state.ordering ? d[0] + d[1] : p.inJail ? (d[0] === d[1] ? 1 : 0) : landingWorth(pi, (p.pos + d[0] + d[1]) % 40, d[0] + d[1]));
+  roll(pw, throwWithZone(2, pw, hit, worth));
+}
+function roll(power = 0.5, dice?: number[]) {
   const p = curP();
-  const a = 1 + Math.floor(rng() * 6), b = 1 + Math.floor(rng() * 6);
+  const [a, b] = dice ?? [rollFace(power), rollFace(power)]; // a hard throw tends high, a soft one low (src/game/dice.ts)
   state.dice = [a, b]; state.diceT = 0; state.phase = 'dice'; state.timer = 0;
   state.throwPower = power; state.diceDur = tune.dice_time * (0.75 + 0.6 * power); state.diceShow = null;
   state.diceSpin = [0, 1].map(() => ({ ax: rng() * 2 - 1, ay: rng() * 2 - 1, az: rng() * 2 - 1, yaw: rng() * Math.PI * 2, n: 2 + Math.floor(rng() * 2) + Math.round(power * 3) }));

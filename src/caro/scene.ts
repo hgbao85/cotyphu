@@ -3,6 +3,7 @@
 // with the end of the game drawn over it. The turns are in ./game.ts, online play in ./online.ts, the
 // rules in ./rules.ts.
 
+import { inZone } from '../game/dice';
 import { tune, CONFIG } from '../config';
 import { sfx } from '../audio';
 import { W, H, FONT, ctx, text, rrect, clear, screenScale, wrapLines } from '../screen';
@@ -11,13 +12,13 @@ import { F } from '../core/flags';
 import { prefs } from '../core/prefs';
 import type { Loose } from '../game/types';
 import { ANIMALS } from '../game/data';
-import { btn, clicks, pressed, pointer, pointerHeld, down, L } from '../main';
+import { btn, clicks, pressed, pointer, pointerHeld, down, L, checkSeed as mainSeed } from '../main';
 import { drawButton, drawTokenIcon, lacquer, messageBox } from '../ui/draw';
 import { openPicker, buildPicker, drawPicker } from '../ui/setupScreen';
 import { openPage } from '../ui/pages';
 import { openSettings } from '../ui/settings';
 import { LEAVE_LOCAL, CHANGE_PLAYERS } from '../ui/words';
-import { wideSpeedSpot, phoneRow, resultsBox, drawSummary, drawOrderMark } from '../ui/gameChrome';
+import { wideSpeedSpot, phoneRow, resultsBox, drawSummary, drawOrderMark, drawMeter, METER_W } from '../ui/gameChrome';
 import { makeTips } from '../ui/gameTips';
 import { board3d, type BoardSpot } from '../three/board3d';
 import { buildViewButtons, viewKeys, viewRow } from '../ui/viewButtons';
@@ -31,7 +32,7 @@ import { localGame, lastRoom, type KeptGame } from './keep';
 
 /** First-game tips, as Cờ Tỷ Phú's: the first move. */
 const tips = makeTips('caro:', {
-  order: 'Giữ nút đỏ để lắc xúc xắc, thả ra để thảy. Ai được điểm cao hơn đi trước.',
+  order: 'Giữ nút đỏ để lắc, thả ra để thảy: thanh lực chạy lên xuống, thả lúc cao dễ ra số lớn. Ai được điểm cao hơn đi trước.',
   turn: 'Bấm một ô trống để đặt quân. Ai có 5 quân liền ngang, dọc hoặc chéo trước thì thắng.',
   block: 'Luật Việt Nam: 5 quân liền mà bị quân đối thủ chặn cả hai đầu thì chưa thắng. Mép bàn không tính là chặn.',
 });
@@ -240,10 +241,15 @@ function drawOrderDice(): void {
   }
   if (G.phase === 'shake' && G.shake && !G.shake.ai && myTurn()) { // the power bar under the button
     const w = c.bw, h = 10, pw = shakePower();
-    ctx.save(); ctx.fillStyle = 'rgba(255,249,234,0.95)'; rrect(ctx, c.bx - 3, c.by + 68, w + 6, h + 6, 6); ctx.fill();
-    const g = ctx.createLinearGradient(c.bx, 0, c.bx + w, 0); g.addColorStop(0, '#8fd16a'); g.addColorStop(0.6, '#ffd84a'); g.addColorStop(1, '#ff7b6b');
-    ctx.fillStyle = g; rrect(ctx, c.bx, c.by + 71, Math.max(8, w * pw), h, 5); ctx.fill(); ctx.restore();
+    const own = on.isGuest() && on.guestShaking; // a friend: its own clock, no lag
+    drawMeter(c.bx + (c.bw - (orderDice() > 1 ? 136 : 92) - METER_W) / 2, c.by + 68, METER_W, h, own ? on.guestPower() : pw, G.shake.zone, 0, false, false); // centred under the shake button, one length in every game; its words are on the button
   }
+}
+/** The shake button's words while shaking: "let go now" over the sweet zone, else the seconds left. */
+function shakeLabel(): string {
+  const own = on.isGuest() && on.guestShaking, pos = own ? on.guestPower() : shakePower();
+  if (inZone(pos, G.shake?.zone)) return 'Thả ngay: vùng đẹp!';
+  return `Thả ra để thảy! · còn ${Math.max(0, Math.ceil(tune.shake_max_time - (own ? on.guestShakeT() : G.shake?.t ?? 0)))} giây`;
 }
 /** The person shaking still holds the dice (a finger, the mouse, Space or Enter). */
 export const holding = (): boolean => pointerHeld || down.has('Space') || down.has('Enter');
@@ -320,7 +326,7 @@ function showCaroRules(): void {
     <h3>Mục tiêu</h3><ul><li>Bàn <b>${R.size}×${R.size}</b> ô, hai người lần lượt đặt quân vào một ô trống. Ai có <b>${R.win} quân liền</b> ngang, dọc hoặc chéo trước thì <b>thắng</b>. Liền nhiều hơn ${R.win} cũng thắng.</li>
     <li>Hết chỗ đặt mà chưa ai thắng thì <b>hoà</b>.</li></ul>
     <h3>Chặn hai đầu</h3><ul><li>${R.blockTwo ? `Luật Việt Nam: ${R.win} quân liền mà <b>bị quân đối thủ chặn cả hai đầu</b> thì <b>không tính thắng</b>. Mép bàn không tính là chặn.` : `Ván này không xét chặn: cứ ${R.win} quân liền là thắng.`}</li></ul>
-    <h3>Ai đi trước</h3><ul><li>Ván đầu hai bên <b>thảy xúc xắc</b>, ai lớn hơn đi trước. Các ván sau <b>người thua đi trước</b> (hoà thì người đi sau ván trước đi trước).</li></ul>
+    <h3>Ai đi trước</h3><ul><li>Ván đầu hai bên <b>thảy xúc xắc</b>, ai lớn hơn đi trước (khi giữ, <b>thanh lực chạy lên xuống</b>; thả lúc thanh cao thì dễ ra số lớn, thấp thì dễ ra số nhỏ (mặt nào cũng vẫn có thể ra). Thả trúng <b>vùng vàng</b> trên thanh thì <b>may hơn một chút</b>. Có 10 giây để canh). Các ván sau <b>người thua đi trước</b> (hoà thì người đi sau ván trước đi trước).</li></ul>
     <h3>Máy</h3><ul><li><b>Dễ</b> hay đi lung tung · <b>Vừa</b> biết chặn khi bạn sắp có 4 · <b>Khó</b> chặn cả 3 quân mở.</li></ul>
     <h3>Phím</h3><ul><li>Mũi tên: chọn ô · Space / Enter: đặt quân · M: tắt tiếng</li></ul>`);
 }
@@ -384,7 +390,11 @@ function startCaro(): void {
   setScene('caro');
 }
 /** A seed a check set (?seed=), so a check replays the same game. */
-function checkSeed(): number | undefined { const s = new URLSearchParams(location.search).get('seed'); return s ? Number(s) : undefined; }
+/** A check's seed for the next game: one set through window.game.configure (each game its own), else ?seed=. */
+function checkSeed(): number | undefined {
+  if (mainSeed !== null) return mainSeed;
+  const s = new URLSearchParams(location.search).get('seed'); return s ? Number(s) : undefined;
+}
 
 function drawSetup(): void {
   clear('#bfe6f5');
@@ -492,7 +502,7 @@ function buildPlay(): void {
   }
   if (G.order && myTurn() && (G.phase === 'roll' || G.phase === 'shake')) { // the throw for the order, as the other games' shake button
     const c = controls(), diceW = orderDice() > 1 ? 136 : 92;
-    btn(c.bx, c.by, c.bw - diceW, 62, G.phase === 'shake' ? 'Thả ra để thảy!' : 'Giữ để lắc chọn lượt', () => startShake(), 'primary', G.phase === 'roll', '#c8201f', 'shake');
+    btn(c.bx, c.by, c.bw - diceW, 62, G.phase === 'shake' ? shakeLabel() : 'Giữ để lắc chọn lượt', () => startShake(), 'primary', G.phase === 'roll', '#c8201f', 'shake');
   }
   boardLive = true;
 }

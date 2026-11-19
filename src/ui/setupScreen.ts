@@ -140,7 +140,7 @@ export function buildPropUI(pi: number) {
 /** A button pressed here: a guest sends its act to the host; everyone else runs it. */
 function pressBtn(b: Loose) {
   sfx.click();
-  if (isGuest() && b.act) { sendAct(b.act); if (b.act === 'shake') F.guestShaking = true; return; }
+  if (isGuest() && b.act) { sendAct(b.act); if (b.act === 'shake') { F.guestShaking = true; F.guestShakeAt = performance.now() / 1000; } return; }
   b.fn();
 }
 /** The same for an act with no button (picking a tile with the plane ticket). */

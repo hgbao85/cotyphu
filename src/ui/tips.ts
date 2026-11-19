@@ -18,7 +18,7 @@ import { CHECKED } from '../core/env';
 // land to buy...). "Đã hiểu" puts it away for good, "Tắt hướng dẫn" puts them all away. Checks run without
 // them (so a same-seed replay draws the same), unless the address asks with ?tutorial=1.
 const TIPS: Record<string, string> = {
-  roll: 'Giữ nút đỏ để lắc xúc xắc, thả ra để ném. Giữ càng lâu, xúc xắc lăn càng mạnh.',
+  roll: 'Giữ nút đỏ: thanh lực chạy lên xuống. Thả lúc thanh cao thì dễ ra số lớn, thấp thì số nhỏ; trúng vùng vàng thì may hơn.',
   buy: 'Mua đất để thu tiền thuê khi người khác dẫm vào. Gom đủ cả nhóm màu thì tiền thuê nhân đôi.',
   inspect: 'Bấm vào một ô bất kỳ trên bàn cờ để xem giá, tiền thuê, đặc sản và chủ của ô.',
   build: 'Dẫm lại đất của mình thì được xây thêm 1 cấp: nhà, khách sạn, rồi Landmark.',

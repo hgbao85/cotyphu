@@ -1,5 +1,6 @@
 // Online play from the host's side and the friend's: the room, seats, the state sent 20 times a second, coming back after a drop, the vote for a new game. The relay is net/net.ts.
 
+import { meterPos, safePower } from '../game/dice';
 import { tune } from '../config';
 
 import { sfx } from '../audio';
@@ -122,7 +123,7 @@ function onGuestAct(from: number, a: Loose) {
   if (scene !== 'play' || !state.players) return;
   const p = curP();
   if (p.kind !== 'remote' || p.peer !== from) return;
-  if (a.act === 'throw') { if (state.shaking && state.shaking.remote) state.shaking.released = true; return; }
+  if (a.act === 'throw') { if (state.shaking && state.shaking.remote) { state.shaking.released = true; state.shaking.power = safePower(a.i); } return; } // the bar where the friend let go, on their screen
   if (a.act === 'pick') { if (state.phase === 'pick' && Number.isInteger(a.i) && a.i >= 0 && a.i < 40) state.pick = a.i; return; }
   const row = /^(sell|mort|unmort):(\d+)$/.exec(String(a.act));
   if (row) { // the property list: allowed while the turn's buttons show it
@@ -177,7 +178,7 @@ export function netStep() {
   } else pendingSfx = []; // another game's room (src/ludo/net.ts) sends its own sounds
 
   if (isGuest() && F.guestShaking && !(pointerHeld || down.has('Space') || down.has('Enter'))) {
-    F.guestShaking = false; sendAct('throw');
+    F.guestShaking = false; sendAct('throw', meterPos(performance.now() / 1000 - F.guestShakeAt)); // where the bar stood on this screen: no lag
   }
 }
 

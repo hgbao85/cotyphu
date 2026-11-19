@@ -3,6 +3,7 @@
 // themselves are in ./rules.ts; the screens in ./scene.ts; online play in ./online.ts.
 // Online, only the host runs this; a friend's screen draws the G the host sends.
 
+import { rollDice, bestPower, makeZone, meterPos, inZone, aiHold, throwWithZone, type Zone } from '../game/dice';
 import { startOrder, recordOrder, nextOrder, type OrderState } from '../game/orderRoll';
 import { ANIMALS } from '../game/data';
 import type { Bubble, Vote } from '../net/roomExtras';
@@ -10,7 +11,7 @@ import { tune } from '../config';
 import { sfx } from '../audio';
 import { rng, setSeed, freshSeed } from '../game/rng';
 import type { Loose } from '../game/types';
-import { legalMoves, applyMove, aiPlan, allHome, throwsAgain, moveValue, GATE, sidesFor, type LudoMove, type LudoPlayer, type LudoRules, type LudoSeat } from './rules';
+import { legalMoves, applyMove, aiPlan, allHome, throwsAgain, moveValue, GATE, sidesFor, scoreMove, type LudoMove, type LudoPlayer, type LudoRules, type LudoSeat } from './rules';
 
 /** The four sides' names and colours, seat i plays side i. */
 export const SIDES = [
@@ -43,7 +44,7 @@ export interface LudoGame {
   /** The dice still to use this throw: both at first; each move spends one (a double of 2 to 5 that
    * brings a horse out spends both). */
   use: number[];
-  shake: { t: number; ai: boolean; holdFor: number; remote?: boolean; released?: boolean } | null;
+  shake: { t: number; ai: boolean; holdFor: number; remote?: boolean; released?: boolean; zone?: Zone; power?: number } | null; // zone: the sweet zone; power: a friend's let-go power
   /** The throw in the air: how long it tumbles, how hard it was thrown, the faces it flickers through. */
   throwAt: { t: number; dur: number; power: number; faces: number[][]; spin: number } | null;
   /** The big numbers over the dice once they stop. */
@@ -121,22 +122,40 @@ export function newGame(seed?: number, names: (string | undefined)[] = []): void
   else log(`Ván mới! ${curP().name} đi trước.`);
 }
 
+/** Khó aims its throw, as a person can (src/game/dice.ts): a full shake for the order of play, else the
+ * power whose throw leaves the best move (scoreMove, a double's extra throw counted). Others: random. */
+function aimPower(p: LudoPlayer): number | undefined {
+  if (p.kind !== 'ai' || p.lv < 2) return undefined;
+  if (G.order) return 1;
+  return bestPower(rulesNow().dice, throwWorth);
+}
+/** How much a throw is worth to the current player: its best move (as Khó scores moves), a double's
+ * extra throw counted. Khó aims by it; a throw let go in the sweet zone keeps the better of two by it. */
+function throwWorth(d: number[]): number {
+  const R = rulesNow(), moves = legalMoves(G.players, G.cur, d, R);
+  const best = moves.length ? Math.max(...moves.map(m => scoreMove(G.players, G.cur, m, 2, R))) : -30;
+  return best + (throwsAgain(d) && R.bonusSix ? 20 : 0);
+}
 /** Starts shaking the die (a person holds; the computer holds for a moment of its own). */
-export function startShake(ai = false): void {
+export function startShake(ai = false, aim?: number): void { // aim: the power a computer that aims wants (Khó)
   if (G.phase !== 'roll') return;
-  G.shake = { t: 0, ai, holdFor: ai ? 0.35 + rng() * 0.6 : 0 };
+  const zone = makeZone(); // the sweet zone of this shake (src/game/dice.ts)
+  G.shake = { t: 0, ai, holdFor: ai ? aiHold(curP().kind === 'ai' ? curP().lv : 1, zone, aim) : 0, zone };
   G.phase = 'shake';
 }
 /** How hard the die will be thrown: 0 to 1, from how long it was shaken. */
-export const shakePower = (): number => (G.shake ? Math.min(1, G.shake.t / tune.shake_full_time) : 0);
+/** Where the power bar stands: a friend's own let-go power online, else the bar's place now (it runs up and down). */
+export const shakePower = (): number => (G.shake ? G.shake.power ?? meterPos(G.shake.t) : 0);
 /** The throw in words: "5", or "3 + 5". */
 export const diceText = (d: number[]): string => d.join(' + ');
 /** Lets go of the dice: they tumble, and land on their faces. */
 export function throwDie(): void {
   const power = shakePower();
+  const hit = inZone(power, G.shake?.zone);
   G.shake = null;
+  if (hit) floatDie('Trúng vùng đẹp!', '#c98f0a');
   const n = rulesNow().dice;
-  G.dice = Array.from({ length: n }, () => 1 + Math.floor(rng() * 6));
+  G.dice = throwWithZone(n, power, hit, (d: number[]) => (G.order ? d[0] + (d[1] ?? 0) : throwWorth(d))); // a hard throw tends high, a soft one low; the sweet zone a little luckier (src/game/dice.ts)
   const dur = tune.dice_time * (0.75 + 0.6 * power);
   const faces = Array.from({ length: 8 + Math.round(power * 6) }, () => Array.from({ length: n }, () => 1 + Math.floor(rng() * 6)));
   G.throwAt = { t: 0, dur, power, faces, spin: (rng() < 0.5 ? -1 : 1) * (2 + power * 3) };
@@ -246,7 +265,7 @@ export function step(dt: number, held: boolean, peerOnline: (id?: number) => boo
   const p = curP(), auto = autoPlays(p, peerOnline);
   switch (G.phase) {
     case 'roll':
-      if (auto && G.timer >= tune.ludo_ai_delay) startShake(true);
+      if (auto && G.timer >= tune.ludo_ai_delay) startShake(true, aimPower(p));
       break;
     case 'shake': {
       const sh = G.shake!; sh.t += dt;

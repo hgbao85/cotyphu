@@ -9,6 +9,7 @@
 //                    { k: 'caroHistory', list }
 //   friend -> host   { k: 'caroAct', act: 'place', cell } | { act: 'shake' | 'throw' } (the throw for the order) | { act: 'animal' } | { act: 'history' } | the room extras' acts
 
+import { meterPos, safePower } from '../game/dice';
 import * as net from '../net/net';
 import { tune, CONFIG } from '../config';
 import { rawSfx } from '../net/room';
@@ -36,6 +37,11 @@ export const peerOnline = (id?: number): boolean => id !== undefined && !!peers.
 let sendEvery = 0;
 /** Friend: holding the shake button for the order, waiting to let go. */
 export let guestShaking = false;
+/** Friend: when this screen began shaking (seconds), so its power bar runs on its own clock. */
+let shakeAt = 0;
+/** Friend: where this screen's power bar stands now. */
+export const guestShakeT = (): number => performance.now() / 1000 - shakeAt;
+export const guestPower = (): number => meterPos(guestShakeT());
 /** The rules' switches the host picks on its setup screen, sent to the friend so both screens read the same. */
 const SHARED = ['caro_block_two'];
 /** How the setup screen names an animal and finds the next free one (set by ./scene.ts). */
@@ -171,14 +177,14 @@ function onAct(from: number, a: Loose): void {
   if (p.kind !== 'remote' || p.peer !== from) return;
   if (a.act === 'place' && typeof a.cell === 'number' && Number.isInteger(a.cell)) tryPlace(a.cell);
   else if (a.act === 'shake' && G.phase === 'roll') { startShake(); if (G.shake) G.shake.remote = true; }
-  else if (a.act === 'throw' && G.shake?.remote) G.shake.released = true;
+  else if (a.act === 'throw' && G.shake?.remote) { G.shake.released = true; G.shake.power = safePower(a.power); } // the bar where the friend let go, on their screen
 }
 /** "Lịch sử": the whole game's lines (a friend asks the host, who keeps them). */
 export function openHistory(): void { if (isGuest()) sendAct('history'); else showHistory(history); }
 /** Friend: a tap for the host. */
 export function sendAct(act: string, extra: Record<string, unknown> = {}): void {
   net.toHost({ k: 'caroAct', act, ...extra });
-  if (act === 'shake') guestShaking = true;
+  if (act === 'shake') { guestShaking = true; shakeAt = performance.now() / 1000; }
 }
 
 /** Friend: a message from the host. */
@@ -219,5 +225,5 @@ export function caroNetStep(held: boolean): void {
       if (++sendEvery >= 6 || sounds.length) { sendEvery = 0; net.toAll({ k: 'caro', scene, g: G, sfx: sounds.splice(0) }); }
     } else if (++sendEvery >= 30) { sendEvery = 0; sendLobby(); }
   }
-  if (isGuest() && guestShaking && !held) { guestShaking = false; sendAct('throw'); }
+  if (isGuest() && guestShaking && !held) { guestShaking = false; net.toHost({ k: 'caroAct', act: 'throw', power: guestPower() }); } // where the bar stood on this screen: no lag
 }

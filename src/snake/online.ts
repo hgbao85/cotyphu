@@ -8,6 +8,7 @@
 //                     { k: 'snakeFull', msg }
 //   friend -> host    { k: 'snakeAct', act: 'shake' | 'throw' | 'animal' }   (animal: the next animal for my seat)
 
+import { meterPos, safePower } from '../game/dice';
 import * as net from '../net/net';
 import { tune, CONFIG } from '../config';
 import { rawSfx } from '../net/room';
@@ -37,6 +38,11 @@ let sendEvery = 0;
 const SHARED = ['snake_dice', 'snake_six_to_start', 'snake_exact_finish'];
 /** Friend: holding the shake button, waiting to let go. */
 export let guestShaking = false;
+/** Friend: when this screen began shaking (seconds), so its power bar runs on its own clock. */
+let shakeAt = 0;
+/** Friend: where this screen's power bar stands now. */
+export const guestShakeT = (): number => performance.now() / 1000 - shakeAt;
+export const guestPower = (): number => meterPos(guestShakeT());
 /** How the setup screen names an animal and finds the next free one (set by ./scene.ts). */
 let names: { animalName: (a: number) => string; nextAnimal: (i: number) => void } = { animalName: a => String(a), nextAnimal: () => {} };
 export function useNames(n: typeof names): void { names = n; }
@@ -170,14 +176,14 @@ function onAct(from: number, a: Loose): void {
   const p = curP();
   if (p.kind !== 'remote' || p.peer !== from) return;
   if (a.act === 'shake' && G.phase === 'roll') { startShake(); if (G.shake) G.shake.remote = true; }
-  else if (a.act === 'throw' && G.shake?.remote) G.shake.released = true;
+  else if (a.act === 'throw' && G.shake?.remote) { G.shake.released = true; G.shake.power = safePower(a.power); } // the bar where the friend let go, on their screen
 }
 /** Friend: a press for the host. */
 /** "Lịch sử": the whole game's lines (a friend asks the host, who keeps them). */
 export function openHistory(): void { if (isGuest()) sendAct('history'); else showHistory(history); }
 export function sendAct(act: string): void {
   net.toHost({ k: 'snakeAct', act });
-  if (act === 'shake') guestShaking = true;
+  if (act === 'shake') { guestShaking = true; shakeAt = performance.now() / 1000; }
 }
 
 /** Friend: a message from the host. */
@@ -217,5 +223,5 @@ export function snakeNetStep(held: boolean): void {
       if (++sendEvery >= 3 || sounds.length) { sendEvery = 0; net.toAll({ k: 'snake', scene, g: G, sfx: sounds.splice(0) }); }
     } else if (++sendEvery >= 30) { sendEvery = 0; sendLobby(); }
   }
-  if (isGuest() && guestShaking && !held) { guestShaking = false; sendAct('throw'); }
+  if (isGuest() && guestShaking && !held) { guestShaking = false; net.toHost({ k: 'snakeAct', act: 'throw', power: guestPower() }); } // where the bar stood on this screen: no lag
 }

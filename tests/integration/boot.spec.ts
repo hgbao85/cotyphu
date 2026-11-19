@@ -69,6 +69,14 @@ test('lays out for a phone held upright and plays a turn there @boot', async ({ 
   expect(errors).toEqual([]);
 });
 
+/** Each player's throws for the order, in turn order now, read back from the game's history ("X tung được N"):
+ * a tie is settled by throwing again, so the order follows these lists compared throw by throw. */
+function orderThrows(st: { players: { name: string }[]; history?: string[] }): number[][] {
+  return st.players.map(p => (st.history || []).flatMap(l => { const m = /^V\d+: (.+) tung được (\d+)\.$/.exec(l); return m && m[1] === p.name ? [Number(m[2])] : []; }));
+}
+/** True when each list is above the next, throw by throw (the first that differs decides). */
+const inOrder = (keys: number[][]): boolean => keys.every((k, i) => i === 0 || (() => { const a = keys[i - 1]; for (let j = 0; j < Math.max(a.length, k.length); j++) if ((a[j] ?? -1) !== (k[j] ?? -1)) return (a[j] ?? -1) > (k[j] ?? -1); return false; })());
+
 test('throws for the order of play, puts the highest first and the lowest last, and the same seed repeats it exactly', async ({ page }) => {
   // ?manual=1 stops the loop, so only step() moves the game. Enter starts; the person throws with
   // Space (held, then let go) whenever it is their throw; the computer throws on its own.
@@ -93,8 +101,9 @@ test('throws for the order of play, puts the highest first and the lowest last, 
   expect(first.scene).toBe('play');
   expect(first.ordering).toBe(false);
   expect(first.rolls.every(r => r >= 2 && r <= 12)).toBe(true);
-  expect([...first.rolls].sort((a, b) => b - a)).toEqual(first.rolls); // highest first, lowest last
-  expect(new Set(first.rolls).size).toBe(first.rolls.length);          // ties were thrown again
+  const keys = orderThrows(first.state as { players: { name: string }[]; history?: string[] });
+  expect(keys.every(k => k.length >= 1)).toBe(true);
+  expect(inOrder(keys)).toBe(true); // highest first, lowest last; ties thrown again and settled among themselves
   expect(first.cash.every(c => c === config.start_cash.value)).toBe(true); // nobody moved yet
   expect(await run()).toEqual(first);
 });

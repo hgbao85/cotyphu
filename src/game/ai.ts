@@ -5,6 +5,7 @@
 import { tune } from '../config';
 
 import { rng } from '../game/rng';
+import { bestPower } from './dice';
 import { TILES, OWNABLE, MAX_LEVEL } from '../game/data';
 
 import { state } from '../core/store';
@@ -122,14 +123,33 @@ export function aiPickTile(pi: number) {
   }
   return best >= 0 ? best : 0;
 }
+/** Khó aims its throw, as a person can (src/game/dice.ts): a full shake for the order of play (highest
+ * goes first), a flick or a full shake when a double gets it out of jail, else the power whose landing is
+ * worth most: no rent to pay, land to buy, not the Đi Tù tile. Dễ and Vừa shake for a random time. */
+function aimPower(p: Player): number | undefined {
+  if (p.lv !== 2) return undefined;
+  if (state.phase === 'order') return 1;
+  if (p.inJail) return bestPower(2, d => (d[0] === d[1] ? 1 : 0));
+  const pi = state.players.indexOf(p);
+  return bestPower(2, d => landingWorth(pi, (p.pos + d[0] + d[1]) % 40, d[0] + d[1]));
+}
+/** How good landing on tile i is for player pi (a rough sum in đồng): minus the rent it would pay there,
+ * part of a free tile's price it could buy, minus a lot for Đi Tù. */
+export function landingWorth(pi: number, i: number, sum: number): number {
+  const t = TILES[i], o = state.owner[i], p = state.players[pi];
+  if (t.t === 'gojail') return -1500;
+  if (o >= 0 && o !== pi) return state.mort[i] ? 0 : -rentOf(i, sum);
+  if (o < 0 && OWNABLE(t) && !firstLap(p) && p.cash >= t.p!) return t.p! * 0.2;
+  return 0;
+}
 export function aiAct() { // one decision for the computer player, after its think delay
   const pi = state.cur, p = curP();
   switch (state.phase) {
-    case 'roll': case 'order': startShake(true); return;
+    case 'roll': case 'order': startShake(true, aimPower(p)); return;
     case 'jail': {
       // Hard keeps its Thẻ Ra Tù while the board is full of others' land: a cell pays no rent
       if (p.freeCards.length && !(p.lv === 2 && state.owner.filter(o => o >= 0 && o !== pi).length >= tune.ai_hard_jail_tiles)) payJail();
-      else startShake(true);
+      else startShake(true, aimPower(p));
       return;
     }
     case 'buy': if (aiWantsBuy(pi, state.popup.tile)) doBuy(); else { log(`${p.name} bỏ qua ${TILES[state.popup.tile].n}.`); skip(); } return;

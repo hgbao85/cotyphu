@@ -253,3 +253,56 @@ test('Cá Ngựa and Rắn và Thang open with everyone throwing for the order, 
     expect(r.ordered).toBe(true);                    // everyone threw, ties again, and the order is set
   }
 });
+
+test('in a game, a full shake throws higher than a flick (the dice follow the shake\'s power)', async ({ page }) => {
+  // Asked for (19/11/2026): the power used to change only the tumble; now a hard throw tends high.
+  await page.goto(build('manual=1&seed=3'));
+  await expect.poll(() => page.evaluate(() => typeof window.game?.step)).toBe('function');
+  const means = await page.evaluate(() => {
+    type S = { phase: string; cur: number; dice: number[]; ordering: boolean; winner: number };
+    const g = window.game as unknown as Hook & { snake: S; hold(c: string, on: boolean): void };
+    let games = 0;
+    const newGame = () => { // each game its own seed: one seed again would throw the same dice again
+      g.configure({ tune: { snake_six_to_start: 0, order_roll: 0 }, seed: 500 + games++ });
+      g.configureSnake({ seats: [{ kind: 'human', animal: 0 }, { kind: 'human', animal: 1 }, { kind: 'off', animal: 2 }, { kind: 'off', animal: 3 }] });
+      g.press('Enter'); g.step(1, false);
+    };
+    newGame();
+    const sums: number[][] = [[], []];
+    for (let n = 0; n < 40000 && Math.min(sums[0].length, sums[1].length) < 300; n++) {
+      const v = g.snake;
+      if (v.winner >= 0) { newGame(); continue; }
+      if (v.phase !== 'roll') { g.step(5, false); continue; }
+      const who = v.cur;
+      g.press('Space'); g.hold('Space', true); g.step(who === 0 ? 59 : 2, false); g.hold('Space', false); // seat 1: let go at the top of the bar (it climbs for 1 s, then falls); seat 2: a flick
+      for (let k = 0; k < 400 && (g.snake.phase === 'shake' || g.snake.phase === 'dice'); k++) g.step(1, false); // until the dice land
+      sums[who].push(g.snake.dice.reduce((a, b) => a + b, 0));
+      g.step(5, false);
+    }
+    return sums.map(s => s.reduce((a, b) => a + b, 0) / s.length);
+  });
+  // one die: a full shake averages about 4.1, a flick about 2.9 (fair: 3.5 each)
+  expect(means[0]).toBeGreaterThan(3.8);
+  expect(means[1]).toBeLessThan(3.2);
+});
+
+test('a shake held on and on throws by itself after shake_max_time (10 s), where the bar then stands', async ({ page }) => {
+  // Asked for (19/11/2026): ten seconds to aim from the moment the button is held; no clock before it is.
+  await page.goto(build('manual=1&seed=3'));
+  await expect.poll(() => page.evaluate(() => typeof window.game?.step)).toBe('function');
+  const r = await page.evaluate(() => {
+    type S = { phase: string; cur: number };
+    const g = window.game as unknown as Hook & { snake: S; hold(c: string, on: boolean): void };
+    g.configure({ tune: { order_roll: 0 } });
+    g.configureSnake({ seats: [{ kind: 'human', animal: 0 }, { kind: 'human', animal: 1 }, { kind: 'off', animal: 2 }, { kind: 'off', animal: 3 }] });
+    g.press('Enter'); g.step(1, false);
+    g.step(60 * 15, false);                                  // nobody holds: no clock runs, it waits
+    const waited = g.snake.phase;
+    g.press('Space'); g.hold('Space', true);
+    g.step(60 * 9, false); const at9 = g.snake.phase;         // still shaking after 9 s
+    g.step(60 * 1.5, false); const at10 = g.snake.phase;      // past 10 s: thrown, though still held
+    g.hold('Space', false);
+    return { waited, at9, at10 };
+  });
+  expect(r).toEqual({ waited: 'roll', at9: 'shake', at10: expect.stringMatching(/dice|move|nomove|slide|roll/) });
+});

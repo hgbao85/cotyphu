@@ -16,7 +16,7 @@ import type { Loose } from '../game/types';
 import { G, setG, ludoSetup, newGame, startShake, pickHorse, curP, sounds, recordSounds, history, log } from './game';
 import { makeRoomExtras, type RoomGame } from '../net/roomExtras';
 import { showHistory } from '../ui/pages';
-import type { LudoSeat } from './rules';
+import { seatOf, type LudoSeat } from './rules';
 import { keepRoom, lastRoom, hostGame, keepHostGame, keepLocal, pickedRules, restoreRules } from './keep';
 
 export const isHost = (): boolean => net.getRole() === 'host' && active;
@@ -109,7 +109,7 @@ function seatPeer(id: number, name: string): void {
     const p = G.players.find(q => q.kind === 'remote' && !peerOnline(q.peer) && q.name === name) || G.players.find(q => q.kind === 'remote' && !peerOnline(q.peer));
     if (!p) { net.toOne(id, { k: 'ludoFull', msg: 'Ván đang chơi: chờ ván sau nhé.' }); return; }
     p.peer = id; p.name = name;
-    ludoSetup.seats[p.side] = { kind: 'remote', peer: id, name, animal: ludoSetup.seats[p.side].animal };
+    ludoSetup.seats[seatOf(p)] = { kind: 'remote', peer: id, name, animal: ludoSetup.seats[seatOf(p)].animal };
     return;
   }
   if (ludoSetup.seats.some(s => s.kind === 'remote' && s.peer === id)) return;
@@ -132,7 +132,7 @@ export function sendLobby(): void {
   net.toAll({ k: 'ludoLobby', code: roomCode, hostName: myName, seats: ludoSetup.seats.map(s => ({ ...s })), strict: tune.ludo_home_strict, playing: scene === 'ludo' });
   for (const id of peers.keys()) {
     const p = G?.players?.find(q => q.peer === id);
-    net.toOne(id, { k: 'ludoYou', seat: p ? p.side : ludoSetup.seats.findIndex(s => s.kind === 'remote' && s.peer === id) });
+    net.toOne(id, { k: 'ludoYou', seat: p ? seatOf(p) : ludoSetup.seats.findIndex(s => s.kind === 'remote' && s.peer === id) });
   }
 }
 /** The setup screen's "next animal" for a seat (set by src/ludo/scene.ts, which owns the sound). */
@@ -144,7 +144,7 @@ export const roomUi = { btn: (() => {}) as (x: number, y: number, w: number, h: 
 export const extras = makeRoomExtras({
   G: () => (G?.players ? G as unknown as RoomGame : null),
   isHost, isGuest, peerOnline,
-  mySlot: () => (G?.players ? G.players.findIndex(p => p.side === (isGuest() ? mySeat : 0)) : -1),
+  mySlot: () => (G?.players ? G.players.findIndex(p => seatOf(p) === (isGuest() ? mySeat : 0)) : -1),
   sendAct: (act, extra) => net.toHost({ k: 'ludoAct', act, ...extra }),
   restart: () => hostNewGame(),
   log,

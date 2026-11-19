@@ -60,7 +60,9 @@ export function cellOf(side: number, p: number): Cell | null {
 export interface LudoSeat { kind: 'human' | 'ai' | 'remote' | 'off'; lv?: number; peer?: number; name?: string; /** The zodiac animal on this side's horses (src/game/data.ts ANIMALS), as in Cờ Tỷ Phú. */ animal?: number }
 /** One player in a game. */
 export interface LudoPlayer {
-  id: number; side: number; name: string; kind: LudoSeat['kind']; lv: number; peer?: number;
+  /** side: the board's corner it plays; seat: its row on the setup screen (the same, but in a game of two,
+   * see sidesFor; a game kept before seats were kept: none, its side). */
+  id: number; side: number; seat?: number; name: string; kind: LudoSeat['kind']; lv: number; peer?: number;
   /** The zodiac animal on this player's horses (a game kept before animals: none, see animalOf). */
   animal?: number;
   /** Each horse's progress. */
@@ -79,6 +81,18 @@ export const AI_WEIGHTS: LudoAiWeights = { cell: 1, ahead: 0, kick: 100, kickFar
 export interface LudoRules { horses: number; dice: number; exitOnOne: boolean; exitDouble: boolean; bonusSix: boolean; bonusKick: boolean; noJump: boolean; homeStrict: boolean; ai?: LudoAiWeights }
 /** A legal move: which horse, from and to, the dice it spends, and whom it kicks home. */
 export interface LudoMove { h: number; from: number; to: number; dice: number[]; kick?: { pi: number; h: number } }
+
+/** The board's corner each setup seat plays (by seat; -1 for a seat not playing). Seat k plays corner k, but
+ * two players never sit side by side: across the board they are even (self-play, 1000 games: side by side
+ * the one behind wins 59%, across 48 / 52), so the second takes the corner across from the first. */
+export function sidesFor(seats: { kind: string }[]): number[] {
+  const on = seats.map((s, k) => (s.kind === 'off' ? -1 : k)).filter(k => k >= 0);
+  const sides = seats.map((s, k) => (s.kind === 'off' ? -1 : k));
+  if (on.length === 2 && (on[1] - on[0]) % 2 === 1) sides[on[1]] = (on[0] + 2) % 4;
+  return sides;
+}
+/** A player's setup seat (a game kept before seats were kept: its side). */
+export const seatOf = (p: { seat?: number; side: number }): number => p.seat ?? p.side;
 
 /** The faces that bring a horse out of its corner. */
 export const exitRolls = (R: LudoRules): number[] => (R.exitOnOne ? [1, 6] : [6]);

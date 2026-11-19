@@ -9,7 +9,7 @@ import { tune } from '../config';
 import { sfx } from '../audio';
 import { rng, setSeed, freshSeed } from '../game/rng';
 import type { Loose } from '../game/types';
-import { legalMoves, applyMove, aiPlan, allHome, throwsAgain, moveValue, GATE, type LudoMove, type LudoPlayer, type LudoRules, type LudoSeat } from './rules';
+import { legalMoves, applyMove, aiPlan, allHome, throwsAgain, moveValue, GATE, sidesFor, type LudoMove, type LudoPlayer, type LudoRules, type LudoSeat } from './rules';
 
 /** The four sides' names and colours, seat i plays side i. */
 export const SIDES = [
@@ -107,11 +107,11 @@ export function newGame(seed?: number, names: (string | undefined)[] = []): void
   history.length = 0; // a new game, a new history
   const s = seed ?? freshSeed(); setSeed(s);
   const R = rulesNow();
-  const players: LudoPlayer[] = [];
+  const players: LudoPlayer[] = [], sides = sidesFor(ludoSetup.seats); // two players: across the board
   ludoSetup.seats.forEach((st, i) => {
     if (st.kind === 'off') return;
     const name = names[i] || st.name || (st.kind === 'ai' ? `Máy ${animalName(animalOf(st, i))}` : `Người ${animalName(animalOf(st, i))}`); // Người / Máy + the animal, as Cờ Tỷ Phú's Người Trâu, Máy Khỉ
-    players.push({ id: players.length, side: i, name, kind: st.kind, lv: st.lv ?? 1, peer: st.peer, animal: animalOf(st, i), horses: Array(R.horses).fill(-1), place: 0, kicks: 0, kicked: 0, sixes: 0 });
+    players.push({ id: players.length, side: sides[i], seat: i, name, kind: st.kind, lv: st.lv ?? 1, peer: st.peer, animal: animalOf(st, i), horses: Array(R.horses).fill(-1), place: 0, kicks: 0, kicked: 0, sixes: 0 });
   });
   G = { seed: s, players, cur: Math.floor(rng() * players.length), phase: 'roll', t: 0, timer: 0, dice: [], use: [], shake: null, throwAt: null, show: null, moves: [], hop: null, kicked: [], again: false, log: [], winner: -1, floaters: [] };
   log(`Ván mới! ${curP().name} đi trước.`);

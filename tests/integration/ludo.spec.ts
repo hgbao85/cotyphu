@@ -217,3 +217,16 @@ test('on the tilted board, a tap on a glowing horse moves that horse', async ({ 
   const after = await page.evaluate(() => { const g = window.game as unknown as Hook & { ludo: T }; g.step(200, false); return g.ludo; });
   expect(after.horses[0][target.h]).not.toBe(before.horses[0][target.h]); // the tapped horse moved
 });
+
+test('a game of two Cá Ngựa players seats them across the board, and the setup screen shows it', async ({ page }) => {
+  // Bug (19/11/2026): two players sat in corners side by side, and the one behind won 59% of self-play games.
+  await page.goto(build('manual=1&seed=3'));
+  await expect.poll(() => page.evaluate(() => typeof window.game?.step)).toBe('function');
+  const sides = await page.evaluate(() => {
+    const g = window.game as unknown as Hook & { ludo: { sides: number[] } };
+    g.configureLudo({ seats: [{ kind: 'human' }, { kind: 'ai', lv: 1 }, { kind: 'off' }, { kind: 'off' }] });
+    g.press('Enter'); g.step(2);
+    return g.ludo.sides;
+  });
+  expect(sides).toEqual([0, 2]);
+});

@@ -27,7 +27,8 @@ const rulesFor = id => ({ ...R, ai: aiOf({ ...tune, ...seatTune[id] }) });
 /** A seeded generator (mulberry32), so a run repeats exactly. */
 function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 
-const SIDES = [0, 1, 2, 3].slice(0, Number(nPlayers));
+// the sides played: the first n corners, or SIDES=0,2 (two players across the board)
+const SIDES = process.env.SIDES ? process.env.SIDES.split(',').map(Number) : [0, 1, 2, 3].slice(0, Number(nPlayers));
 const out = { turns: [], throws: [], kicks: [], stuck: [], winnerSeat: SIDES.map(() => 0), winnerId: SIDES.map(() => 0), firstWins: 0, unfinished: 0, kickedFar: [] };
 for (let g = 0; g < Number(games); g++) {
   const rand = rng(1000 + g);

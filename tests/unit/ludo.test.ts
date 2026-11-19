@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   TRACK, TRACK_LEN, GATE, TOP, STEPS, startOf, trackIndex, stepCell, cellOf, legalMoves, applyMove, moveValue,
-  throwsAgain, canExit, allHome, danger, aiPick, aiPlan, type LudoMove, type LudoPlayer, type LudoRules,
+  throwsAgain, canExit, allHome, danger, aiPick, aiPlan, sidesFor, seatOf, type LudoMove, type LudoPlayer, type LudoRules,
 } from '../../src/ludo/rules';
 
 // ---- Fixtures ---------------------------------------------------------------------------------
@@ -298,5 +298,27 @@ describe('the computer\'s play (data/config.json ludo_ai_*)', () => {
   it('plays better than picking at random: one Vừa among three random computers wins far more than its share', () => {
     const runs = Array.from({ length: 60 }, (_, k) => selfPlay([1, 0, 0, 0], configRules(), 2000 + k));
     expect(runs.filter(r => r.winner === 0).length / runs.length).toBeGreaterThan(0.5); // a fair share is 25%
+  });
+});
+
+describe('sidesFor: the corner each setup seat plays', () => {
+  const seats = (...k: string[]) => k.map(kind => ({ kind }));
+  it('seats three or four players in their own corners', () => {
+    expect(sidesFor(seats('human', 'ai', 'ai', 'off'))).toEqual([0, 1, 2, -1]);
+    expect(sidesFor(seats('human', 'ai', 'ai', 'ai'))).toEqual([0, 1, 2, 3]);
+  });
+  it('never seats two players side by side: the second goes across from the first', () => {
+    // Bug (19/11/2026): seats 1 and 2 played corners side by side, and the one behind won 59% (self-play).
+    expect(sidesFor(seats('human', 'ai', 'off', 'off'))).toEqual([0, 2, -1, -1]);
+    expect(sidesFor(seats('human', 'off', 'off', 'ai'))).toEqual([0, -1, -1, 2]);
+    expect(sidesFor(seats('off', 'human', 'ai', 'off'))).toEqual([-1, 1, 3, -1]);
+  });
+  it('leaves two players already across the board where they are', () => {
+    expect(sidesFor(seats('human', 'off', 'ai', 'off'))).toEqual([0, -1, 2, -1]);
+    expect(sidesFor(seats('off', 'ai', 'off', 'ai'))).toEqual([-1, 1, -1, 3]);
+  });
+  it("knows a player's seat apart from its corner (a game kept before seats: the corner)", () => {
+    expect(seatOf({ seat: 1, side: 2 })).toBe(1);
+    expect(seatOf({ side: 3 })).toBe(3);
   });
 });

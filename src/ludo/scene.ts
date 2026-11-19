@@ -29,7 +29,7 @@ const tips = makeTips('ludo:', {
 });
 import { showOnlinePanel } from '../net/room';
 import { G, setG, diceText, SIDES, LV_NAMES, ludoSetup, newGame, startShake, pickHorse, curP, step as gameStep, shakePower, ranking, rulesNow, autoPlays, animalOf, animalName } from './game';
-import { cellOf, moveValue, GATE, STEPS, TRACK, startOf, stepCell, exitRolls, type LudoSeat } from './rules';
+import { cellOf, moveValue, GATE, STEPS, TRACK, startOf, stepCell, exitRolls, sidesFor, seatOf, type LudoSeat } from './rules';
 import * as on from './online';
 import { localGame, lastRoom, restoreRules, type KeptGame } from './keep';
 
@@ -191,7 +191,7 @@ function horsePos(pi: number, h: number): { x: number; y: number; lift: number; 
 function myTurn(): boolean {
   if (!G || G.phase === 'over') return false;
   const p = curP();
-  if (on.isGuest()) return p.side === on.mySeat && p.kind === 'remote';
+  if (on.isGuest()) return seatOf(p) === on.mySeat && p.kind === 'remote';
   return p.kind === 'human';
 }
 /** The horse this screen tapped that can go two ways (two different dice): the buttons ask how far. -1: none. */
@@ -507,13 +507,14 @@ function drawSetup(): void {
     : on.isHost() ? (on.roomCode ? `Gửi mã ${on.roomCode} cho bạn bè: họ vào bằng Cá Ngựa › Chơi online` : 'Đang mở phòng, chờ chút nhé...') : 'Bấm con vật để đổi, bấm chỗ ngồi để chọn người hoặc máy';
   ctx.font = `15px ${FONT}`;
   wrapLines(ctx, hint, cardW - 40).slice(0, 2).forEach((l, j) => text(l, T.cx, cardY + (phone() ? 122 : 150) + j * 20, phone() ? 15 : 16, on.isGuest() || on.isHost() ? '#d9622b' : '#8a6a4a'));
+  const sides = sidesFor(seatsShown()); // the corner each seat will play: two players sit across the board
   seatsShown().forEach((s, i) => {
-    const y = T.y0 + i * T.step + T.rowH / 2, off = s.kind === 'off';
+    const y = T.y0 + i * T.step + T.rowH / 2, off = s.kind === 'off', side = off ? i : sides[i];
     ctx.save(); ctx.globalAlpha = off ? 0.45 : 1;
     const hx = phone() ? 44 : 380;
-    drawHorse(hx, y + 4, 46, i, animalOf(s, i), prefs.effects && !off ? Math.abs(Math.sin(performance.now() / 400 + i)) * 4 : 0);
+    drawHorse(hx, y + 4, 46, side, animalOf(s, i), prefs.effects && !off ? Math.abs(Math.sin(performance.now() / 400 + i)) * 4 : 0);
     text(animalName(animalOf(s, i)), hx + 34, y - 6, phone() ? 18 : 20, '#4a3020', 'left', 'bold');
-    text(`phe ${SIDES[i].name}${off ? '' : ' · bấm để đổi'}`, hx + 34, y + 15, 12, '#8a6a4a', 'left');
+    text(off ? 'không chơi' : `phe ${SIDES[side].name} · bấm để đổi`, hx + 34, y + 15, 12, '#8a6a4a', 'left');
     ctx.restore();
     if (on.isGuest()) {
       const me = i === on.mySeat;
@@ -636,7 +637,7 @@ function drawWater(): void {
 }
 function playerCard(i: number, x: number, y: number, w: number, h: number): void {
   const p = G.players[i], cur = i === G.cur && G.phase !== 'over';
-  const me = on.isGuest() && p.side === on.mySeat;
+  const me = on.isGuest() && seatOf(p) === on.mySeat;
   ctx.save();
   ctx.fillStyle = cur ? lighten(SIDES[p.side].color, 0.55) : '#fff6e2'; rrect(ctx, x, y, w, h, 12); ctx.fill();
   ctx.strokeStyle = cur ? SIDES[p.side].dark : '#e8c9a0'; ctx.lineWidth = cur ? 3 : 1.5; ctx.stroke(); ctx.restore();
@@ -738,5 +739,5 @@ export const ludoScenes: Record<string, { update(dt: number): void; draw(): void
 export function ludoNet(): void { on.ludoNetStep(holding()); }
 /** For checks: who plays which side and what they can do, read-only. */
 export function ludoView(): Loose {
-  return G ? { phase: G.phase, cur: G.cur, dice: G.dice, use: G.use, moves: G.moves.map(m => m.h), horses: G.players.map(p => [...p.horses]), winner: G.winner, auto: G.players.map(p => autoPlays(p, on.peerOnline)), names: G.players.map(p => p.name), bubbles: (G.emotes || []).map(e => e.text ?? e.i), vote: G.vote ? G.vote.list.map(e => e.ans) : null, tip: tips.now, tapAt: G.phase === 'choose' ? movable().map(h => { const q = horsePos(G.cur, h); return { h, x: q.x, y: q.y - q.lift }; }) : [] } : null;
+  return G ? { phase: G.phase, cur: G.cur, dice: G.dice, use: G.use, moves: G.moves.map(m => m.h), horses: G.players.map(p => [...p.horses]), winner: G.winner, auto: G.players.map(p => autoPlays(p, on.peerOnline)), names: G.players.map(p => p.name), sides: G.players.map(p => p.side), bubbles: (G.emotes || []).map(e => e.text ?? e.i), vote: G.vote ? G.vote.list.map(e => e.ans) : null, tip: tips.now, tapAt: G.phase === 'choose' ? movable().map(h => { const q = horsePos(G.cur, h); return { h, x: q.x, y: q.y - q.lift }; }) : [] } : null;
 }

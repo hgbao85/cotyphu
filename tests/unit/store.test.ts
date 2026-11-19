@@ -1,7 +1,7 @@
 // Vitest: the shared store (src/core/store.ts) and the flags it resets.
 import { describe, expect, it } from 'vitest';
 import { F } from '../../src/core/flags';
-import { scene, setScene } from '../../src/core/store';
+import { onSceneChange, scene, setScene } from '../../src/core/store';
 
 describe('setScene', () => {
   it('closes an open "leave the room?" menu when the screen changes', () => {
@@ -16,5 +16,16 @@ describe('setScene', () => {
     expect(F.roomMenu).toBe(true);
     expect(scene).toBe('play');
     F.roomMenu = false;
+  });
+});
+
+describe('onSceneChange', () => {
+  it('tells a watcher the new screen each time it changes, and not when it stays', () => {
+    // Used by Cá Ngựa to forget a horse tapped in an earlier game when its screen opens again.
+    const seen: string[] = [];
+    setScene('hub');
+    onSceneChange(s => seen.push(s));
+    setScene('ludoSetup'); setScene('ludo'); setScene('ludo'); setScene('hub');
+    expect(seen).toEqual(['ludoSetup', 'ludo', 'hub']);
   });
 });

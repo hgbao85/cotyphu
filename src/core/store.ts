@@ -20,6 +20,14 @@ export let setup: Setup = { seats: [{ kind: 'human' }, { kind: 'ai', lv: 1 }, { 
 export function setState(s: GameState) { state = s; }
 /** Shows another screen. A "leave the room?" menu belongs to the screen it was opened on: a room
  * that closes under it (or any other change of screen) must not leave it open over the next game. */
-export function setScene(s: string) { if (s !== scene) F.roomMenu = false; scene = s; }
+export function setScene(s: string) {
+  if (s === scene) return;
+  F.roomMenu = false; scene = s;
+  for (const fn of sceneWatchers) fn(s);
+}
+const sceneWatchers: ((s: string) => void)[] = [];
+/** Runs fn with the new screen's name each time the screen changes (a game clearing what one screen
+ * left behind, when its own screen opens again). */
+export function onSceneChange(fn: (s: string) => void) { sceneWatchers.push(fn); }
 /** Puts a whole new setup in place (a kept game's). */
 export function setSetup(s: Setup) { setup = s; }

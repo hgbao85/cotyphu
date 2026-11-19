@@ -107,10 +107,9 @@ function spendKeep(p: Player, act: KeepAct) {
 export function payRent(i: number, rent: number, o: number) {
   const p = curP(), pi = state.cur, owner = state.players[o];
   events.push({ type: 'rent', tile: i, amt: rent, from: pi, to: o }); // for checks: which land earns what, who pays whom
-  const st = (state.stats ||= { paid: [0, 0, 0, 0], got: [0, 0, 0, 0], tile: {} }); // for the end-of-game summary, by seat
-  st.paid[p.id] += rent; st.got[owner.id] += rent; st.tile[i] = (st.tile[i] || 0) + rent;
   state.popup = { kind: 'rent', tile: i, rent, owner: o };
-  charge([{ to: o, amt: rent }], `${p.name} trả ${owner.name} ${money(rent)} tiền thuê ở ${TILES[i].n}.`, 'rent');
+  // the summary counts the rent when it is paid (now, after a debt, or in part at a bankruptcy): rentTile marks it
+  charge([{ to: o, amt: rent, rentTile: i }], `${p.name} trả ${owner.name} ${money(rent)} tiền thuê ở ${TILES[i].n}.`, 'rent');
 }
 /** Thẻ Miễn Thuê: this rent is not paid. */
 export function useNoRent() {
@@ -321,9 +320,15 @@ function charge(payments: Loose[], why: string, next: AfterCharge) {
   state.phase = 'debt'; state.timer = 0;
   log(`${p.name} thiếu tiền: cần ${money(total)}.`);
 }
+/** Rent actually paid, for the end-of-game summary, by seat and by tile. */
+function countRent(pi: number, x: Loose, amt: number) {
+  if (x.rentTile === undefined || amt <= 0) return;
+  const st = (state.stats ||= { paid: [0, 0, 0, 0], got: [0, 0, 0, 0], tile: {} });
+  st.paid[state.players[pi].id] += amt; st.got[state.players[x.to].id] += amt; st.tile[x.rentTile] = (st.tile[x.rentTile] || 0) + amt;
+}
 function settle(pi: number, payments: Loose[]) {
   for (const x of payments) {
-    lose(pi, x.amt);
+    lose(pi, x.amt); countRent(pi, x, x.amt);
     if (x.to >= 0) { gain(x.to, x.amt); fly(pi, x.to); }
     else if (x.pot) { feedPot(x.amt); fly(pi, -1); } // only the two tax tiles feed the jar; other bank payments just leave the game
   }
@@ -385,10 +390,13 @@ function goBankrupt(pi: number, creditors: Loose[]) {
   for (const x of creditors || []) {
     if (x.to < 0) continue;
     const part = Math.min(left, x.amt); left -= part;
-    if (part > 0) gain(x.to, part);
+    if (part > 0) { gain(x.to, part); countRent(pi, x, part); }
   }
   p.cash = 0; p.bankrupt = true;
   for (const i of owned(pi)) { state.owner[i] = -1; state.level[i] = 0; state.mort[i] = false; }
+  // the cards they kept go back under their decks, as a used card does, so no card leaves the game
+  for (const d of p.freeCards) state.used[d].push(CARDS[d].findIndex(c => c.act === 'free'));
+  for (const k of p.keep || []) state.used[k.deck].push(CARDS[k.deck].findIndex(c => c.act === k.act));
   p.freeCards = []; p.keep = [];
   log(`${p.name} PHÁ SẢN! Đất trả về ngân hàng.`);
   sfx.broke();
@@ -404,7 +412,12 @@ function endGame(reason: string) {
     .sort((a, b) => (state.teams ? teamWorth(b.team) - teamWorth(a.team) : 0) || (Number(a.bankrupt) - Number(b.bankrupt)) || b.worth - a.worth);
   state.ranking = ranking; state.phase = 'over';
   const w = state.players[ranking[0].i];
-  state.gained = state.teams ? `${teamTag(w.team)} thắng: ${state.players.filter(q => q.team === w.team).map(q => q.name).join(' và ')}!` : `${w.name} là tỷ phú, thắng ván!`;
+  // the same worth at the top (a game that ends after its rounds): a tie, said as one, not a winner by seat order
+  const top = ranking.filter(r => !r.bankrupt && (state.teams ? r.team !== w.team && teamWorth(r.team) === teamWorth(w.team) : r.i !== ranking[0].i && r.worth === ranking[0].worth));
+  const tied = !w.bankrupt && top.length > 0;
+  state.gained = tied
+    ? (state.teams ? `Hòa! Hai đội bằng tài sản: ${money(teamWorth(w.team))} mỗi đội.` : `Hòa! ${[w, ...top.map(r => state.players[r.i])].map(q => q.name).join(' và ')} cùng là tỷ phú.`)
+    : state.teams ? `${teamTag(w.team)} thắng: ${state.players.filter(q => q.team === w.team).map(q => q.name).join(' và ')}!` : `${w.name} là tỷ phú, thắng ván!`;
   state.score = Math.round(ranking[0].worth);
   state.reason = reason;
   log(state.gained);

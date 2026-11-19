@@ -35,7 +35,7 @@ import { confetti, partyAnimals } from './ui/celebrate';
 import { FLIGHT_TIME } from './three/coinFlights';
 import { buildToolbar, buildPhoneHistory, buildEmoteMenu, drawEmotes, drawEmoteMenu } from './ui/toolbar';
 import { rulesSpot, settingsSpot } from './app/install';
-import { CHECKED } from './core/env';
+import { speedNow, cycleSpeed } from './core/speed';
 import { openSettings } from './ui/settings';
 import { prefs } from './core/prefs';
 import { CHIBI } from './core/theme';
@@ -98,6 +98,9 @@ export const STEP = 1 / 60;            // simulation step in seconds; motion is 
 export const TITLE = 'Cờ Tỷ Phú'; // this game's name on its setup screen; the site is Sự Thảy (src/ui/hub.ts)
 const CONTROLS = ['Chuột: bấm các nút', 'Space / Enter: đổ xúc xắc, đồng ý', 'N / Esc: bỏ qua', 'M: tắt tiếng'];
 export const events: Loose[] = []; // window.game.events: anything the game wants a run to see
+/** At most this many events are held: a check empties the list as it reads, but in play nobody does,
+ * and a long session would otherwise keep every log line, throw and landing since the page opened. */
+const EVENTS_KEPT = 20000;
 export let checkSeed: number | null = null; // a seed a check set for the next games (window.game.configure)
 
 export const muted = (): boolean => isMuted();
@@ -156,7 +159,7 @@ function buildUI() {
   btn(W - 52, 12, 40, 34, '', openSettings, 'mute'); // the speaker opens the settings (M still mutes)
   { const r = rulesSpot(); btn(r.x, r.y, r.w, r.h, 'Luật', () => showRules(true), 'room'); }
   const speedOn = !isGuest() && state.players.some(p => p.kind !== 'human');
-  if (speedOn && !L.phone) { const r = speedSpot(); btn(r.x, r.y, r.w, r.h, `×${gameSpeed}`, cycleSpeed, 'room'); }
+  if (speedOn && !L.phone) { const r = speedSpot(); btn(r.x, r.y, r.w, r.h, `×${speedNow()}`, cycleSpeed, 'room'); }
   if (roomCode) {
     const r = roomPill();
     btn(r.x, r.y, r.w, r.h, `Phòng ${roomCode}`, () => { F.roomMenu = true; F.emoteMenu = false; F.inspect = -1; F.sheetOpen = false; }, 'room');
@@ -170,7 +173,7 @@ function buildUI() {
   if (F.sheetOpen) { buildSheetUI(state.cur); return; }
   if (L.phone) { // the row under the turn's buttons, hidden while a sheet, card or menu is open over it
     buildPhoneHistory();
-    if (speedOn) { const r = speedSpot(); btn(r.x, r.y, r.w, r.h, `Tốc độ ×${gameSpeed}`, cycleSpeed, '', true, '#6a4a2a'); }
+    if (speedOn) { const r = speedSpot(); btn(r.x, r.y, r.w, r.h, `Tốc độ ×${speedNow()}`, cycleSpeed, '', true, '#6a4a2a'); }
   }
   if (!L.phone) { // click a row of the property list to see that land's card
     const mine = owned(state.cur), rows = propRows(mine.length);
@@ -369,20 +372,12 @@ function buildTitleUI() {
 // ---- Fast forward ---------------------------------------------------------------------------
 // A button runs the computer's turns at ×2 or ×4: its shake, its throw, its hops and its thinking.
 // A person's turn always runs at its own pace. Online, the host's button sets it for everyone.
-const SPEEDS = [1, 2, 4];
-let gameSpeed = 1;
-const checkedRun = CHECKED; // a check always runs at ×1
-try { gameSpeed = !checkedRun && SPEEDS.includes(Number(localStorage.getItem('tpdv-speed'))) ? Number(localStorage.getItem('tpdv-speed')) : 1; } catch { gameSpeed = 1; }
 /** How much faster this step runs: the computer's turns at the chosen speed, everything else at 1. */
 function turnSpeed(): number {
   if (!state || !state.players || state.phase === 'over' || state.vote) return 1;
   const p = curP();
   const computer = isAI(p) || (p.kind === 'remote' && !peerOnline(p.peer));
-  return computer ? gameSpeed : 1;
-}
-function cycleSpeed() {
-  gameSpeed = SPEEDS[(SPEEDS.indexOf(gameSpeed) + 1) % SPEEDS.length];
-  try { localStorage.setItem('tpdv-speed', String(gameSpeed)); } catch { /* not kept: fine */ }
+  return computer ? speedNow() : 1;
 }
 /** Where the speed button sits: under the sound button, or beside the phone's property button. */
 function speedSpot(): { x: number; y: number; w: number; h: number } {
@@ -436,9 +431,9 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
       F.ui.forEach(drawButton);
       drawNetBanner();
       lacquer(PX, 0, PW, H);
-      text('Cách chơi', PX + PW / 2, 44, 24, '#f2c44a', 'center', 'bold');
+      text('Cách chơi', PX + PW / 2, 80, 24, '#f2c44a', 'center', 'bold'); // under the row of buttons (Cài đặt, ‹ Sảnh, Luật chơi), not behind ‹ Sảnh
       const rules = ['Đổ 2 xúc xắc, đi quân, mua đất trống.', 'Vòng đầu (tới khi qua Xuất Phát):', '   chưa mua đất, miễn thuế.', 'Bấm vào một ô bất kỳ để xem thông tin.', 'Dẫm lại đất của mình: xây thêm 1 cấp.', 'Cấp xây: Nhà 1 tới Nhà 4, Khách sạn, Landmark.', 'Gom đủ một nhóm màu: tiền thuê × 2.', 'Tiền 2 ô thuế dồn vào hũ giữa bàn.', 'Dừng ở Bến Đỗ Tự Do: lấy cả hũ.', 'Thiếu tiền: bán nhà, cầm cố đất.', 'Hết tiền: phá sản, bị loại.'];
-      rules.forEach((r, j) => text(r, PX + 24, 86 + j * 29, 16, '#e8d9b5', 'left'));
+      rules.forEach((r, j) => text(r, PX + 24, 112 + j * 27, 16, '#e8d9b5', 'left'));
       text('Phím', PX + PW / 2, 420, 22, '#f2c44a', 'center', 'bold');
       CONTROLS.forEach((c, i) => text(c, PX + 24, 460 + i * 32, 16, '#e8d9b5', 'left'));
       if (roomCode) { // the room code, big enough to read out to a friend
@@ -572,6 +567,7 @@ function updateTurn(dt: number) {
 function step() {
   if (pressed('KeyM')) { setMuted(!muted()); hit.delete('KeyM'); }
   scenes[scene].update(STEP); netStep(); ludoNet(); snakeNet(); hit.clear();
+  if (events.length > EVENTS_KEPT) events.splice(0, events.length - EVENTS_KEPT);
 }
 let last = 0, acc = 0;
 function tick() {

@@ -448,3 +448,86 @@ test('in a team game, "each player" cards skip the teammate: the birthday card a
   expect(sum(r.payeach, 'me')).toEqual([-2 * v]);
   expect(errors).toEqual([]);
 });
+
+test('a player who goes bankrupt gives their kept cards back to the decks, so no card leaves the game', async ({ page }) => {
+  // Bug: a bankrupt player's Thẻ Ra Tù, Miễn Thuê and Đổ Lại were dropped, and the decks shrank for good.
+  const errors = await open(page, 'manual=1&seed=7');
+  await personToMove(page);
+  const keepOf = (act: string) => (['co', 'kv'] as const).flatMap(d => CARDS[d].some(c => c.act === act) ? [{ act, deck: d }] : []);
+  const kept = [...keepOf('norent'), ...keepOf('reroll')];
+  const out = [{ deck: 'co', i: CARDS.co.findIndex(c => c.act === 'free') }, ...kept.map(k => ({ deck: k.deck, i: CARDS[k.deck].findIndex(c => c.act === k.act) }))];
+  type B = { label: string; x: number; y: number; w: number; h: number };
+  await page.evaluate(([kept, out]) => {
+    const g = window.game!;
+    type P = { cash: number; freeCards: string[]; keep?: unknown[] };
+    const s = g.state as { phase: string; timer: number; debt: unknown; cur: number; players: P[]; decks: Record<string, number[]> };
+    const p = s.players[s.cur];
+    // the cards they hold come out of the decks, as a draw takes them
+    p.freeCards = ['co']; p.keep = kept;
+    const st = s as unknown as { used: Record<string, number[]> };
+    for (const o of out) { s.decks[o.deck] = s.decks[o.deck].filter(i => i !== o.i); st.used[o.deck] = st.used[o.deck].filter(i => i !== o.i); }
+    p.cash = 0; s.debt = { payments: [{ to: -1, amt: 100 }], total: 100, why: '', next: 'after' }; s.phase = 'debt'; s.timer = 0;
+    g.step(1);
+  }, [kept, out] as const);
+  const bankrupt = (await page.evaluate(() => (window.game!.view as { buttons: B[] }).buttons)).find(b => b.label === 'Phá sản')!;
+  await tapAt(page, bankrupt.x + bankrupt.w / 2, bankrupt.y + bankrupt.h / 2);
+  const s = await page.evaluate(() => window.game!.state as { decks: Record<string, number[]>; used: Record<string, number[]>; players: { bankrupt: boolean; freeCards: string[]; keep?: { deck: string }[] }[] });
+  expect(s.players.some(p => p.bankrupt)).toBe(true);
+  for (const d of ['co', 'kv'] as const) {
+    const held = s.players.filter(p => !p.bankrupt).flatMap(p => [...p.freeCards.filter(x => x === d), ...(p.keep || []).filter(k => k.deck === d)]).length;
+    const inPlay = new Set([...s.decks[d], ...s.used[d]]);
+    expect(inPlay.size + held).toBe(CARDS[d].length);
+  }
+  expect(errors).toEqual([]);
+});
+
+test('the summary counts rent that was paid: in full after a debt, only the part paid at a bankruptcy', async ({ page }) => {
+  // Bug: rent was counted when it was owed, so a payer who went bankrupt left money in the summary that never moved.
+  const errors = await open(page, 'manual=1&seed=7');
+  await personToMove(page);
+  type B = { label: string; x: number; y: number; w: number; h: number };
+  type St = { paid: number[]; got: number[]; tile: Record<string, number> } | undefined;
+  const HA_NOI = 14;
+  const owe = (cash: number, amt: number) => page.evaluate(([cash, amt, tile]) => {
+    const g = window.game!;
+    const s = g.state as { phase: string; timer: number; debt: unknown; cur: number; players: { cash: number }[]; stats?: unknown };
+    const other = (s.cur + 1) % 2;
+    s.stats = undefined; s.players[s.cur].cash = cash;
+    s.debt = { payments: [{ to: other, amt, rentTile: tile }], total: amt, why: '', next: 'after' }; s.phase = 'debt'; s.timer = 0;
+    g.step(1);
+  }, [cash, amt, HA_NOI] as const);
+  const tap = async (label: string) => {
+    const b = (await page.evaluate(() => (window.game!.view as { buttons: B[] }).buttons)).find(x => x.label === label)!;
+    await tapAt(page, b.x + b.w / 2, b.y + b.h / 2);
+  };
+  const stats = () => page.evaluate(() => (window.game!.state as { stats?: unknown }).stats as St);
+  const total = (st: St) => st ? [st.paid.reduce((a, b) => a + b, 0), st.got.reduce((a, b) => a + b, 0), st.tile[HA_NOI]] : null;
+
+  await owe(500, 400); await tap('Trả nợ');
+  expect(total(await stats())).toEqual([400, 400, 400]);
+  await owe(300, 1000); await tap('Phá sản');
+  expect(total(await stats())).toEqual([300, 300, 300]);
+  expect(errors).toEqual([]);
+});
+
+test('a rounds game that ends with the richest players level says it is a tie, not a winner by seat order', async ({ page }) => {
+  // Bug: two players worth the same: the one first in turn order was "là tỷ phú, thắng ván!".
+  const errors = await open(page, 'manual=1&seed=7&render=cheap');
+  const r = await page.evaluate(() => {
+    const g = window.game!;
+    type S = { phase: string; ordering?: boolean; timer: number; cur: number; round: number; maxRounds: number; owner: number[]; level: number[]; players: { cash: number }[]; gained: string };
+    g.configure({ seats: [{ kind: 'ai', lv: 1 }, { kind: 'ai', lv: 1 }, { kind: 'off' }, { kind: 'off' }], mode: 'rounds', rounds: 30 });
+    g.press('Enter'); g.step(1, false);
+    const s = () => g.state as S;
+    for (let n = 0; n < 50000 && !(s().phase === 'roll' && !s().ordering && s().cur === 1); n++) g.step(1, false);
+    // the last player's turn of the last round, everyone level: no land, the same cash
+    s().round = s().maxRounds; s().owner.fill(-1); s().level.fill(0); s().players.forEach(p => { p.cash = 3000; });
+    s().phase = 'end'; s().timer = 0;
+    for (let n = 0; n < 2000 && g.scene === 'play'; n++) g.step(1, false);
+    return { scene: g.scene, gained: s().gained };
+  });
+  expect(r.scene).toBe('results');
+  expect(r.gained).toContain('Hòa!');
+  expect(r.gained).not.toContain('thắng ván');
+  expect(errors).toEqual([]);
+});

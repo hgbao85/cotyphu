@@ -30,6 +30,10 @@ let wanted: Loose = null;           // the create or join message, sent again af
 let handlers: NetHandlers | null = null;
 let retry = 0;
 let reconnect: ReturnType<typeof setTimeout> | null = null; // the next try after a drop, cancelled on leave
+let heard = 0; // when the server was last heard from (any message, the beat included)
+/** Silence this long means a dead link (a phone that changed network keeps a socket "open" for
+ * minutes): the server sends a beat every 20 s (server/server.mjs BEAT_MS), so 50 s is two missed. */
+const SILENT_MS = 50 * 1000;
 let since = 0; // when this browser started trying to reach the server and has not got through yet (0: through, or not trying)
 /** When the first try to reach the room server began, while it has not got through yet; else 0. */
 export const connectingSince = (): number => since;
@@ -78,7 +82,7 @@ function open(): void {
   reconnect = null;
   const sock = new WebSocket(url());
   ws = sock;
-  sock.onopen = () => { retry = 0; since = 0; handlers?.onLink(true); if (wanted) sock.send(JSON.stringify(wanted)); };
+  sock.onopen = () => { heard = performance.now(); retry = 0; since = 0; handlers?.onLink(true); if (wanted) sock.send(JSON.stringify(wanted)); };
   sock.onclose = () => {
     if (ws !== sock) return; // an old socket closing after a leave and a new room: not this link
     handlers?.onLink(false);
@@ -88,10 +92,12 @@ function open(): void {
   };
   sock.onmessage = ev => {
     if (ws !== sock) return;
+    heard = performance.now();
     let m: Loose;
     try { m = JSON.parse(String(ev.data)); } catch { return; }
     const h = handlers;
     if (!h) return;
+    if (m.t === 'beat') return;
     if (m.t === 'created' || m.t === 'joined') h.onRoom(m.code, m.id);
     else if (m.t === 'peer') h.onPeer(m.id, m.name, m.online, m.left);
     else if (m.t === 'fromPeer') h.onFromPeer(m.from, m.data);
@@ -102,6 +108,17 @@ function open(): void {
     if (m.t === 'joined' && m.hostOnline === false) h.onHost(false);
   };
 }
+
+// A dead link that still looks open is closed here, and onclose reconnects as after any drop.
+// A dead socket's close can take minutes to finish, so it is let go of at once and a new one opened.
+setInterval(() => {
+  if (role === 'off' || !ws || ws.readyState !== 1 || performance.now() - heard <= SILENT_MS) return;
+  const dead = ws;
+  ws = null; // its onclose, whenever it comes, is no longer this link's
+  dead.close();
+  handlers?.onLink(false);
+  if (!reconnect) open();
+}, 5 * 1000);
 
 /** Makes a room; this browser becomes its host. `game` keeps each game's rooms apart: the server gives
  * a host coming back with the same key its old room, so Cờ Tỷ Phú ('') and Cá Ngựa ('ludo') use keys

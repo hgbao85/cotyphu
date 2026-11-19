@@ -20,9 +20,10 @@
 //   { t: 'host', online }                  to the guests: the host dropped or came back
 //   { t: 'peer', id, name, online: false, left: true }   to the host: a guest left for good
 //   { t: 'closed' }                        to the guests: the host closed the room
+//   { t: 'beat' }                          to everyone, every BEAT_MS: the link is alive
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
-import { extname, join, normalize, resolve } from 'node:path';
+import { extname, join, normalize, resolve, sep } from 'node:path';
 import { WebSocketServer } from 'ws';
 
 const PORT = Number(process.env.PORT) || 8787;
@@ -30,6 +31,7 @@ const STATIC_DIR = resolve(process.env.STATIC_DIR || 'dist');
 const ROOM_IDLE_MS = 30 * 60 * 1000;   // a room with nobody connected is closed after this long
 const MAX_GUESTS = 3;                  // four seats: the host and three friends
 const MAX_MESSAGE = 256 * 1024;        // a game state is a few kilobytes
+const BEAT_MS = Number(process.env.BEAT_MS) || 20 * 1000; // how often each socket is pinged and sent a beat
 const CODE_LETTERS = 'ABCDEFGHJKMNPQRSTUVWXYZ';  // no I, L, O: easy to read out loud
 
 const TYPES = {
@@ -43,7 +45,7 @@ const server = createServer(async (req, res) => {
     const url = new URL(req.url || '/', 'http://x');
     if (url.pathname === '/health') { res.writeHead(200, { 'content-type': 'text/plain', 'access-control-allow-origin': '*', 'cache-control': 'no-store' }); res.end('ok'); return; } // the page on Vercel wakes us with it
     let path = normalize(join(STATIC_DIR, decodeURIComponent(url.pathname)));
-    if (!path.startsWith(STATIC_DIR)) { res.writeHead(403); res.end(); return; }
+    if (path !== STATIC_DIR && !path.startsWith(STATIC_DIR + sep)) { res.writeHead(403); res.end(); return; } // inside dist/, not a sibling such as dist-single/
     const info = await stat(path).catch(() => null);
     if (!info || info.isDirectory()) path = join(STATIC_DIR, 'index.html');
     const body = await readFile(path);
@@ -187,11 +189,13 @@ wss.on('connection', ws => {
 });
 
 // Drop sockets that stopped answering (a phone that went to sleep), so the host learns they left.
+// Each socket also gets a { t: 'beat' }: a browser answers pings on its own but cannot see them, and a
+// page that hears nothing for a while knows its link is dead and reconnects (src/net/net.ts).
 setInterval(() => {
   for (const ws of wss.clients) {
     if (!ws.isAlive) { ws.terminate(); continue; }
-    ws.isAlive = false; ws.ping();
+    ws.isAlive = false; ws.ping(); send(ws, { t: 'beat' });
   }
-}, 20 * 1000).unref();
+}, BEAT_MS).unref();
 
 server.listen(PORT, () => console.log(`Sự Thảy: http://localhost:${PORT}  (rooms on /ws, files from ${STATIC_DIR})`));

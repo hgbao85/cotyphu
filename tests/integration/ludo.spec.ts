@@ -69,3 +69,30 @@ test('a game kept with "Lên chuồng: Nhanh" goes on with Nhanh after a reload,
   expect(await keptRules()).toEqual({ ludo_home_strict: 0 });
   expect(errors).toEqual([]);
 });
+
+test('the fast-forward speed picked in Cờ Tỷ Phú is the speed in Cá Ngựa at once, with no reload', async ({ page }) => {
+  // Bug: each game read the kept speed once when the page opened and then kept its own copy.
+  const errors: string[] = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await page.goto(build('manual=1&seed=3&game=typhu'));
+  await expect.poll(() => page.evaluate(() => typeof window.game?.step)).toBe('function');
+  type G = { configure(o: unknown): void; configureLudo(o: unknown): void; press(c: string): void; step(n?: number, d?: boolean): void; view: { buttons: { label: string; x: number; y: number; w: number; h: number }[] } };
+  const speedButton = () => page.evaluate(() => (window.game as unknown as G).view.buttons.find(b => /^×\d$/.test(b.label)) ?? null);
+  await page.evaluate(() => {
+    const g = window.game as unknown as G;
+    g.configure({ seats: [{ kind: 'ai', lv: 1 }, { kind: 'ai', lv: 1 }, { kind: 'off' }, { kind: 'off' }] });
+    g.press('Enter'); g.step(3);
+  });
+  const fast = (await speedButton())!;
+  expect(fast.label).toBe('×1');
+  await tapAt(page, fast.x + fast.w / 2, fast.y + fast.h / 2);
+  await tapAt(page, fast.x + fast.w / 2, fast.y + fast.h / 2);  // ×1 → ×2 → ×4
+  expect((await speedButton())!.label).toBe('×4');
+  await page.evaluate(() => {
+    const g = window.game as unknown as G;
+    g.configureLudo({ seats: [{ kind: 'ai', lv: 1 }, { kind: 'ai', lv: 1 }, { kind: 'off' }, { kind: 'off' }] });
+    g.press('Enter'); g.step(3);
+  });
+  expect((await speedButton())!.label).toBe('×4');
+  expect(errors).toEqual([]);
+});

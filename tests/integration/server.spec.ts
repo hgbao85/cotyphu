@@ -11,7 +11,7 @@ let server: ChildProcess;
 let exited: number | null = null;
 test.beforeAll(async () => {
   test.setTimeout(40000);
-  server = spawn(process.execPath, ['server/server.mjs'], { env: { ...process.env, PORT: String(PORT) }, stdio: 'ignore' });
+  server = spawn(process.execPath, ['server/server.mjs'], { env: { ...process.env, PORT: String(PORT), STATIC_DIR: 'dist', BEAT_MS: '500' }, stdio: 'ignore' });
   server.on('exit', code => { exited = code ?? -1; });
   await expect.poll(health, { timeout: 25000 }).toBe(true); // a busy machine (the whole suite, two browsers) starts node slowly
 });
@@ -51,19 +51,23 @@ async function client(): Promise<{ ws: WebSocket; got: Record<string, unknown>[]
 }
 const wait = (ms: number) => new Promise(r => setTimeout(r, ms));
 
+/** Waits until a client got a message that passes the test (a busy machine relays slowly). */
+const until = (c: { got: Record<string, unknown>[] }, ok: (m: Record<string, unknown>) => boolean) =>
+  expect.poll(() => c.got.find(ok) ?? null, { timeout: 10000 }).not.toBeNull();
+
 test('a host opening the room again from another tab closes the old tab, which can no longer send', async () => {
   // Bug: the old socket stayed open and kept sending, so guests saw two diverging games.
   const a = await client();
-  a.send({ t: 'create', name: 'A', key: 'same-key-1' }); await wait(100);
+  a.send({ t: 'create', name: 'A', key: 'same-key-1' }); await until(a, m => m.t === 'created');
   const code = a.got.find(m => m.t === 'created')!.code as string;
   const guest = await client();
-  guest.send({ t: 'join', code, name: 'G', key: 'guest-1' }); await wait(100);
+  guest.send({ t: 'join', code, name: 'G', key: 'guest-1' }); await until(guest, m => m.t === 'joined');
   const b = await client();
-  b.send({ t: 'create', name: 'A', key: 'same-key-1' }); await wait(200);
+  b.send({ t: 'create', name: 'A', key: 'same-key-1' }); await until(b, m => m.t === 'created');
   expect(b.got.find(m => m.t === 'created')).toMatchObject({ code, back: true });
-  expect(a.got.some(m => m.t === 'error')).toBe(true);
-  expect(a.closed()).toBe(true);
-  b.send({ t: 'toAll', data: { from: 'b' } }); await wait(100);
+  await until(a, m => m.t === 'error');
+  await expect.poll(() => a.closed(), { timeout: 10000 }).toBe(true);
+  b.send({ t: 'toAll', data: { from: 'b' } }); await until(guest, m => m.t === 'fromHost');
   expect(guest.got.filter(m => m.t === 'fromHost').map(m => m.data)).toEqual([{ from: 'b' }]);
   for (const c of [a, b, guest]) c.ws.close();
 });
@@ -71,19 +75,33 @@ test('a host opening the room again from another tab closes the old tab, which c
 test('a full room gives the seat of a guest who closed their tab to a newcomer', async () => {
   // Bug: a guest was only removed by "leave", so closed tabs kept the room full for good.
   const host = await client();
-  host.send({ t: 'create', name: 'H', key: 'host-full' }); await wait(100);
+  host.send({ t: 'create', name: 'H', key: 'host-full' }); await until(host, m => m.t === 'created');
   const code = host.got.find(m => m.t === 'created')!.code as string;
   const guests = [];
-  for (let i = 0; i < 3; i++) { const g = await client(); g.send({ t: 'join', code, name: `G${i}`, key: `full-${i}` }); guests.push(g); }
-  await wait(150);
-  guests[0].ws.close(); await wait(150);                     // the first guest closes the tab, no "leave"
+  for (let i = 0; i < 3; i++) { const g = await client(); g.send({ t: 'join', code, name: `G${i}`, key: `full-${i}` }); await until(g, m => m.t === 'joined'); guests.push(g); }
+  guests[0].ws.close();                                      // the first guest closes the tab, no "leave"
+  await until(host, m => m.t === 'peer' && m.name === 'G0' && m.online === false);
   const late = await client();
-  late.send({ t: 'join', code, name: 'Late', key: 'full-late' }); await wait(150);
+  late.send({ t: 'join', code, name: 'Late', key: 'full-late' });
+  await until(late, m => m.t === 'joined' || m.t === 'error');
   expect(late.got.find(m => m.t === 'joined')).toMatchObject({ code });
-  expect(host.got.some(m => m.t === 'peer' && m.left === true && m.name === 'G0')).toBe(true);
+  await until(host, m => m.t === 'peer' && m.left === true && m.name === 'G0');
   // with every guest online, the room is still full
   const extra = await client();
-  extra.send({ t: 'join', code, name: 'Extra', key: 'full-extra' }); await wait(150);
+  extra.send({ t: 'join', code, name: 'Extra', key: 'full-extra' }); await until(extra, m => m.t === 'error' || m.t === 'joined');
   expect(extra.got.find(m => m.t === 'error')).toMatchObject({ msg: 'Phòng đã đủ người.' });
   for (const c of [host, ...guests, late, extra]) c.ws.close();
+});
+
+test('a request cannot reach a folder beside dist/ whose name starts the same (dist-single/)', async () => {
+  // Bug: the check was startsWith('…/dist'), which '…/dist-single/index.html' passes.
+  const res = await fetch(`http://localhost:${PORT}/..%2fdist-single/index.html`);
+  expect(res.status).toBe(403);
+});
+
+test('every socket hears a beat, so a page can tell a dead link from a quiet one', async () => {
+  const c = await client();
+  await wait(1300);                                          // BEAT_MS is 500 here
+  expect(c.got.filter(m => m.t === 'beat').length).toBeGreaterThanOrEqual(2);
+  c.ws.close();
 });

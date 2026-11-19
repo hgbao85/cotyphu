@@ -21,6 +21,12 @@ export function makeTips(prefix: string, tips: Record<string, string>) {
   return {
     /** The tip shown now (for checks), or null. */
     get now(): string | null { return now; },
+    /** True when a point is on the tip box shown now (a game whose board takes taps ignores them there). */
+    covers(x: number, y: number, phone: boolean, boardRight: number): boolean {
+      if (!now) return false;
+      const b = box(phone, boardRight);
+      return x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
+    },
     /** Builds the box's two buttons when the moment (want: a key of tips, or null) has a tip not yet seen. */
     build(want: string | null, phone: boolean, boardRight: number, btn: (x: number, y: number, w: number, h: number, label: string, fn: () => void, role: string, enabled?: boolean, color?: string) => void): void {
       now = on && want && tips[want] && !seen.has(prefix + want) ? want : null;

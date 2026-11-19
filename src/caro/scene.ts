@@ -203,9 +203,12 @@ function drawDieFace(x: number, y: number, s: number, n: number, rot: number): v
   }
   ctx.restore();
 }
+/** True while the "Ai đi trước?" panel shows over the middle of the board: the throw, then its result for
+ * caro_order_hold seconds, so the middle cells are clear before the first move. */
+const orderShown = (): boolean => G.phase === 'order' || (G.phase === 'turn' && G.round === 1 && G.moves === 0 && !!G.order && G.timer < tune.caro_order_hold);
 /** The throw over the board: each player's piece and die, rolling, then the higher one glowing. */
 function drawOrder(): void {
-  if (G.phase !== 'order' && !(G.round === 1 && G.moves === 0 && G.order)) return;
+  if (!orderShown()) return;
   const o = G.order; if (!o) return;
   const m = at(N() / 2, N() / 2), u = Math.min(1, o.t / tune.caro_order_time), done = G.phase !== 'order';
   const w = phone() ? 360 : 420, h = 170, x = m.x - w / 2, y = m.y - h / 2;
@@ -266,7 +269,7 @@ function handleTaps(): void {
   for (const c of clicks) {
     const b = F.ui.find(x => c.x >= x.x && c.x <= x.x + x.w && c.y >= x.y && c.y <= x.y + x.h);
     if (b && b.enabled) press(b);
-    else if (!b && scene === 'caro' && boardLive && myTurn() && G.phase === 'turn') { useCursor = false; placeHere(cellAt(c.x, c.y)); }
+    else if (!b && scene === 'caro' && boardLive && myTurn() && G.phase === 'turn' && !tips.covers(c.x, c.y, phone(), PX)) { useCursor = false; placeHere(cellAt(c.x, c.y)); } // a tap on the tip box is not a move
   }
   clicks.length = 0;
   if (F.picker && (pressed('Escape') || pressed('Enter'))) { F.picker = null; return; }
@@ -439,6 +442,7 @@ function buildPlay(): void {
     return;
   }
   if (on.extras.buildOverlay()) return;
+  if (G.phase !== 'over') resultsHidden = false; // a new game (the vote, online): its results show again
   if (G.phase !== 'over') tips.build(myTurn() && G.phase === 'turn' ? (G.moves < 2 ? 'turn' : rulesNow().blockTwo && G.moves >= 6 ? 'block' : null) : null, ph, PX, btn);
   if (G.phase === 'over') {
     if (!resultsShown()) return;
@@ -605,5 +609,5 @@ export function caroNet(): void { on.caroNetStep(); }
 export function caroSpot(cell: number): { x: number; y: number } { const s = cellSpot(cell); return { x: s.x, y: s.y }; }
 /** For checks: the board, whose turn it is, how the game ended, read-only. */
 export function caroView(): Loose {
-  return G ? { phase: G.phase, cur: G.cur, size: G.size, board: [...G.board], last: G.last, moves: G.moves, winner: G.winner, draw: G.draw, line: G.line, round: G.round, wins: G.players.map(p => p.wins), auto: G.players.map(p => autoPlays(p, on.peerOnline)), names: G.players.map(p => p.name), bubbles: (G.emotes || []).map(e => e.text ?? e.i), vote: G.vote ? G.vote.list.map(e => e.ans) : null, tip: tips.now, results: resultsShown() && !resultsHidden, online: { role: on.isHost() ? 'host' : on.isGuest() ? 'guest' : 'off', code: on.roomCode, mySeat: on.mySeat, lobby: on.lobby?.seats ?? null } } : { online: { role: on.isHost() ? 'host' : on.isGuest() ? 'guest' : 'off', code: on.roomCode, mySeat: on.mySeat, lobby: on.lobby?.seats ?? null } };
+  return G ? { phase: G.phase, cur: G.cur, size: G.size, board: [...G.board], last: G.last, moves: G.moves, winner: G.winner, draw: G.draw, line: G.line, round: G.round, wins: G.players.map(p => p.wins), auto: G.players.map(p => autoPlays(p, on.peerOnline)), names: G.players.map(p => p.name), bubbles: (G.emotes || []).map(e => e.text ?? e.i), vote: G.vote ? G.vote.list.map(e => e.ans) : null, tip: tips.now, orderPanel: orderShown(), results: resultsShown() && !resultsHidden, online: { role: on.isHost() ? 'host' : on.isGuest() ? 'guest' : 'off', code: on.roomCode, mySeat: on.mySeat, lobby: on.lobby?.seats ?? null } } : { online: { role: on.isHost() ? 'host' : on.isGuest() ? 'guest' : 'off', code: on.roomCode, mySeat: on.mySeat, lobby: on.lobby?.seats ?? null } };
 }

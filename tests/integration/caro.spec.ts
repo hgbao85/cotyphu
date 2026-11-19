@@ -158,6 +158,37 @@ test('on a phone the board takes taps too, and a game left there comes back afte
   await ctx.close();
 });
 
+test('the "Ai đi trước?" panel leaves the middle of the board soon after the throw, before anyone moves', async ({ page }) => {
+  // Regression (review 19/11/2026): it stayed until the first piece, hiding the middle cells from the player going first.
+  const errors = await open(page, 'manual=1&seed=5');
+  await startTwoPeople(page);                                       // the throw is over: the first player's turn
+  await page.evaluate(() => (window.game as unknown as Game).step(90));
+  const v = await page.evaluate(() => (window.game as unknown as { caro: { orderPanel: boolean; moves: number } }).caro);
+  expect(v.moves).toBe(0);
+  expect(v.orderPanel).toBe(false);
+  expect(errors).toEqual([]);
+});
+
+test('a tap on the tip box, off its buttons, places no piece under it', async ({ page }) => {
+  // Regression (review 19/11/2026): the board under the first-game tip took the tap.
+  const errors = await open(page, 'manual=1&seed=5&tutorial=1');
+  await startTwoPeople(page);
+  await page.evaluate(() => (window.game as unknown as Game).step(90));
+  expect(await page.evaluate(() => (window.game as unknown as { caro: { tip: string | null } }).caro.tip)).toBe('turn');
+  // a cell whose centre is inside the tip box (src/ui/gameTips.ts box, wide: x 370..720, y 16..140), left of "Đã hiểu" (x from 506)
+  const cell = await page.evaluate(() => {
+    const g = window.game as unknown as Game;
+    for (let c = 0; c < g.caro.size * g.caro.size; c++) { const s = g.caroSpot(c); if (s.x > 380 && s.x < 495 && s.y > 100 && s.y < 138) return c; }
+    return -1;
+  });
+  expect(cell).toBeGreaterThanOrEqual(0);
+  const s = await page.evaluate(c => (window.game as unknown as Game).caroSpot(c), cell);
+  await tap(page, s.x, s.y);
+  await page.evaluate(() => (window.game as unknown as Game).step(30));
+  expect((await view(page)).moves).toBe(0);
+  expect(errors).toEqual([]);
+});
+
 // ---- Online ----------------------------------------------------------------------------------
 const PORT = 8793;
 const BASE = `http://localhost:${PORT}/`;

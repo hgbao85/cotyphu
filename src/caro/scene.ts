@@ -243,7 +243,7 @@ function drawOrderDice(): void {
 /** The power gauge in the middle of the board, over everything: shown as soon as it is this screen's throw
  * (the sweet zone to see before holding), and while it shakes (src/ui/gameChrome.ts drawGauge). */
 function drawPowerGauge(): void {
-  const mine = myTurn(), c = at(N() / 2, N() / 2), gx = c.x, gy = c.y + GAUGE_R * 0.35;
+  const mine = myTurn(), v = viewRect(), gx = v.x + v.w / 2, gy = v.y + v.h / 2 + GAUGE_R * 0.35; // the board area's middle, fixed: turned, zoomed or moved, the board leaves the gauge where it is
   if (G.phase === 'shake' && G.shake && !G.shake.ai && mine) {
     const own = on.isGuest() && on.guestShaking, t = own ? on.guestShakeT() : G.shake.t; // a friend: its own clock, no lag
     drawGauge(gx, gy, own ? on.guestPower() : shakePower(), G.shake.zone, false, tune.shake_max_time - t);

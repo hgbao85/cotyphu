@@ -203,7 +203,7 @@ test('a game on one screen comes back after a reload, where it was left', async 
   });
   // what was kept: the game goes on a little after the last keep, and the reload brings back the kept one
   const before = await page.evaluate(() => JSON.parse(localStorage.getItem('tpdv-local-game') || 'null').state as S);
-  expect(before.round).toBe(7);
+  expect(before.round).toBeGreaterThanOrEqual(7); // kept after the round was set (the 120 steps may end that round: how far depends on the shake's pace)
   await page.reload();
   await expect.poll(() => page.evaluate(() => typeof window.game?.step)).toBe('function');
   expect(await page.evaluate(() => window.game!.scene)).toBe('title');

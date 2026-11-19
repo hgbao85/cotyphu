@@ -621,7 +621,7 @@ function buildPlay(): void {
 function shakeLabel(): string {
   const own = on.isGuest() && on.guestShaking, pos = own ? on.guestPower() : shakePower();
   if (inZone(pos, G.shake?.zone)) return 'Thả ngay: vùng đẹp!';
-  return `Thả ra để thảy! · còn ${Math.max(0, Math.ceil(tune.shake_max_time - (own ? on.guestShakeT() : G.shake?.t ?? 0)))} giây`;
+  return 'Thả ra để thảy!'; // the seconds left are on the gauge (two counts drifted a second apart)
 }
 /** The power gauge in the middle of the board, over everything: shown as soon as it is this screen's throw
  * (the sweet zone to see before holding), and while it shakes (src/ui/gameChrome.ts drawGauge). */

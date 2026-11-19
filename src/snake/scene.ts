@@ -349,7 +349,7 @@ function drawPowerGauge(): void {
 function shakeLabel(): string {
   const own = on.isGuest() && on.guestShaking, pos = own ? on.guestPower() : shakePower();
   if (inZone(pos, G.shake?.zone)) return 'Thả ngay: vùng đẹp!';
-  return `Thả ra để thảy! · còn ${Math.max(0, Math.ceil(tune.shake_max_time - (own ? on.guestShakeT() : G.shake?.t ?? 0)))} giây`;
+  return 'Thả ra để thảy!'; // the seconds left are on the gauge (two counts drifted a second apart)
 }
 /** The person shaking still holds the die (a finger, the mouse, Space or Enter). */
 export const holding = (): boolean => pointerHeld || down.has('Space') || down.has('Enter');

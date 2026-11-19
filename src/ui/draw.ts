@@ -239,8 +239,8 @@ export function drawPopup() {
   const cx = L.cx, cy = L.popCy, my = (y: number): number => L.phone ? L.msgY - 8 : y; // wide: over the board; phone: above the buttons
   drawOrder();
   // whose turn it is shows on the player's card and, when several people share this screen, on the button
-  if (state.phase === 'roll' && human && !state.shaking && state.rolledDouble) messageBox([`${p.name}: đổ đôi, được đổ tiếp!`], cx, my(322), 460);
-  if (state.phase === 'jail' && human && !state.shaking) messageBox([`${p.name} đang ở tù. Đổ được đôi thì ra ngay (lượt ${p.jailTries + 1}/3; ở đủ 3 lượt thì lượt sau được ra).${p.noSalary ? (p.freeCards.length ? ' Dùng Thẻ Ra Tù thì được nhận lương lại!' : ' Lần qua Xuất Phát tới sẽ mất lương.') : ''}`], cx, my(312), 520);
+  if (state.phase === 'roll' && human && !state.shaking && state.rolledDouble) messageBox([`${p.name}: đổ đôi, được đổ tiếp!`], cx, my(500), 460); // under the gauge (which holds the board's middle)
+  if (state.phase === 'jail' && human && !state.shaking) messageBox([`${p.name} đang ở tù. Đổ được đôi thì ra ngay (lượt ${p.jailTries + 1}/3; ở đủ 3 lượt thì lượt sau được ra).${p.noSalary ? (p.freeCards.length ? ' Dùng Thẻ Ra Tù thì được nhận lương lại!' : ' Lần qua Xuất Phát tới sẽ mất lương.') : ''}`], cx, my(520), 520); // under the gauge
   if (state.phase === 'end' && human) messageBox([`${p.name}: hết lượt. Quản lý tài sản ${L.phone ? 'ở nút Tài sản' : 'ở bên phải'} nếu cần.`], cx, my(318), 640);
   if (!pop && state.phase !== 'pick' && state.phase !== 'debt') return;
   if (state.phase === 'pick') { messageBox([human ? 'Vé máy bay: bấm một ô trên bàn cờ (hoặc dùng phím mũi tên) để bay tới.' : `${p.name} đang chọn nơi bay tới...`], cx, my(545), 600); return; }

@@ -159,24 +159,54 @@ export function danger(players: LudoPlayer[], pi: number, side: number, p: numbe
   return n;
 }
 
+/** How much the computer likes a move, before any chance: how far it goes, a kick (more for a horse
+ * that had come far), coming out, reaching the stable; from level 2 also keeping out of reach. */
+export function scoreMove(players: LudoPlayer[], pi: number, m: LudoMove, lv: number, R: LudoRules): number {
+  const p = players[pi];
+  let s = m.to - Math.max(0, m.from); // how far it goes
+  if (m.kick) s += 100 + players[m.kick.pi].horses[m.kick.h];
+  if (m.from < 0) s += 70;
+  if (m.to > GATE && m.from <= GATE) s += 55;
+  if (m.to > GATE) s += 10;
+  if (lv >= 2) {
+    s -= 40 * danger(players, pi, p.side, m.to, R);
+    s += 30 * danger(players, pi, p.side, m.from, R);
+    if (m.from === 0) s += 8; // frees its own start for the next horse
+  }
+  return s;
+}
+
 /** The computer's choice among the legal moves: level 0 picks at random, 1 likes kicks, coming out and
  * going home, 2 also keeps its horses out of reach. rand is the game's rng. */
 export function aiPick(players: LudoPlayer[], pi: number, moves: LudoMove[], lv: number, R: LudoRules, rand: () => number): LudoMove {
   if (moves.length === 1 || lv <= 0) return moves[Math.floor(rand() * moves.length)];
-  const p = players[pi];
   let best = moves[0], bestScore = -Infinity;
   for (const m of moves) {
-    let s = m.to - Math.max(0, m.from); // how far it goes
-    if (m.kick) s += 100 + players[m.kick.pi].horses[m.kick.h];
-    if (m.from < 0) s += 70;
-    if (m.to > GATE && m.from <= GATE) s += 55;
-    if (m.to > GATE) s += 10;
-    if (lv >= 2) {
-      s -= 40 * danger(players, pi, p.side, m.to, R);
-      s += 30 * danger(players, pi, p.side, m.from, R);
-      if (m.from === 0) s += 8; // frees its own start for the next horse
+    const s = scoreMove(players, pi, m, lv, R) + rand() * 3; // ties go either way
+    if (s > bestScore) { bestScore = s; best = m; }
+  }
+  return best;
+}
+
+/** A copy of the table a plan may change without touching the game. */
+const copyTable = (players: LudoPlayer[]): LudoPlayer[] => players.map(q => ({ ...q, horses: [...q.horses] }));
+
+/** Level 2 thinks the whole throw through: for each first move with one die, the best move the other die
+ * leaves, and picks the pair (or the one move spending both) that adds up to most. Lower levels, or a
+ * throw with one die left, pick move by move (aiPick). `use` is the dice still to use. */
+export function aiPlan(players: LudoPlayer[], pi: number, moves: LudoMove[], use: number[], lv: number, R: LudoRules, rand: () => number): LudoMove {
+  if (lv < 2 || use.length < 2 || moves.length === 1) return aiPick(players, pi, moves, lv, R, rand);
+  let best = moves[0], bestScore = -Infinity;
+  for (const m of moves) {
+    let s = scoreMove(players, pi, m, lv, R);
+    if (m.dice.length < use.length) { // a die is left: the best it can then do (a die that cannot move costs a little)
+      const after = copyTable(players);
+      applyMove(after, pi, m);
+      const rest = [...use]; for (const d of m.dice) rest.splice(rest.indexOf(d), 1);
+      const next = legalMoves(after, pi, rest, R);
+      s += next.length ? Math.max(...next.map(n => scoreMove(after, pi, n, lv, R))) : -5;
     }
-    s += rand() * 3; // ties go either way
+    s += rand() * 3;
     if (s > bestScore) { bestScore = s; best = m; }
   }
   return best;

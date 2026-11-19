@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   TRACK, TRACK_LEN, GATE, TOP, STEPS, startOf, trackIndex, stepCell, cellOf, legalMoves, applyMove, moveValue,
-  throwsAgain, canExit, allHome, danger, aiPick, type LudoMove, type LudoPlayer, type LudoRules,
+  throwsAgain, canExit, allHome, danger, aiPick, aiPlan, type LudoMove, type LudoPlayer, type LudoRules,
 } from '../../src/ludo/rules';
 
 // ---- Fixtures ---------------------------------------------------------------------------------
@@ -205,5 +205,24 @@ describe('danger and the computer', () => {
     const fixed = () => 0.5;
     expect(aiPick(players, 0, moves, 1, rules(), fixed).kick).toEqual({ pi: 1, h: 0 });
     expect(aiPick(players, 0, moves, 2, rules(), fixed).kick).toEqual({ pi: 1, h: 0 });
+  });
+
+  it('Khó thinks both dice through: comes out on the 1 to kick with the 5, where move by move it takes the total', () => {
+    // 1 + 5: the total takes horse 0 from 10 onto a horse at 16 (one kick); coming out on the 1 and then
+    // going 5 from the start kicks a horse there and brings a new horse out too
+    const players = table([10, YARD, YARD, YARD], [sameCellFor1(16), sameCellFor1(5), YARD, YARD]);
+    const moves = legalMoves(players, 0, [1, 5], rules());
+    const fixed = () => 0.5;
+    expect(aiPick(players, 0, moves, 1, rules(), fixed)).toMatchObject({ from: 10, to: 16, dice: [1, 5] });
+    expect(aiPlan(players, 0, moves, [1, 5], 2, rules(), fixed)).toMatchObject({ from: YARD, to: 0, dice: [1] });
+  });
+
+  it('Vừa still picks move by move, and a single die left needs no plan', () => {
+    const players = table([10, YARD, YARD, YARD], [sameCellFor1(16), sameCellFor1(5), YARD, YARD]);
+    const fixed = () => 0.5;
+    const moves = legalMoves(players, 0, [1, 5], rules());
+    expect(aiPlan(players, 0, moves, [1, 5], 1, rules(), fixed)).toEqual(aiPick(players, 0, moves, 1, rules(), fixed));
+    const one = legalMoves(players, 0, [5], rules());
+    expect(aiPlan(players, 0, one, [5], 2, rules(), fixed)).toEqual(aiPick(players, 0, one, 2, rules(), fixed));
   });
 });

@@ -50,15 +50,58 @@ function face(a, x, y, s) {
   drawAnimalIcon(c, a, x, y + s * 0.03, s * 0.92, ANIMALS[a].color, 'happy');
 }
 
-if (kind === 'og') { // the link preview: the island with four animals, the name, a line on what it is
+/** A cream die with paw-print pips, tilted. */
+function die(x, y, s, n, rot) {
+  const P = { 3: [[-1, -1], [0, 0], [1, 1]], 5: [[-1, -1], [1, -1], [0, 0], [-1, 1], [1, 1]], 6: [[-1, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [1, 1]] };
+  c.save(); c.translate(x, y); c.rotate(rot);
+  c.fillStyle = 'rgba(40,60,30,0.22)'; c.beginPath(); c.roundRect(-s / 2 + 4, -s / 2 + 8, s, s, s * 0.22); c.fill();
+  c.fillStyle = '#fffaf0'; c.beginPath(); c.roundRect(-s / 2, -s / 2, s, s, s * 0.22); c.fill(); c.strokeStyle = '#d9a86a'; c.lineWidth = s * 0.04; c.stroke();
+  c.fillStyle = n === 6 ? '#d9442b' : '#5a3a26';
+  for (const [dx, dy] of P[n]) { const px = dx * s * 0.27, py = dy * s * 0.27, r = s * 0.1; c.beginPath(); c.ellipse(px, py + r * 0.25, r * 0.55, r * 0.45, 0, 0, 7); c.fill(); for (const [a, b] of [[-0.55, -0.45], [0, -0.72], [0.55, -0.45]]) { c.beginPath(); c.arc(px + a * r, py + b * r, r * 0.22, 0, 7); c.fill(); } }
+  c.restore();
+}
+/** A toy house: walls, roof, door. */
+function house(x, y, s, wall, roof) {
+  c.fillStyle = wall; c.beginPath(); c.roundRect(x - s * 0.4, y - s * 0.35, s * 0.8, s * 0.7, s * 0.08); c.fill();
+  c.fillStyle = roof; c.beginPath(); c.moveTo(x - s * 0.55, y - s * 0.3); c.lineTo(x, y - s * 0.78); c.lineTo(x + s * 0.55, y - s * 0.3); c.closePath(); c.fill();
+  c.fillStyle = '#8b5a2b'; c.beginPath(); c.roundRect(x - s * 0.1, y, s * 0.2, s * 0.35, s * 0.05); c.fill();
+}
+/** A horse piece of Cá Ngựa: a coloured round base with the horse's face. */
+function horse(x, y, s, col, dark) {
+  c.fillStyle = dark; c.beginPath(); c.arc(x, y + s * 0.06, s * 0.46, 0, 7); c.fill();
+  c.fillStyle = col; c.beginPath(); c.arc(x, y, s * 0.46, 0, 7); c.fill(); c.strokeStyle = '#fff6e2'; c.lineWidth = s * 0.06; c.stroke();
+  drawAnimalIcon(c, 6, x, y, s * 0.8, col, 'happy');
+}
+/** A bamboo ladder and a smiling green snake: Rắn và Thang. */
+function ladderSnake(x, y, s) {
+  c.strokeStyle = '#b07a3a'; c.lineWidth = s * 0.07; c.lineCap = 'round';
+  for (const dx of [-0.32, -0.02]) { c.beginPath(); c.moveTo(x + dx * s, y + s * 0.45); c.lineTo(x + dx * s, y - s * 0.5); c.stroke(); }
+  for (let k = 0; k < 5; k++) { const yy = y + s * 0.35 - k * s * 0.19; c.beginPath(); c.moveTo(x - s * 0.32, yy); c.lineTo(x - s * 0.02, yy); c.stroke(); }
+  c.strokeStyle = '#6fbf4a'; c.lineWidth = s * 0.13; c.beginPath(); c.moveTo(x + s * 0.12, y + s * 0.42);
+  c.bezierCurveTo(x + s * 0.5, y + s * 0.3, x + s * 0.05, y - s * 0.05, x + s * 0.35, y - s * 0.25); c.stroke();
+  c.fillStyle = '#6fbf4a'; c.beginPath(); c.ellipse(x + s * 0.38, y - s * 0.32, s * 0.13, s * 0.11, 0, 0, 7); c.fill();
+  c.fillStyle = '#2a1a10'; for (const dx of [-0.04, 0.05]) { c.beginPath(); c.arc(x + s * (0.38 + dx), y - s * 0.34, s * 0.022, 0, 7); c.fill(); }
+}
+
+if (kind === 'og') { // the link preview: the name, what it is, and the three games standing on the island
   sky(0, 0, W, H);
-  island(W / 2, 470, 520, 120);
-  [1, 3, 8, 10].forEach((a, k) => face(a, 330 + k * 180, 430 - (k % 2) * 22, 150));
-  coin(170, 120, 54); coin(1040, 150, 40);
+  island(W / 2, 500, 560, 110);
   c.textAlign = 'center'; c.textBaseline = 'middle';
-  c.font = '700 104px "Baloo 2"'; c.lineWidth = 16; c.strokeStyle = '#ffffff'; c.strokeText('Sự Thảy', W / 2, 150);
-  c.fillStyle = '#d9622b'; c.fillText('Sự Thảy', W / 2, 150);
-  c.font = '700 40px "Baloo 2"'; c.fillStyle = '#4a3020'; c.fillText('Cờ tỷ phú trên bản đồ Việt Nam · chơi online với bạn bè', W / 2, 250);
+  c.font = '700 104px "Baloo 2"'; c.lineWidth = 16; c.strokeStyle = '#ffffff'; c.strokeText('Sự Thảy', W / 2 - 40, 110);
+  c.fillStyle = '#d9622b'; c.fillText('Sự Thảy', W / 2 - 40, 110);
+  die(W / 2 + 205, 96, 74, 6, 0.25); die(W / 2 + 272, 140, 56, 5, -0.2);
+  c.font = '700 38px "Baloo 2"'; c.fillStyle = '#4a3020'; c.fillText('Board game xúc xắc cho cả nhà · chơi online với bạn bè', W / 2, 205);
+  const games = [
+    { x: 300, name: 'Cờ Tỷ Phú', draw: (x, y) => { house(x - 40, y + 10, 110, '#ffb59a', '#d9442b'); house(x + 50, y - 4, 130, '#8cc4f5', '#2b6cd6'); coin(x - 95, y + 50, 26); } },
+    { x: 600, name: 'Cá Ngựa', draw: (x, y) => { [['#ff7b6b', '#d9442b'], ['#7ccf5a', '#3f9a2e'], ['#ffc93c', '#c98f0a'], ['#6aaef0', '#2b6cd6']].forEach(([col, dk], k) => horse(x - 87 + k * 58, y + 20 - (k % 2) * 18, 62, col, dk)); } },
+    { x: 900, name: 'Rắn và Thang', draw: (x, y) => ladderSnake(x, y, 190) },
+  ];
+  for (const g of games) {
+    c.fillStyle = 'rgba(255,249,234,0.9)'; c.beginPath(); c.roundRect(g.x - 135, 268, 270, 270, 30); c.fill();
+    c.strokeStyle = '#e8a86a'; c.lineWidth = 5; c.stroke();
+    g.draw(g.x, 380);
+    c.font = '700 40px "Baloo 2"'; c.fillStyle = '#d9622b'; c.textAlign = 'center'; c.fillText(g.name, g.x, 500);
+  }
 } else { // an app icon: the buffalo on its island under the sky; "maskable" keeps it all in the middle 80%
   const pad = kind === 'maskable' ? 0 : W * 0.06, r = kind === 'maskable' ? 0 : W * 0.2;
   c.save(); c.beginPath(); c.roundRect(pad, pad, W - 2 * pad, H - 2 * pad, r); c.clip();

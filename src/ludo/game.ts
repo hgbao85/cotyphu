@@ -7,7 +7,7 @@ import { tune } from '../config';
 import { sfx } from '../audio';
 import { rng, setSeed, freshSeed } from '../game/rng';
 import type { Loose } from '../game/types';
-import { legalMoves, applyMove, aiPick, allHome, throwsAgain, moveValue, GATE, type LudoMove, type LudoPlayer, type LudoRules, type LudoSeat } from './rules';
+import { legalMoves, applyMove, aiPlan, allHome, throwsAgain, moveValue, GATE, type LudoMove, type LudoPlayer, type LudoRules, type LudoSeat } from './rules';
 
 /** The four sides' names and colours, seat i plays side i. */
 export const SIDES = [
@@ -238,7 +238,7 @@ export function step(dt: number, held: boolean, peerOnline: (id?: number) => boo
       // one choice (or every choice the same horse's): it moves by itself after a beat
       const only = new Set(G.moves.map(m => `${m.from}>${m.to}:${m.dice.join()}`)).size === 1; // one move, or the same move for any horse (all coming out)
       if (only && G.timer >= 0.45) pickMove(G.moves[0]);
-      else if (auto && G.timer >= tune.ludo_ai_delay * 0.7) pickMove(aiPick(G.players, G.cur, G.moves, p.kind === 'ai' ? p.lv : 1, rulesNow(), rng));
+      else if (auto && G.timer >= tune.ludo_ai_delay * 0.7) pickMove(aiPlan(G.players, G.cur, G.moves, G.use, p.kind === 'ai' ? p.lv : 1, rulesNow(), rng)); // Khó thinks both dice through
       break;
     }
     case 'move': {

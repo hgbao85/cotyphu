@@ -183,6 +183,8 @@ Trang mở với màn chờ (con giáp nhảy trên đảo, đếm từ 30). Mà
 - [x] Cá Ngựa 2 viên xúc xắc: mỗi viên đi riêng, bấm ngựa, ngựa đi được nhiều cách thì chọn đi số nào hoặc đi tổng cả hai viên; một viên 1 hoặc 6 ra một ngựa; đôi 2–5 dùng cả hai viên ra một ngựa; đổ đôi thảy thêm; lên chuồng truyền thống mỗi viên tính riêng. Ô ra quân ở góc ngoài mỗi cánh, sát chuồng ngựa
 - [x] Cá Ngựa giữ ván: tải lại trang vẫn chơi tiếp ván một máy; nút Vào lại phòng (30 phút), chủ phòng tải lại vẫn giữ ván; mỗi game một mã chủ phòng riêng nên không lấy nhầm phòng của game kia
 - [x] Cá Ngựa: nút tua nhanh ×1 / ×2 / ×4 cho lượt máy (chung lựa chọn với Cờ Tỷ Phú); chơi online thì chủ phòng chọn
+- [x] Cá Ngựa: máy Khó tính trước cả hai viên xúc xắc (thắng máy Dễ 19/24, máy Vừa 16/24 ván, 2 người)
+- [x] Chữ giới thiệu khi cài app / chia sẻ link và ảnh xem trước có cả ba game
 - [x] Rắn và Thang: bàn 100 ô chibi, 7 thang tre và 8 con rắn (data/snake-board.json); 2–4 chỗ (Người, Máy, Bạn online, Không chơi), quân là 12 con giáp bấm để đổi; giữ để lắc thả để thảy; leo thang, rắn đớp tuột xuống; đổ 6 thảy thêm; luật Về đích (đúng ô 100, dư lùi lại / vượt cũng được) và Vào bàn (thảy là vào / phải đổ 6); màn thắng, luật chơi, chơi online, giữ ván và Vào lại phòng; thẻ thứ ba trên sảnh, link ?game=ranthang
 - [ ] Thêm game: Bầu Cua, Rắn và Thang, Xì Xúc Xắc
 

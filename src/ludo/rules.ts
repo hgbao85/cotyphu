@@ -69,8 +69,14 @@ export interface LudoPlayer {
   place: number;
   kicks: number; kicked: number; sixes: number;
 }
+/** How much the computer likes each thing a move does (data/config.json ludo_ai_*): a cell gone (times
+ * how far along the horse already is, `ahead`), a kick (plus `kickFar` per cell the kicked horse had come),
+ * coming out, reaching the stable; from level 2, each enemy horse that could land on it after, or before. */
+export interface LudoAiWeights { cell: number; ahead: number; kick: number; kickFar: number; out: number; home: number; danger: number; escape: number }
+/** The weights before they were tuning values (the tests' rules, a game kept from then). */
+export const AI_WEIGHTS: LudoAiWeights = { cell: 1, ahead: 0, kick: 100, kickFar: 1, out: 70, home: 55, danger: 40, escape: 30 };
 /** What the rules read from data/config.json. */
-export interface LudoRules { horses: number; dice: number; exitOnOne: boolean; exitDouble: boolean; bonusSix: boolean; bonusKick: boolean; noJump: boolean; homeStrict: boolean }
+export interface LudoRules { horses: number; dice: number; exitOnOne: boolean; exitDouble: boolean; bonusSix: boolean; bonusKick: boolean; noJump: boolean; homeStrict: boolean; ai?: LudoAiWeights }
 /** A legal move: which horse, from and to, the dice it spends, and whom it kicks home. */
 export interface LudoMove { h: number; from: number; to: number; dice: number[]; kick?: { pi: number; h: number } }
 
@@ -164,15 +170,15 @@ export function danger(players: LudoPlayer[], pi: number, side: number, p: numbe
 /** How much the computer likes a move, before any chance: how far it goes, a kick (more for a horse
  * that had come far), coming out, reaching the stable; from level 2 also keeping out of reach. */
 export function scoreMove(players: LudoPlayer[], pi: number, m: LudoMove, lv: number, R: LudoRules): number {
-  const p = players[pi];
-  let s = m.to - Math.max(0, m.from); // how far it goes
-  if (m.kick) s += 100 + players[m.kick.pi].horses[m.kick.h];
-  if (m.from < 0) s += 70;
-  if (m.to > GATE && m.from <= GATE) s += 55;
+  const p = players[pi], W = R.ai ?? AI_WEIGHTS;
+  let s = (m.to - Math.max(0, m.from)) * (W.cell + W.ahead * Math.max(0, m.from) / GATE); // how far it goes (a horse far along: worth more)
+  if (m.kick) s += W.kick + W.kickFar * players[m.kick.pi].horses[m.kick.h];
+  if (m.from < 0) s += W.out;
+  if (m.to > GATE && m.from <= GATE) s += W.home;
   if (m.to > GATE) s += 10;
   if (lv >= 2) {
-    s -= 40 * danger(players, pi, p.side, m.to, R);
-    s += 30 * danger(players, pi, p.side, m.from, R);
+    s -= W.danger * danger(players, pi, p.side, m.to, R);
+    s += W.escape * danger(players, pi, p.side, m.from, R);
     if (m.from === 0) s += 8; // frees its own start for the next horse
   }
   return s;

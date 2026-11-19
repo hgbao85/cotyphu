@@ -85,6 +85,7 @@ export const rulesNow = (): LudoRules => ({
   horses: Math.max(1, Math.min(4, Math.round(tune.ludo_horses))), dice: tune.ludo_dice >= 2 ? 2 : 1,
   exitOnOne: tune.ludo_exit_on_one >= 1, exitDouble: tune.ludo_exit_double >= 1, bonusSix: tune.ludo_bonus_six >= 1, bonusKick: tune.ludo_bonus_kick >= 1,
   noJump: tune.ludo_no_jump >= 1, homeStrict: tune.ludo_home_strict >= 1,
+  ai: { cell: tune.ludo_ai_cell, ahead: tune.ludo_ai_ahead, kick: tune.ludo_ai_kick, kickFar: tune.ludo_ai_kick_far, out: tune.ludo_ai_out, home: tune.ludo_ai_home, danger: tune.ludo_ai_danger, escape: tune.ludo_ai_escape },
 });
 
 /** Whose turn it is. */

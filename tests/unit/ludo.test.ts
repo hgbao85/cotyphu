@@ -244,3 +244,59 @@ describe('danger and the computer', () => {
     expect(aiPlan(players, 0, one, [5], 2, rules(), fixed)).toEqual(aiPick(players, 0, one, 2, rules(), fixed));
   });
 });
+
+// ---- The computer's play, with data/config.json's rules and weights (self-play) ------------------
+import config from '../../data/config.json';
+
+/** The game's rules and the computer's weights as data/config.json sets them (src/ludo/game.ts rulesNow). */
+function configRules(): LudoRules {
+  const v = (k: keyof typeof config) => (config[k] as { value: number }).value;
+  return {
+    horses: v('ludo_horses'), dice: v('ludo_dice'), exitOnOne: v('ludo_exit_on_one') >= 1, exitDouble: v('ludo_exit_double') >= 1,
+    bonusSix: v('ludo_bonus_six') >= 1, bonusKick: v('ludo_bonus_kick') >= 1, noJump: v('ludo_no_jump') >= 1, homeStrict: v('ludo_home_strict') >= 1,
+    ai: { cell: v('ludo_ai_cell'), ahead: v('ludo_ai_ahead'), kick: v('ludo_ai_kick'), kickFar: v('ludo_ai_kick_far'), out: v('ludo_ai_out'), home: v('ludo_ai_home'), danger: v('ludo_ai_danger'), escape: v('ludo_ai_escape') },
+  };
+}
+/** A seeded generator (mulberry32): the same games every run. */
+function seeded(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+/** Computers play one game, turn by turn as src/ludo/game.ts runs it: the throws it took and the winner. */
+function selfPlay(levels: number[], R: LudoRules, seed: number): { throws: number; winner: number } {
+  const rand = seeded(seed), players = levels.map((lv, id) => ({ id, side: id, name: `P${id}`, kind: 'ai' as const, lv, horses: Array(R.horses).fill(-1), place: 0, kicks: 0, kicked: 0, sixes: 0 }));
+  let cur = Math.floor(rand() * players.length), throws = 0;
+  while (throws < 20000) {
+    let again = true;
+    while (again) {
+      throws++;
+      const d = [1 + Math.floor(rand() * 6), 1 + Math.floor(rand() * 6)].slice(0, R.dice);
+      again = throwsAgain(d) && R.bonusSix;
+      const use = [...d];
+      while (use.length) {
+        const moves = legalMoves(players, cur, use, R);
+        if (!moves.length) break;
+        const m = aiPlan(players, cur, moves, use, players[cur].lv, R, rand);
+        applyMove(players, cur, m);
+        for (const x of m.dice) use.splice(use.indexOf(x), 1);
+        if (allHome(players[cur])) return { throws, winner: cur };
+      }
+    }
+    cur = (cur + 1) % players.length;
+  }
+  return { throws, winner: -1 };
+}
+
+describe('the computer\'s play (data/config.json ludo_ai_*)', () => {
+  it('finishes a game of four computers in a few hundred throws, not the old thousand and more', () => {
+    // Bug (19/11/2026): with kick 100 and coming out 70, every horse came out and was kicked back and forth:
+    // about 1740 throws a game, longer than computers picking at random. Tuned with tools/balance/ludo-sim.mjs.
+    const runs = Array.from({ length: 30 }, (_, k) => selfPlay([1, 1, 1, 1], configRules(), 1000 + k));
+    expect(runs.every(r => r.winner >= 0)).toBe(true);
+    expect(runs.reduce((s, r) => s + r.throws, 0) / runs.length).toBeLessThan(700);
+  });
+  it('plays better than picking at random: one Vừa among three random computers wins far more than its share', () => {
+    const runs = Array.from({ length: 60 }, (_, k) => selfPlay([1, 0, 0, 0], configRules(), 2000 + k));
+    expect(runs.filter(r => r.winner === 0).length / runs.length).toBeGreaterThan(0.5); // a fair share is 25%
+  });
+});

@@ -7,14 +7,14 @@
 //                    { k: 'caro', scene, g, sfx }                 the game, and the sounds since the last
 //                    { k: 'caroFull', msg }
 //                    { k: 'caroHistory', list }
-//   friend -> host   { k: 'caroAct', act: 'place', cell } | { act: 'animal' } | { act: 'history' } | the room extras' acts
+//   friend -> host   { k: 'caroAct', act: 'place', cell } | { act: 'shake' | 'throw' } (the throw for the order) | { act: 'animal' } | { act: 'history' } | the room extras' acts
 
 import * as net from '../net/net';
 import { tune, CONFIG } from '../config';
 import { rawSfx } from '../net/room';
 import { scene, setScene } from '../core/store';
 import type { Loose } from '../game/types';
-import { G, setG, caroSetup, newGame, playAgain, tryPlace, curP, sounds, recordSounds, RULE_KEYS, history, log } from './game';
+import { G, setG, caroSetup, newGame, playAgain, tryPlace, startShake, curP, sounds, recordSounds, RULE_KEYS, history, log } from './game';
 import { makeRoomExtras, type RoomGame } from '../net/roomExtras';
 import { showHistory } from '../ui/pages';
 import type { CaroSeat } from './rules';
@@ -34,6 +34,8 @@ export let lobby: { hostName: string; seats: CaroSeat[] } | null = null;
 const peers = new Map<number, { name: string; online: boolean }>();
 export const peerOnline = (id?: number): boolean => id !== undefined && !!peers.get(id)?.online;
 let sendEvery = 0;
+/** Friend: holding the shake button for the order, waiting to let go. */
+export let guestShaking = false;
 /** The rules' switches the host picks on its setup screen, sent to the friend so both screens read the same. */
 const SHARED = ['caro_block_two'];
 /** How the setup screen names an animal and finds the next free one (set by ./scene.ts). */
@@ -98,7 +100,7 @@ export function leaveRoom(): void {
 }
 function goOffline(msg: string): void {
   if (active && net.getRole() !== 'off') net.leave();
-  active = false; roomCode = ''; mySeat = -1; lobby = null; peers.clear(); note = msg; restoring = false;
+  active = false; roomCode = ''; mySeat = -1; lobby = null; peers.clear(); note = msg; restoring = false; guestShaking = false;
   keepRoom(null);
   if (ownRules) { for (const k of RULE_KEYS) CONFIG[k].value = ownRules[k]; ownRules = null; } // a friend back on their own: their own rules again
   recordSounds(false);
@@ -168,11 +170,16 @@ function onAct(from: number, a: Loose): void {
   const p = curP();
   if (p.kind !== 'remote' || p.peer !== from) return;
   if (a.act === 'place' && typeof a.cell === 'number' && Number.isInteger(a.cell)) tryPlace(a.cell);
+  else if (a.act === 'shake' && G.phase === 'roll') { startShake(); if (G.shake) G.shake.remote = true; }
+  else if (a.act === 'throw' && G.shake?.remote) G.shake.released = true;
 }
 /** "Lịch sử": the whole game's lines (a friend asks the host, who keeps them). */
 export function openHistory(): void { if (isGuest()) sendAct('history'); else showHistory(history); }
 /** Friend: a tap for the host. */
-export function sendAct(act: string, extra: Record<string, unknown> = {}): void { net.toHost({ k: 'caroAct', act, ...extra }); }
+export function sendAct(act: string, extra: Record<string, unknown> = {}): void {
+  net.toHost({ k: 'caroAct', act, ...extra });
+  if (act === 'shake') guestShaking = true;
+}
 
 /** Friend: a message from the host. */
 function onHostMsg(d: Loose): void {
@@ -203,12 +210,14 @@ function keepStep(): void {
   if (isHost()) keepHostGame(G.phase === 'over' ? null : { code: roomCode, g: G, seats: caroSetup.seats.map(s => ({ ...s })), at: Date.now() });
   else if (!active) keepLocal(G.phase === 'over' ? null : { g: G, seats: caroSetup.seats.map(s => ({ ...s })) });
 }
-/** Every step: the host sends the game (the board changes rarely, so less often than the dice games); the game is kept. */
-export function caroNetStep(): void {
+/** Every step: the host sends the game (the board changes rarely, so less often than the dice games; at once with a sound);
+ * a friend lets go of the dice when the finger lifts; the game is kept. */
+export function caroNetStep(held: boolean): void {
   keepStep();
   if (isHost()) {
     if (scene === 'caro' && G?.players) {
       if (++sendEvery >= 6 || sounds.length) { sendEvery = 0; net.toAll({ k: 'caro', scene, g: G, sfx: sounds.splice(0) }); }
     } else if (++sendEvery >= 30) { sendEvery = 0; sendLobby(); }
   }
+  if (isGuest() && guestShaking && !held) { guestShaking = false; sendAct('throw'); }
 }

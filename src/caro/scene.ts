@@ -11,25 +11,26 @@ import { F } from '../core/flags';
 import { prefs } from '../core/prefs';
 import type { Loose } from '../game/types';
 import { ANIMALS } from '../game/data';
-import { btn, clicks, pressed, pointer, L } from '../main';
+import { btn, clicks, pressed, pointer, pointerHeld, down, L } from '../main';
 import { drawButton, drawTokenIcon, lacquer, messageBox } from '../ui/draw';
 import { openPicker, buildPicker, drawPicker } from '../ui/setupScreen';
 import { openPage } from '../ui/pages';
 import { openSettings } from '../ui/settings';
 import { LEAVE_LOCAL, CHANGE_PLAYERS } from '../ui/words';
-import { wideSpeedSpot, phoneRow, resultsBox, drawSummary } from '../ui/gameChrome';
+import { wideSpeedSpot, phoneRow, resultsBox, drawSummary, drawOrderMark } from '../ui/gameChrome';
 import { makeTips } from '../ui/gameTips';
 import { tiltOf, tiltAngle, type Tilt, type Spot } from '../ui/tilt';
 import { figure, drawFigure } from '../three/figureSprites';
 import { speedNow, cycleSpeed } from '../core/speed';
 import { showOnlinePanel } from '../net/room';
-import { G, setG, SEATS, LV_NAMES, caroSetup, newGame, playAgain, tryPlace, curP, step as gameStep, rulesNow, autoPlays, cellName } from './game';
+import { G, setG, SEATS, LV_NAMES, caroSetup, newGame, playAgain, tryPlace, startShake, shakePower, orderDice, curP, step as gameStep, rulesNow, autoPlays, cellName } from './game';
 import { EMPTY, rank, type CaroSeat } from './rules';
 import * as on from './online';
 import { localGame, lastRoom, type KeptGame } from './keep';
 
 /** First-game tips, as Cờ Tỷ Phú's: the first move. */
 const tips = makeTips('caro:', {
+  order: 'Giữ nút đỏ để lắc xúc xắc, thả ra để thảy. Ai được điểm cao hơn đi trước.',
   turn: 'Bấm một ô trống để đặt quân. Ai có 5 quân liền ngang, dọc hoặc chéo trước thì thắng.',
   block: 'Luật Việt Nam: 5 quân liền mà bị quân đối thủ chặn cả hai đầu thì chưa thắng. Mép bàn không tính là chặn.',
 });
@@ -183,7 +184,7 @@ function drawPieces(): void {
   }
 }
 
-// ---- The first game's throw: who goes first --------------------------------------------------------
+// ---- The first game's throws for who goes first --------------------------------------------------------
 const PIPS: Record<number, [number, number][]> = {
   1: [[0, 0]], 2: [[-1, -1], [1, 1]], 3: [[-1, -1], [0, 0], [1, 1]], 4: [[-1, -1], [1, -1], [-1, 1], [1, 1]],
   5: [[-1, -1], [1, -1], [0, 0], [-1, 1], [1, 1]], 6: [[-1, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [1, 1]],
@@ -203,25 +204,46 @@ function drawDieFace(x: number, y: number, s: number, n: number, rot: number): v
   }
   ctx.restore();
 }
-/** True while the "Ai đi trước?" panel shows over the middle of the board: the throw, then its result for
- * caro_order_hold seconds, so the middle cells are clear before the first move. */
-const orderShown = (): boolean => G.phase === 'order' || (G.phase === 'turn' && G.round === 1 && G.moves === 0 && !!G.order && G.timer < tune.caro_order_hold);
-/** The throw over the board: each player's piece and die, rolling, then the higher one glowing. */
-function drawOrder(): void {
-  if (!orderShown()) return;
-  const o = G.order; if (!o) return;
-  const m = at(N() / 2, N() / 2), u = Math.min(1, o.t / tune.caro_order_time), done = G.phase !== 'order';
-  const w = phone() ? 360 : 420, h = 170, x = m.x - w / 2, y = m.y - h / 2;
-  ctx.save(); ctx.fillStyle = 'rgba(255,249,234,0.95)'; rrect(ctx, x, y, w, h, 18); ctx.fill(); ctx.strokeStyle = '#e8a86a'; ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
-  text('Ai đi trước?', m.x, y + 24, 18, '#d9622b', 'center', 'bold');
-  G.players.forEach((p, i) => {
-    const px = m.x + (i ? 1 : -1) * w * 0.25, settled = u > 0.7 || done, winner = settled && G.cur === i;
-    drawPiece(px - 44, y + 98, 46, p.seat, p.animal, winner && prefs.effects ? Math.abs(Math.sin(G.t * 5)) * 6 : 0, winner ? 1 : 0);
-    const face = settled ? o.dice[i] : 1 + (Math.floor(o.t * 14 + i * 3) % 6), rot = settled ? 0 : Math.sin(o.t * 31 + i) * 0.4;
-    drawDieFace(px + 26, y + 92 - (settled ? 0 : Math.abs(Math.sin(o.t * 9 + i)) * 14), 54, face, rot);
-    text(p.name, px, y + 148, 15, '#4a3020', 'center', 'bold');
-  });
+/** The shake button's row (the dice at its right end): in the panel under the turn line, on a phone above its row of buttons. */
+function controls(): { bx: number; by: number; bw: number } {
+  return phone() ? { bx: 16, by: H - 176, bw: W - 32 } : { bx: PX + 34, by: 420, bw: PWD - 68 };
 }
+/** The dice of the throws for the order: shaking in the hand, tumbling, then the total, big, as they stop. */
+function drawOrderDice(): void {
+  if (!G.order) return;
+  const c = controls(), n = orderDice(), s = n > 1 ? 52 : 64, x0 = c.bx + c.bw - (n > 1 ? 62 : 40), y0 = c.by + 31;
+  const last = G.dice.length === n ? G.dice : Array(n).fill(6);
+  for (let k = 0; k < n; k++) {
+    const ox = n > 1 ? (k ? 1 : -1) * s * 0.58 : 0, ph = k * 1.7;
+    let face = last[k], rot = 0, dy = 0, dx = 0;
+    if (G.phase === 'shake' && G.shake) {
+      const t = G.shake.t; face = 1 + (Math.floor(t * 14 + k * 3) % 6);
+      dx = Math.sin(t * 47 + ph) * 4; dy = Math.cos(t * 39 + ph) * 3; rot = Math.sin(t * 31 + ph) * 0.25;
+    } else if (G.phase === 'dice' && G.throwAt) {
+      const th = G.throwAt, u = Math.min(1, th.t / th.dur);
+      face = u > 0.85 ? last[k] : th.faces[Math.min(th.faces.length - 1, Math.floor(u * th.faces.length))][k] ?? last[k];
+      dy = -Math.abs(Math.sin(u * Math.PI * (3 + k * 0.5) + ph * 0.3)) * (1 - u) * (24 + th.power * 30);
+      rot = th.spin * (k ? -1 : 1) * (1 - u) * (1 - u) * 3;
+    } else if (prefs.effects) dy = -Math.abs(Math.sin(G.t * 2 + ph)) * 2;
+    drawDieFace(x0 + ox + dx, y0 + dy, s, face, rot);
+  }
+  if (G.show && G.show.t < 1.4 && G.phase === 'shown') {
+    const total = G.show.dice.reduce((a, b) => a + b, 0), t = G.show.t;
+    const pop = t < 0.15 ? 0.5 + t / 0.15 * 0.7 : 1.2 - Math.min(0.2, (t - 0.15) * 0.8), alpha = t > 1 ? 1 - (t - 1) / 0.4 : 1;
+    ctx.save(); ctx.globalAlpha = Math.max(0, alpha); ctx.translate(x0, y0 - s * 0.1); ctx.scale(pop, pop);
+    ctx.font = `bold 40px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.lineWidth = 8; ctx.strokeStyle = '#fff6e2'; ctx.strokeText(String(total), 0, 0);
+    ctx.fillStyle = '#4a3020'; ctx.fillText(String(total), 0, 0); ctx.restore();
+  }
+  if (G.phase === 'shake' && G.shake && !G.shake.ai && myTurn()) { // the power bar under the button
+    const w = c.bw, h = 10, pw = shakePower();
+    ctx.save(); ctx.fillStyle = 'rgba(255,249,234,0.95)'; rrect(ctx, c.bx - 3, c.by + 68, w + 6, h + 6, 6); ctx.fill();
+    const g = ctx.createLinearGradient(c.bx, 0, c.bx + w, 0); g.addColorStop(0, '#8fd16a'); g.addColorStop(0.6, '#ffd84a'); g.addColorStop(1, '#ff7b6b');
+    ctx.fillStyle = g; rrect(ctx, c.bx, c.by + 71, Math.max(8, w * pw), h, 5); ctx.fill(); ctx.restore();
+  }
+}
+/** The person shaking still holds the dice (a finger, the mouse, Space or Enter). */
+export const holding = (): boolean => pointerHeld || down.has('Space') || down.has('Enter');
 
 // ---- Words -------------------------------------------------------------------------------------
 /** True when this screen places the current player's piece. */
@@ -235,7 +257,10 @@ function turnLine(): string {
   if (!G || !G.players.length) return '';
   const p = curP(), me = myTurn();
   switch (G.phase) {
-    case 'order': return 'Thảy xúc xắc xem ai đi trước...';
+    case 'roll': return me ? (G.players.every(q => q.kind === 'human') && !on.isGuest() ? `${p.name}: giữ nút để lắc chọn lượt` : 'Tung chọn lượt: giữ nút để lắc, cao nhất đi trước') : `${p.name} chuẩn bị tung chọn lượt...`;
+    case 'shake': return me ? 'Thả ra để thảy!' : `${p.name} đang lắc...`;
+    case 'dice': return 'Xúc xắc đang lăn...';
+    case 'shown': return `${me ? 'Bạn' : p.name} tung được ${G.dice.reduce((a, b) => a + b, 0)}`;
     case 'turn': return me ? (G.players.every(q => q.kind === 'human') ? `${p.name}: bấm một ô trống để đặt quân` : 'Lượt bạn: bấm một ô trống để đặt quân') : `${p.name} đang nghĩ...`;
     case 'drop': return `${me ? 'Bạn' : p.name} đi ${cellName(G.last)}`;
     default: return '';
@@ -443,7 +468,7 @@ function buildPlay(): void {
   }
   if (on.extras.buildOverlay()) return;
   if (G.phase !== 'over') resultsHidden = false; // a new game (the vote, online): its results show again
-  if (G.phase !== 'over') tips.build(myTurn() && G.phase === 'turn' ? (G.moves < 2 ? 'turn' : rulesNow().blockTwo && G.moves >= 6 ? 'block' : null) : null, ph, PX, btn);
+  if (G.phase !== 'over') tips.build(myTurn() && G.phase === 'roll' ? 'order' : myTurn() && G.phase === 'turn' ? (G.moves < 2 ? 'turn' : rulesNow().blockTwo && G.moves >= 6 ? 'block' : null) : null, ph, PX, btn);
   if (G.phase === 'over') {
     if (!resultsShown()) return;
     const box = resultsBox(G.players.length, ph, PX / 2), cy = box.by, mid = box.cx;
@@ -458,6 +483,10 @@ function buildPlay(): void {
     }
     return;
   }
+  if (G.order && myTurn() && (G.phase === 'roll' || G.phase === 'shake')) { // the throw for the order, as the other games' shake button
+    const c = controls(), diceW = orderDice() > 1 ? 136 : 92;
+    btn(c.bx, c.by, c.bw - diceW, 62, G.phase === 'shake' ? 'Thả ra để thảy!' : 'Giữ để lắc chọn lượt', () => startShake(), 'primary', G.phase === 'roll', '#c8201f', 'shake');
+  }
   boardLive = true;
 }
 const ready = (): boolean => !!G && !!G.players && G.players.length > 0;
@@ -468,8 +497,8 @@ function drawPlay(): void {
   drawWinLine();
   drawMarks();
   drawPieces();
-  drawOrder();
   if (phone()) drawPhonePanel(); else drawWidePanel();
+  drawOrderDice();
   if (resultsShown() && !resultsHidden) drawResults();
   F.ui.forEach(b => { if (b.role !== 'menu' && b.role !== 'menuSecondary') drawButton(b); });
   tips.draw(phone(), PX, F.ui);
@@ -492,7 +521,7 @@ function drawWater(): void {
   ctx.restore();
 }
 function playerCard(i: number, x: number, y: number, w: number, h: number): void {
-  const p = G.players[i], cur = i === G.cur && G.phase !== 'over' && G.phase !== 'order', S = SEATS[p.seat];
+  const p = G.players[i], cur = i === G.cur && G.phase !== 'over', S = SEATS[p.seat];
   const me = on.isGuest() && p.seat === on.mySeat;
   ctx.save();
   ctx.fillStyle = cur ? '#ffe9b8' : '#fff6e2'; rrect(ctx, x, y, w, h, 12); ctx.fill();
@@ -502,7 +531,8 @@ function playerCard(i: number, x: number, y: number, w: number, h: number): void
   ctx.font = `bold ${Math.min(18, h * 0.32)}px ${FONT}`;
   text(wrapLines(ctx, p.name + (me ? ' (bạn)' : '') + (off ? ' (máy thay)' : ''), w - h - 10)[0], x + h + 2, y + h * 0.32, Math.min(18, h * 0.32), '#4a3020', 'left', 'bold');
   text(`${p.moves} nước · thắng ${p.wins}`, x + h + 2, y + h * 0.7, phone() ? 13 : 15, '#6a4a32', 'left', 'bold');
-  if (!phone() && p.kind === 'ai') text(`Máy · ${LV_NAMES[p.lv]}`, x + w - 14, y + h * 0.7, 14, '#8a6a4a', 'right');
+  if (G.order) drawOrderMark(G.order, i, i === G.cur, x, y, w, h); // the throws for the order of play
+  else if (!phone() && p.kind === 'ai') text(`Máy · ${LV_NAMES[p.lv]}`, x + w - 14, y + h * 0.7, 14, '#8a6a4a', 'right');
 }
 /** "Tổng kết ván": how it ended, how long it took, the score in this sitting. */
 function summaryLines(): string[] {
@@ -542,7 +572,7 @@ function drawPhonePanel(): void {
   const line = turnLine(), ly = 628;
   if (line) { ctx.font = `bold 18px ${FONT}`; wrapLines(ctx, line, W - 30).slice(0, 2).forEach((l, j) => text(l, W / 2, ly + j * 24, 18, '#4a3020', 'center', 'bold')); }
   const logY = 690;
-  G.log.slice(0, 6).forEach((l, j) => { ctx.font = `14px ${FONT}`; text(wrapLines(ctx, l, W - 30)[0], 16, logY + j * 22, 14, j ? '#8a6a4a' : '#4a3020', 'left'); });
+  G.log.slice(0, G.order ? 3 : 6).forEach((l, j) => { ctx.font = `14px ${FONT}`; text(wrapLines(ctx, l, W - 30)[0], 16, logY + j * 22, 14, j ? '#8a6a4a' : '#4a3020', 'left'); });
 }
 function drawResults(): void {
   const ph = phone(), order = rank(G.players, G.winner), win = order[0], { x, y, w, h, cx } = resultsBox(order.length, ph, PX / 2);
@@ -594,8 +624,8 @@ export const caroScenes: Record<string, { update(dt: number): void; draw(): void
       buildPlay(); handleTaps();
       if (scene !== 'caro') return;
       on.extras.step(dt);
-      if (on.isGuest()) { G.t += dt; G.timer += dt; if (G.drop) G.drop.t = Math.min(G.drop.t + dt, tune.caro_place_time); if (G.order) G.order.t += dt; for (const f of G.floaters) f.t += dt; return; }
-      gameStep(dt * turnSpeed(), on.peerOnline);
+      if (on.isGuest()) { G.t += dt; G.timer += dt; if (G.drop) G.drop.t = Math.min(G.drop.t + dt, tune.caro_place_time); if (G.throwAt) G.throwAt.t += dt; if (G.shake) G.shake.t += dt; if (G.show) G.show.t += dt; for (const f of G.floaters) f.t += dt; return; }
+      gameStep(dt * turnSpeed(), holding(), on.peerOnline);
     },
     draw() {
       if (!ready()) { clear('#bfe6f5'); text('Đang tải ván...', W / 2, H / 2, 22, '#4a3020', 'center', 'bold'); return; }
@@ -604,10 +634,10 @@ export const caroScenes: Record<string, { update(dt: number): void; draw(): void
   },
 };
 /** Runs the Cờ Caro room's messages each step (main.ts calls it after the scene). */
-export function caroNet(): void { on.caroNetStep(); }
+export function caroNet(): void { on.caroNetStep(holding()); }
 /** For checks: a cell's centre on the screen, in the layout's own coordinates (to tap it). */
 export function caroSpot(cell: number): { x: number; y: number } { const s = cellSpot(cell); return { x: s.x, y: s.y }; }
 /** For checks: the board, whose turn it is, how the game ended, read-only. */
 export function caroView(): Loose {
-  return G ? { phase: G.phase, cur: G.cur, size: G.size, board: [...G.board], last: G.last, moves: G.moves, winner: G.winner, draw: G.draw, line: G.line, round: G.round, wins: G.players.map(p => p.wins), auto: G.players.map(p => autoPlays(p, on.peerOnline)), names: G.players.map(p => p.name), bubbles: (G.emotes || []).map(e => e.text ?? e.i), vote: G.vote ? G.vote.list.map(e => e.ans) : null, tip: tips.now, orderPanel: orderShown(), results: resultsShown() && !resultsHidden, online: { role: on.isHost() ? 'host' : on.isGuest() ? 'guest' : 'off', code: on.roomCode, mySeat: on.mySeat, lobby: on.lobby?.seats ?? null } } : { online: { role: on.isHost() ? 'host' : on.isGuest() ? 'guest' : 'off', code: on.roomCode, mySeat: on.mySeat, lobby: on.lobby?.seats ?? null } };
+  return G ? { phase: G.phase, cur: G.cur, size: G.size, board: [...G.board], last: G.last, moves: G.moves, winner: G.winner, draw: G.draw, line: G.line, round: G.round, wins: G.players.map(p => p.wins), auto: G.players.map(p => autoPlays(p, on.peerOnline)), names: G.players.map(p => p.name), bubbles: (G.emotes || []).map(e => e.text ?? e.i), vote: G.vote ? G.vote.list.map(e => e.ans) : null, tip: tips.now, ordering: !!G.order, dice: G.dice, results: resultsShown() && !resultsHidden, online: { role: on.isHost() ? 'host' : on.isGuest() ? 'guest' : 'off', code: on.roomCode, mySeat: on.mySeat, lobby: on.lobby?.seats ?? null } } : { online: { role: on.isHost() ? 'host' : on.isGuest() ? 'guest' : 'off', code: on.roomCode, mySeat: on.mySeat, lobby: on.lobby?.seats ?? null } };
 }

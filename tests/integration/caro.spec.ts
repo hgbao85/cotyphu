@@ -51,11 +51,12 @@ async function open(page: Page, query: string): Promise<string[]> {
   await expect.poll(() => page.evaluate(() => typeof window.game?.step)).toBe('function');
   return errors;
 }
-/** Starts a game for two people on this screen and steps past the dice for who goes first. */
+/** Starts a game for two people on this screen, without the throws for who goes first (order_roll 0: the
+ * first seat starts) unless the tune turns them on. */
 async function startTwoPeople(page: Page, tune: Record<string, number> = {}): Promise<View> {
   await page.evaluate(t => {
     const g = window.game as unknown as Game;
-    g.configure({ tune: t }); g.configureCaro({ seats: [{ kind: 'human', animal: 4 }, { kind: 'human', animal: 9 }] });
+    g.configure({ tune: { order_roll: 0, ...t } }); g.configureCaro({ seats: [{ kind: 'human', animal: 4 }, { kind: 'human', animal: 9 }] });
     g.step(1); g.press('Enter'); g.step(1); g.step(140);
   }, tune);
   const v = await view(page);
@@ -117,6 +118,7 @@ test('a tap on a taken cell does nothing, and the computer answers a move', asyn
   const errors = await open(page, 'manual=1&seed=11');
   await page.evaluate(() => {
     const g = window.game as unknown as Game;
+    g.configure({ tune: { order_roll: 0 } }); // the person, in the first seat, starts
     g.configureCaro({ seats: [{ kind: 'human', animal: 0 }, { kind: 'ai', lv: 2, animal: 6 }] });
     g.step(1); g.press('Enter'); g.step(1); g.step(140);
   });
@@ -158,14 +160,48 @@ test('on a phone the board takes taps too, and a game left there comes back afte
   await ctx.close();
 });
 
-test('the "Ai đi trước?" panel leaves the middle of the board soon after the throw, before anyone moves', async ({ page }) => {
-  // Regression (review 19/11/2026): it stayed until the first piece, hiding the middle cells from the player going first.
+type Ordering = View & { ordering: boolean; dice: number[] };
+const ordering = (page: Page): Promise<Ordering> => page.evaluate(() => (window.game as unknown as { caro: Ordering }).caro);
+const labels = (page: Page): Promise<string[]> => page.evaluate(() => (window.game as unknown as { view: { buttons: { label: string }[] } }).view.buttons.map(b => b.label));
+
+test('the first game waits for each person to hold and let go of the dice; the higher throw goes first', async ({ page }) => {
+  // As the other three games (order_roll): nobody throws for a person; ties throw again.
   const errors = await open(page, 'manual=1&seed=5');
-  await startTwoPeople(page);                                       // the throw is over: the first player's turn
-  await page.evaluate(() => (window.game as unknown as Game).step(90));
-  const v = await page.evaluate(() => (window.game as unknown as { caro: { orderPanel: boolean; moves: number } }).caro);
-  expect(v.moves).toBe(0);
-  expect(v.orderPanel).toBe(false);
+  await page.evaluate(() => {
+    const g = window.game as unknown as Game;
+    g.configure({ tune: { order_roll: 1 } }); g.configureCaro({ seats: [{ kind: 'human', animal: 4 }, { kind: 'human', animal: 9 }] });
+    g.step(1); g.press('Enter'); g.step(1); g.step(600);           // ten seconds, and nobody touches the dice
+  });
+  const waiting = await ordering(page);
+  expect(waiting).toMatchObject({ ordering: true, phase: 'roll', cur: 0 });
+  expect(await labels(page)).toContain('Giữ để lắc chọn lượt');
+  const names = waiting.names;
+  const throws: number[] = [];
+  for (let k = 0; k < 12 && (await ordering(page)).ordering; k++) { // each throw: hold Space a moment, let go, watch the dice land
+    await page.evaluate(() => { const g = window.game as unknown as Game & { hold(c: string, on: boolean): void }; g.press('Space'); g.hold('Space', true); g.step(1); g.step(20); g.hold('Space', false); g.step(1); });
+    expect((await ordering(page)).phase).toBe('dice');                 // let go: the dice tumble
+    const landed = await page.evaluate(() => { const g = window.game as unknown as { caro: Ordering; step(n: number): void }; for (let i = 0; i < 60 && g.caro.phase === 'dice'; i++) g.step(5); return g.caro; });
+    expect(landed.phase).toBe('shown');                                // the total shows on the card
+    throws.push(landed.dice.reduce((a, b) => a + b, 0));
+    await page.evaluate(() => { const g = window.game as unknown as { caro: Ordering; step(n: number): void }; for (let i = 0; i < 60 && g.caro.phase === 'shown'; i++) g.step(5); });
+  }
+  const v = await ordering(page);
+  expect(v).toMatchObject({ ordering: false, phase: 'turn', cur: 0, moves: 0 });
+  expect(throws.length).toBeGreaterThanOrEqual(2);
+  expect(throws.every(t => t >= 2 && t <= 12)).toBe(true);           // two dice each (caro_order_dice)
+  expect([...v.names].sort()).toEqual([...names].sort());
+  expect(errors).toEqual([]);
+});
+
+test('a computer throws for the order on its own, and the person still throws their own', async ({ page }) => {
+  const errors = await open(page, 'manual=1&seed=9');
+  await page.evaluate(() => {
+    const g = window.game as unknown as Game;
+    g.configure({ tune: { order_roll: 1 } }); g.configureCaro({ seats: [{ kind: 'ai', lv: 1, animal: 2 }, { kind: 'human', animal: 7 }] });
+    g.step(1); g.press('Enter'); g.step(1); g.step(400);           // the computer (first seat) throws; then it waits for the person
+  });
+  const v = await ordering(page);
+  expect(v).toMatchObject({ ordering: true, phase: 'roll', cur: 1 });
   expect(errors).toEqual([]);
 });
 
@@ -231,9 +267,24 @@ test.describe('online', () => {
 
     await host.page.evaluate(() => (window.game as unknown as Game).press('Enter'));
     await expect.poll(() => friend.page.evaluate(() => (window.game as unknown as Game).scene), { timeout: 10000 }).toBe('caro');
+    // each throws for the order on their own screen: hold Space, let go (the friend's screen asks the host)
+    const byName = async (who: number): Promise<Page> => ((await view(host.page)).names[who] === 'Chu' ? host.page : friend.page);
+    for (let k = 0; k < 12; k++) {
+      const v = await host.page.evaluate(() => (window.game as unknown as { caro: Ordering }).caro);
+      if (!v.ordering) break;
+      await expect.poll(async () => (await view(host.page)).phase, { timeout: 10000 }).toBe('roll');
+      const who = await byName((await view(host.page)).cur);
+      await expect.poll(async () => (await labels(who)).includes('Giữ để lắc chọn lượt'), { timeout: 10000 }).toBe(true);
+      await who.evaluate(() => { const g = window.game as unknown as Game & { hold(c: string, on: boolean): void }; g.press('Space'); g.hold('Space', true); });
+      await who.waitForTimeout(300);
+      await who.evaluate(() => (window.game as unknown as Game & { hold(c: string, on: boolean): void }).hold('Space', false));
+      await expect.poll(async () => ['dice', 'shown'].includes((await view(host.page)).phase), { timeout: 10000 }).toBe(true);
+      await expect.poll(async () => ['roll', 'turn'].includes((await view(host.page)).phase), { timeout: 10000 }).toBe(true);
+    }
     await expect.poll(async () => (await view(host.page)).phase, { timeout: 10000 }).toBe('turn');
     const first = (await view(host.page)).cur;
-    const pageOf = (who: number): Page => (who === 0 ? host.page : friend.page);
+    const names = (await view(host.page)).names;
+    const pageOf = (who: number): Page => (names[who] === 'Chu' ? host.page : friend.page);
     const firstMoves = [[6, 2], [6, 3], [6, 4], [6, 5], [6, 6]], secondMoves = [[9, 9], [9, 10], [10, 3], [12, 12]];
     for (let k = 0; k < firstMoves.length; k++) {
       for (const [who, mv] of [[first, firstMoves[k]], [1 - first, secondMoves[k]]] as [number, number[] | undefined][]) {
@@ -254,7 +305,7 @@ test.describe('online', () => {
     const h = await view(host.page), f = await view(friend.page);
     expect(f.winner).toBe(first);
     expect(f.board).toEqual(h.board);
-    expect(h.names).toEqual(['Chu', 'Ban']);
+    expect([...h.names].sort()).toEqual(['Ban', 'Chu']);           // in the order the throws put them
     expect(host.errors).toEqual([]);
     expect(friend.errors).toEqual([]);
   });

@@ -1,8 +1,9 @@
 // Cờ Caro's turns: the game being played (G), the setup screen's seats, and what happens each step —
-// the first game's dice throw for who goes first, a piece placed and dropping onto its cell, five in a
+// the first game's throws for who goes first (each player holds to shake and lets go, as in the other games), a piece placed and dropping onto its cell, five in a
 // row, a full board. The rules are in ./rules.ts; the screens in ./scene.ts; online play in ./online.ts.
 // Online, only the host runs this; a friend's screen draws the G the host sends.
 
+import { startOrder, recordOrder, nextOrder, type OrderState } from '../game/orderRoll';
 import type { Bubble, Vote } from '../net/roomExtras';
 import { tune, CONFIG } from '../config';
 import { sfx } from '../audio';
@@ -29,11 +30,16 @@ export interface CaroGame {
   size: number;
   board: number[];
   cur: number;
-  /** order: the dice for who goes first; turn: waiting for a piece; drop: a piece falling; over. */
-  phase: 'order' | 'turn' | 'drop' | 'over';
+  /** roll, shake, dice, shown: the throws for who goes first (G.order); turn: waiting for a piece; drop: a piece falling; over. */
+  phase: 'roll' | 'shake' | 'dice' | 'shown' | 'turn' | 'drop' | 'over';
   t: number; timer: number;
-  /** The first game's throw: each player's die, how long it has rolled. */
-  order: { dice: number[]; t: number } | null;
+  /** While the players throw for the order of play (src/game/orderRoll.ts). */
+  order?: OrderState;
+  /** The last throw's dice, the shake in the hand, the dice tumbling, the total shown as they stop. */
+  dice: number[];
+  shake: { t: number; ai: boolean; holdFor: number; remote?: boolean; released?: boolean } | null;
+  throwAt: { t: number; dur: number; power: number; faces: number[][]; spin: number } | null;
+  show: { t: number; dice: number[] } | null;
   /** The piece falling onto its cell. */
   drop: { cell: number; t: number } | null;
   /** The last piece placed (-1 none), and the move count. */
@@ -115,14 +121,42 @@ export function newGame(seed?: number, names: (string | undefined)[] = [], anima
     players.push({ id: players.length, seat: i, name, kind: st.kind, lv: st.lv ?? 1, animal: st.animal, peer: st.peer, moves: 0, wins: 0 });
   });
   start(s, players, 0, 1);
-  // the throw for who goes first: each a die, thrown again on a tie
-  let d: number[];
-  do d = players.map(() => 1 + Math.floor(rng() * 6)); while (d[0] === d[1]);
-  G.order = { dice: d, t: 0 };
-  G.cur = d[0] > d[1] ? 0 : 1;
-  G.phase = 'order';
+  if (tune.order_roll >= 1 && players.length > 1) { startOrder(G, log); G.phase = 'roll'; } // each throws in turn: the highest goes first, as in the other games
+  else log(`Ván mới! ${curP().name} đi trước.`);
+}
+
+/** Starts shaking the dice for the order (a person holds; the computer holds for a moment of its own). */
+export function startShake(ai = false): void {
+  if (G.phase !== 'roll') return;
+  G.shake = { t: 0, ai, holdFor: ai ? 0.35 + rng() * 0.6 : 0 };
+  G.phase = 'shake';
+}
+/** How hard the dice will be thrown: 0 to 1, from how long they were shaken. */
+export const shakePower = (): number => (G.shake ? Math.min(1, G.shake.t / tune.shake_full_time) : 0);
+/** How many dice a throw for the order uses (data/config.json caro_order_dice). */
+export const orderDice = (): number => (tune.caro_order_dice >= 2 ? 2 : 1);
+/** Lets go of the dice: they tumble, and land. */
+export function throwDice(): void {
+  const power = shakePower(), n = orderDice();
+  G.shake = null;
+  G.dice = Array.from({ length: n }, () => 1 + Math.floor(rng() * 6));
+  const dur = tune.dice_time * (0.75 + 0.6 * power);
+  const faces = Array.from({ length: 8 + Math.round(power * 6) }, () => Array.from({ length: n }, () => 1 + Math.floor(rng() * 6)));
+  G.throwAt = { t: 0, dur, power, faces, spin: (rng() < 0.5 ? -1 : 1) * (2 + power * 3) };
+  G.phase = 'dice'; G.timer = 0; G.show = null;
   play('dice');
-  log('Ván mới! Thảy xúc xắc chọn người đi trước.');
+}
+/** The dice stopped: the throw is noted on the player's card and shown for a moment. */
+function afterDice(): void {
+  G.show = { t: 0, dice: [...G.dice] };
+  recordOrder(G, G.dice.reduce((a, b) => a + b, 0), log); play('land');
+  G.phase = 'shown'; G.timer = 0;
+}
+/** After a throw has been shown: the next player throws, players who tied throw again, or the game starts. */
+function afterShown(): void {
+  G.timer = 0;
+  if (nextOrder(G, log)) { G.phase = 'turn'; play('double'); log(`${curP().name} đi trước.`); }
+  else G.phase = 'roll';
 }
 /** Another game with the same players: the loser of the last goes first (after a draw, the one who went
  * second), and the wins carry over. */
@@ -141,7 +175,7 @@ const firstOf = (g: CaroGame): number => {
 };
 function start(seed: number, players: CaroPlayer[], cur: number, round: number): void {
   const R = rulesNow();
-  G = { seed, players, size: R.size, board: emptyBoard(R.size), cur, phase: 'turn', t: 0, timer: 0, order: null, drop: null, last: -1, moves: 0, line: null, winner: -1, draw: false, round, log: [], floaters: [], rules: Object.fromEntries(RULE_KEYS.map(k => [k, tune[k]])) };
+  G = { seed, players, size: R.size, board: emptyBoard(R.size), cur, phase: 'turn', t: 0, timer: 0, dice: [], shake: null, throwAt: null, show: null, drop: null, last: -1, moves: 0, line: null, winner: -1, draw: false, round, log: [], floaters: [], rules: Object.fromEntries(RULE_KEYS.map(k => [k, tune[k]])) };
 }
 
 /** Places the current player's piece on cell, if it is their turn and the cell is empty; true when placed. */
@@ -175,19 +209,30 @@ function blockedFive(cell: number): boolean {
   return !!winLine(G.board, { ...R, blockTwo: false }, cell);
 }
 
-/** One step of the game (the host's, or one screen's). `peerOnline` says whether a friend's seat is connected. */
-export function step(dt: number, peerOnline: (id?: number) => boolean): void {
+/** One step of the game (the host's, or one screen's). `held` says whether the person shaking still holds
+ * the dice; `peerOnline` whether a friend's seat is connected. */
+export function step(dt: number, held: boolean, peerOnline: (id?: number) => boolean): void {
   G.t += dt; G.timer += dt;
   for (const f of G.floaters) f.t += dt;
   G.floaters = G.floaters.filter(f => f.t < 1.6);
+  if (G.show) G.show.t += dt;
   switch (G.phase) {
-    case 'order':
-      G.order!.t += dt;
-      if (G.order!.t >= tune.caro_order_time) {
-        G.phase = 'turn'; G.timer = 0;
-        play('double');
-        log(`${G.players[0].name} đổ ${G.order!.dice[0]}, ${G.players[1].name} đổ ${G.order!.dice[1]}: ${curP().name} đi trước.`);
-      }
+    case 'roll':
+      if (autoPlays(curP(), peerOnline) && G.timer >= tune.caro_ai_delay) startShake(true);
+      break;
+    case 'shake': {
+      const sh = G.shake!, p = curP(); sh.t += dt;
+      if (Math.floor(sh.t / 0.09) !== Math.floor((sh.t - dt) / 0.09)) play('rattle', sh.t);
+      const still = sh.ai ? sh.t < sh.holdFor : sh.remote ? !sh.released && peerOnline(p.peer) : held;
+      if (!still || sh.t > tune.shake_max_time) throwDice();
+      break;
+    }
+    case 'dice':
+      G.throwAt!.t += dt;
+      if (G.throwAt!.t >= G.throwAt!.dur) { G.throwAt = null; afterDice(); }
+      break;
+    case 'shown':
+      if (G.timer >= tune.order_show_time) afterShown();
       break;
     case 'turn': {
       const p = curP();

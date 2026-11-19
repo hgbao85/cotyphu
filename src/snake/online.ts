@@ -184,7 +184,7 @@ export function sendAct(act: string): void {
 function onHostMsg(d: Loose): void {
   if (!d || typeof d.k !== 'string') return;
   if (!d.k.startsWith('snake')) {
-    const other = d.k.startsWith('ludo') ? 'Cá Ngựa' : 'Cờ Tỷ Phú';
+    const other = d.k.startsWith('ludo') ? 'Cá Ngựa' : d.k.startsWith('caro') ? 'Cờ Caro' : 'Cờ Tỷ Phú';
     goOffline(`Mã này là phòng ${other}: về sảnh, chọn ${other} rồi vào phòng nhé.`); setScene('snakeSetup'); return;
   }
   if (d.k === 'snakeYou') mySeat = d.seat;

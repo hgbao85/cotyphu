@@ -143,8 +143,8 @@ function onGuestAct(from: number, a: Loose) {
 /** Guest: a message from the host. */
 function onHostMsg(d: Loose) {
   if (!d) return;
-  if (typeof d.k === 'string' && (d.k.startsWith('ludo') || d.k.startsWith('snake'))) { // another game's room: this panel joins Cờ tỷ phú rooms only
-    const other = d.k.startsWith('ludo') ? 'Cá Ngựa' : 'Rắn và Thang';
+  if (typeof d.k === 'string' && (d.k.startsWith('ludo') || d.k.startsWith('snake') || d.k.startsWith('caro'))) { // another game's room: this panel joins Cờ tỷ phú rooms only
+    const other = d.k.startsWith('ludo') ? 'Cá Ngựa' : d.k.startsWith('caro') ? 'Cờ Caro' : 'Rắn và Thang';
     net.leave(); goOffline(`Mã này là phòng ${other}: về sảnh, chọn ${other} rồi vào phòng nhé.`); return;
   }
   if (d.k === 'you') mySeat = d.seat;

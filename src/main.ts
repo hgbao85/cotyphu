@@ -47,6 +47,9 @@ import type { LudoSeat } from './ludo/rules';
 import { snakeScenes, snakeNet, snakeView } from './snake/scene';
 import { snakeSetup } from './snake/game';
 import type { SnakeSeat } from './snake/rules';
+import { caroScenes, caroNet, caroView, caroSpot } from './caro/scene';
+import { caroSetup } from './caro/game';
+import type { CaroSeat } from './caro/rules';
 import '@fontsource/baloo-2/latin-400.css'; // Baloo 2 for the chibi look: Latin and Vietnamese, regular and bold (about 50 KB)
 import '@fontsource/baloo-2/vietnamese-400.css';
 import '@fontsource/baloo-2/latin-700.css';
@@ -394,6 +397,7 @@ const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
   hub: hubScene,   // the first screen: pick a game (src/ui/hub.ts)
   ...ludoScenes,   // Cá Ngựa: ludoSetup, ludo (src/ludo/)
   ...snakeScenes,  // Rắn và Thang: snakeSetup, snake (src/snake/)
+  ...caroScenes,   // Cờ Caro: caroSetup, caro (src/caro/)
   figures: {
     update(dt: number) { state.t += dt; },
     draw() {
@@ -571,7 +575,7 @@ function updateTurn(dt: number) {
 // ---- Loop: fixed step, frame time clamped ---------------------------------------------
 function step() {
   if (pressed('KeyM')) { setMuted(!muted()); hit.delete('KeyM'); }
-  scenes[scene].update(STEP); netStep(); ludoNet(); snakeNet(); hit.clear();
+  scenes[scene].update(STEP); netStep(); ludoNet(); snakeNet(); caroNet(); hit.clear();
   if (events.length > EVENTS_KEPT) events.splice(0, events.length - EVENTS_KEPT);
 }
 let last = 0, acc = 0;
@@ -594,6 +598,11 @@ install({
   get events() { return events; },
   get ludo() { return ludoView(); },
   get snake() { return snakeView(); },
+  get caro() { return caroView(); },
+  /** For checks: where Cờ Caro's cell is on the screen (the layout's own coordinates), to tap it. */
+  caroSpot(cell: number) { return caroSpot(cell); },
+  /** For checks: Cờ Caro's seats for the next game, and its setup screen (where Enter starts it). */
+  configureCaro(o: { seats?: CaroSeat[] }) { if (o.seats) caroSetup.seats = o.seats.map(x => ({ ...x })); F.picker = null; setScene('caroSetup'); },
   /** For checks: Rắn và Thang's seats for the next game, and its setup screen (where Enter starts it). */
   configureSnake(o: { seats?: SnakeSeat[] }) { if (o.seats) snakeSetup.seats = o.seats.map(x => ({ ...x })); F.picker = null; setScene('snakeSetup'); },
   /** For checks: Cá Ngựa's seats for the next game, and its setup screen (where Enter starts it). */
@@ -627,7 +636,7 @@ build3D();
 // the chibi look's rounded font is embedded in the build; once the browser has it, the board's face is drawn again with it
 if (CHIBI) Promise.all(['400 20px "Baloo 2"', '700 20px "Baloo 2"'].map(f => document.fonts.load(f, 'Sự Thảy · Việt Nam'))).then(redrawBoardFace, () => {});
 reset();
-setScene(params.get('scene') || ({ typhu: 'title', cangua: 'ludoSetup', ranthang: 'snakeSetup' } as Record<string, string>)[params.get('game') || ''] || 'hub');
+setScene(params.get('scene') || ({ typhu: 'title', cangua: 'ludoSetup', ranthang: 'snakeSetup', caro: 'caroSetup' } as Record<string, string>)[params.get('game') || ''] || 'hub');
 if (scene === 'play') clearVis();
 last = clock.now();
 if (params.get('manual') === '1') drawFrame();

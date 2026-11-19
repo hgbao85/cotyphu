@@ -1,6 +1,6 @@
 // The hub: the first screen after the splash. Sự Thảy is a table of dice games; each has a big card,
 // and a tap opens that game's own setup screen. A game still to come shows as a faded card.
-// ?game=typhu, ?game=cangua or ?game=ranthang in the address skips the hub (main.ts), for a shared link or a check.
+// ?game=typhu, ?game=cangua, ?game=ranthang or ?game=caro in the address skips the hub (main.ts), for a shared link or a check.
 
 import { W, H, FONT, ctx, text, rrect, clear } from '../screen';
 import { setScene } from '../core/store';
@@ -11,13 +11,14 @@ import { btn, clicks, pointer, pressed, L } from '../main';
 import { drawButton, drawTokenIcon } from './draw';
 import { openSettings } from './settings';
 import { SIDES } from '../ludo/game';
+import { SEATS as CARO_SEATS } from '../caro/game';
 
 /** The games on the table: their scene, name, a line about them, and whether they are ready. */
 const GAMES = [
   { scene: 'title', name: 'Cờ Tỷ Phú', line: 'Mua đất 22 tỉnh thành, xây nhà tới Landmark, thu tiền thuê', who: '2–4 người · online', ready: true },
   { scene: 'ludoSetup', name: 'Cá Ngựa', line: 'Đua 4 chú ngựa về chuồng, đá ngựa đối thủ, lên bậc thang', who: '2–4 người · online', ready: true },
   { scene: 'snakeSetup', name: 'Rắn và Thang', line: 'Leo thang tre, né rắn, về ô 100 trước', who: '2–4 người · online', ready: true },
-  { scene: '', name: 'Sắp có thêm', line: 'Bầu Cua, Xì Xúc Xắc...', who: 'đang làm', ready: false },
+  { scene: 'caroSetup', name: 'Cờ Caro', line: 'Đặt quân con giáp, ai có 5 quân liền trước thì thắng', who: '2 người · online', ready: true },
 ];
 let t = 0;
 
@@ -45,6 +46,7 @@ function input(): void {
   if (pressed('Digit1') || pressed('Enter')) open(0);
   if (pressed('Digit2')) open(1);
   if (pressed('Digit3')) open(2);
+  if (pressed('Digit4')) open(3);
 }
 
 /** A little house, roof and door, for Cờ Tỷ Phú's card. */
@@ -63,7 +65,7 @@ function die(x: number, y: number, s: number, n: number, rot: number): void {
   ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
   ctx.fillStyle = 'rgba(40,60,30,0.2)'; rrect(ctx, -s / 2 + 3, -s / 2 + 6, s, s, s * 0.22); ctx.fill();
   ctx.fillStyle = '#fffaf0'; rrect(ctx, -s / 2, -s / 2, s, s, s * 0.22); ctx.fill(); ctx.strokeStyle = '#d9a86a'; ctx.lineWidth = 2; ctx.stroke();
-  const P: Record<number, number[][]> = { 3: [[-1, -1], [0, 0], [1, 1]], 5: [[-1, -1], [1, -1], [0, 0], [-1, 1], [1, 1]], 6: [[-1, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [1, 1]] };
+  const P: Record<number, number[][]> = { 3: [[-1, -1], [0, 0], [1, 1]], 4: [[-1, -1], [1, -1], [-1, 1], [1, 1]], 5: [[-1, -1], [1, -1], [0, 0], [-1, 1], [1, 1]], 6: [[-1, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [1, 1]] };
   ctx.fillStyle = n === 6 ? '#d9442b' : '#5a3a26';
   for (const [dx, dy] of P[n] || [[0, 0]]) { const px = dx * s * 0.27, py = dy * s * 0.27, r = s * 0.1; ctx.beginPath(); ctx.ellipse(px, py + r * 0.25, r * 0.55, r * 0.45, 0, 0, 7); ctx.fill(); for (const [a, b] of [[-0.55, -0.45], [0, -0.72], [0.55, -0.45]]) { ctx.beginPath(); ctx.arc(px + a * r, py + b * r, r * 0.22, 0, 7); ctx.fill(); } }
   ctx.restore();
@@ -104,10 +106,18 @@ function drawCard(k: number): void {
     for (const e of [-1, 1]) { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(hx + e * s * 0.06, hy - s * 0.02, s * 0.04, 0, 7); ctx.fill(); ctx.fillStyle = '#3a2618'; ctx.beginPath(); ctx.arc(hx + e * s * 0.06, hy - s * 0.015, s * 0.022, 0, 7); ctx.fill(); }
     ctx.strokeStyle = '#d9442b'; ctx.lineWidth = s * 0.02; ctx.beginPath(); ctx.moveTo(hx, hy + s * 0.1); ctx.lineTo(hx, hy + s * 0.17); ctx.stroke();
     ctx.restore();
-  } else {
-    die(px - s * 0.3, py, s * 0.42, 5, -0.3 + bob * 0.02); die(px + s * 0.3, py - s * 0.06, s * 0.42, 3, 0.25 - bob * 0.02);
+  } else { // a little caro board: a grid, four in a row of one colour, the fifth dropping in
+    const g = s * 0.95, x0 = px - g / 2, y0 = py - g / 2 - s * 0.05, n = 5, cs = g / n;
+    ctx.fillStyle = '#e8b866'; rrect(ctx, x0 - cs * 0.25, y0 - cs * 0.25, g + cs * 0.5, g + cs * 0.5, cs * 0.3); ctx.fill();
+    ctx.fillStyle = '#fffaf0'; ctx.fillRect(x0, y0, g, g);
+    ctx.strokeStyle = '#d9a86a'; ctx.lineWidth = 1.5;
+    for (let i = 0; i <= n; i++) { ctx.beginPath(); ctx.moveTo(x0 + i * cs, y0); ctx.lineTo(x0 + i * cs, y0 + g); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x0, y0 + i * cs); ctx.lineTo(x0 + g, y0 + i * cs); ctx.stroke(); }
+    const dot = (r: number, c: number, side: number, lift = 0) => { const S = CARO_SEATS[side], cx = x0 + (c + 0.5) * cs, cy = y0 + (r + 0.5) * cs - lift; ctx.fillStyle = S.dark; ctx.beginPath(); ctx.arc(cx, cy + cs * 0.06, cs * 0.38, 0, 7); ctx.fill(); ctx.fillStyle = S.color; ctx.beginPath(); ctx.arc(cx, cy, cs * 0.38, 0, 7); ctx.fill(); };
+    for (const [r, c] of [[1, 3], [2, 1], [3, 3]]) dot(r, c, 1);
+    for (let i = 0; i < 4; i++) dot(4 - i, i, 0);
+    dot(0, 4, 0, prefs.effects ? Math.abs(Math.sin(t * 2.5)) * cs * 0.6 : 0);
   }
-  if (k < 3) die(phone ? px + s * 0.62 : px + s * 0.85, (phone ? py - s * 0.32 : py - s * 0.55) + bob, phone ? s * 0.34 : s * 0.36, k === 0 ? 6 : k === 1 ? 5 : 3, 0.3 + (prefs.effects ? Math.sin(t * 1.5 + k) * 0.15 : 0));
+  die(phone ? px + s * 0.62 : px + s * 0.85, (phone ? py - s * 0.32 : py - s * 0.55) + bob, phone ? s * 0.34 : s * 0.36, [6, 5, 3, 4][k], 0.3 + (prefs.effects ? Math.sin(t * 1.5 + k) * 0.15 : 0));
   // the words
   const tx = phone ? r.x + r.h + 10 : r.x + r.w / 2, al: CanvasTextAlign = phone ? 'left' : 'center';
   text(g.name, tx, phone ? y + r.h * 0.26 : y + 215, phone ? 26 : 32, g.ready ? '#d9622b' : '#8a6a4a', al, 'bold');

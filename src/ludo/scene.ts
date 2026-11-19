@@ -16,9 +16,10 @@ import { openPicker, buildPicker, drawPicker } from '../ui/setupScreen';
 import { openPage } from '../ui/pages';
 import { openSettings } from '../ui/settings';
 import { showOnlinePanel } from '../net/room';
-import { G, diceText, SIDES, LV_NAMES, ludoSetup, newGame, startShake, pickHorse, curP, step as gameStep, shakePower, ranking, rulesNow, autoPlays } from './game';
+import { G, setG, diceText, SIDES, LV_NAMES, ludoSetup, newGame, startShake, pickHorse, curP, step as gameStep, shakePower, ranking, rulesNow, autoPlays } from './game';
 import { cellOf, moveValue, GATE, STEPS, TRACK, startOf, stepCell, exitRolls, type LudoSeat } from './rules';
 import * as on from './online';
+import { localGame, lastRoom, type KeptGame } from './keep';
 
 /** The horse's face on every piece: Ngựa, the seventh of the twelve animals. */
 const HORSE = 6;
@@ -388,8 +389,8 @@ function showLudoRules(): void {
 // ---- The setup screen --------------------------------------------------------------------------
 function setupSpots() {
   return phone()
-    ? { cx: 240, y0: 200, step: 64, rowH: 52, kindX: 200, kindW: 264, homeY: 462, start: [16, 528, 448, 60], online: [16, 598, 448, 54], back: [12, 8, 92, 32], rules: [W - 104, 8, 92, 32] }
-    : { cx: 640, y0: 222, step: 64, rowH: 50, kindX: 650, kindW: 300, homeY: 482, start: [370, 562, 260, 60], online: [650, 562, 260, 60], back: [326, 56, 100, 32], rules: [854, 56, 100, 32] };
+    ? { cx: 240, y0: 200, step: 64, rowH: 52, kindX: 200, kindW: 264, homeY: 462, start: [16, 528, 448, 60], online: [16, 598, 448, 54], resume: [16, 664, 448, 50], rejoin: [16, 722, 448, 50], back: [12, 8, 92, 32], rules: [W - 104, 8, 92, 32] }
+    : { cx: 640, y0: 222, step: 64, rowH: 50, kindX: 650, kindW: 300, homeY: 482, start: [370, 562, 260, 60], online: [650, 562, 260, 60], resume: [370, 636, 260, 50], rejoin: [650, 636, 260, 50], back: [326, 56, 100, 32], rules: [854, 56, 100, 32] };
 }
 function seatsShown(): LudoSeat[] { return on.isGuest() ? (on.lobby?.seats ?? []) : ludoSetup.seats; }
 function buildSetup(): void {
@@ -420,7 +421,18 @@ function buildSetup(): void {
   b4(T.start, phone() ? 'Bắt đầu' : 'Bắt đầu (Enter)', startLudo, 'primary', '#c8201f');
   if (on.isHost()) b4(T.online, `Giải tán phòng ${on.roomCode}`, on.leaveRoom, '', '#6a4a2a');
   else b4(T.online, 'Chơi online', () => showOnlinePanel(true, { create: on.createRoom, join: on.joinRoom }), '', '#2b6cd6');
+  if (!on.isHost()) { // after a reload: the game left on this screen, the room left
+    const kept = localGame(), room = lastRoom();
+    if (kept) b4(T.resume, phone() ? 'Chơi tiếp ván trước' : 'Chơi tiếp ván trước', () => resumeLocal(kept), '', '#2f8a3a');
+    if (room) b4(kept ? T.rejoin : T.resume, `Vào lại phòng ${room.code}`, on.rejoinRoom, '', '#2f8a3a');
+  }
   buildPicker();
+}
+/** Puts the game left on this screen back, where it was. */
+function resumeLocal(k: KeptGame): void {
+  F.picker = null; on.setNote('');
+  ludoSetup.seats = k.seats.map(x => ({ ...x }));
+  setG(k.g); setScene('ludo');
 }
 function startLudo(): void {
   F.picker = null;
@@ -439,7 +451,7 @@ function drawSetup(): void {
   const T = setupSpots();
   // the board behind, faded
   drawBoard(); ctx.fillStyle = 'rgba(191,230,245,0.72)'; ctx.fillRect(0, 0, W, H);
-  const cardX = phone() ? 8 : 310, cardW = phone() ? W - 16 : 660, cardY = phone() ? 48 : 40, cardH = phone() ? 620 : 660;
+  const cardX = phone() ? 8 : 310, cardW = phone() ? W - 16 : 660, cardY = phone() ? 48 : 40, cardH = phone() ? (!on.isHost() && !on.isGuest() && (localGame() || lastRoom()) ? 736 : 620) : 660;
   ctx.save(); ctx.fillStyle = 'rgba(255,249,234,0.97)'; rrect(ctx, cardX, cardY, cardW, cardH, 22); ctx.fill(); ctx.strokeStyle = '#e8a86a'; ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
   text('CÁ NGỰA', T.cx, cardY + (phone() ? 50 : 62), phone() ? 36 : 46, '#d9622b', 'center', 'bold');
   text(`Đua ngựa về chuồng · 2 đến 4 người · ${rulesNow().dice > 1 ? 'hai viên' : 'một viên'} xúc xắc`, T.cx, cardY + (phone() ? 92 : 112), phone() ? 15 : 18, '#6a4a32');

@@ -98,17 +98,19 @@ function open(): void {
   };
 }
 
-/** Makes a room; this browser becomes its host. */
-export function createRoom(name: string, h: NetHandlers): void {
+/** Makes a room; this browser becomes its host. `game` keeps each game's rooms apart: the server gives
+ * a host coming back with the same key its old room, so Cờ Tỷ Phú ('') and Cá Ngựa ('ludo') use keys
+ * of their own, and a host never gets back the other game's room. */
+export function createRoom(name: string, h: NetHandlers, game = ''): void {
   storage()?.setItem('tpdv-name', name);
-  role = 'host'; handlers = h; wanted = { t: 'create', name, key: playerKey() };
+  role = 'host'; handlers = h; wanted = { t: 'create', name, key: playerKey() + (game ? ':' + game : '') };
   open();
 }
 
-/** Joins the room with this code as a guest. */
-export function joinRoom(code: string, name: string, h: NetHandlers): void {
+/** Joins the room with this code as a guest (`game` as for createRoom: the seat comes back by the same key). */
+export function joinRoom(code: string, name: string, h: NetHandlers, game = ''): void {
   storage()?.setItem('tpdv-name', name);
-  role = 'guest'; handlers = h; wanted = { t: 'join', code: code.trim().toUpperCase(), name, key: playerKey() };
+  role = 'guest'; handlers = h; wanted = { t: 'join', code: code.trim().toUpperCase(), name, key: playerKey() + (game ? ':' + game : '') };
   open();
 }
 

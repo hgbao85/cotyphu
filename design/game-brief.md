@@ -180,6 +180,7 @@ Trang mở với màn chờ (con giáp nhảy trên đảo, đếm từ 30). Mà
 - [x] Sảnh chọn game khi mở trang (Cờ Tỷ Phú, Cá Ngựa, thẻ "Sắp có thêm"); mỗi game có nút ‹ Sảnh; link thẳng ?game=typhu / ?game=cangua
 - [x] Cá Ngựa: bàn 2D chibi, 2–4 chỗ ngồi (Người, Máy Dễ/Vừa/Khó, Bạn online, Không chơi), 4 ngựa mỗi người, giữ để lắc thả để thảy một viên xúc xắc chấm dấu chân; đổ 6 ra quân và thảy thêm; không nhảy qua đầu; đá ngựa về chuồng; lên chuồng Truyền thống (đổ đúng từng bậc) hoặc Nhanh; màn thắng; luật chơi; chơi online cùng máy chủ phòng
 - [x] Cá Ngựa 2 viên xúc xắc: mỗi viên đi riêng, bấm ngựa, ngựa đi được nhiều cách thì chọn đi số nào hoặc đi tổng cả hai viên; một viên 1 hoặc 6 ra một ngựa; đôi 2–5 dùng cả hai viên ra một ngựa; đổ đôi thảy thêm; lên chuồng truyền thống mỗi viên tính riêng. Ô ra quân ở góc ngoài mỗi cánh, sát chuồng ngựa
+- [x] Cá Ngựa giữ ván: tải lại trang vẫn chơi tiếp ván một máy; nút Vào lại phòng (30 phút), chủ phòng tải lại vẫn giữ ván; mỗi game một mã chủ phòng riêng nên không lấy nhầm phòng của game kia
 - [ ] Thêm game: Bầu Cua, Rắn và Thang, Xì Xúc Xắc
 
 ## Your systems

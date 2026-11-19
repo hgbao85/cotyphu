@@ -452,7 +452,7 @@ function drawSetup(): void {
   const T = setupSpots();
   // the board behind, faded
   drawBoard(); ctx.fillStyle = 'rgba(191,230,245,0.72)'; ctx.fillRect(0, 0, W, H);
-  const cardX = phone() ? 8 : 310, cardW = phone() ? W - 16 : 660, cardY = phone() ? 48 : 40, cardH = phone() ? (!on.isHost() && !on.isGuest() && (localGame() || lastRoom()) ? 736 : 620) : 660;
+  const cardX = phone() ? 8 : 310, cardW = phone() ? W - 16 : 660, cardY = phone() ? 48 : 40, cardH = phone() ? (!on.isHost() && !on.isGuest() && (localGame() || lastRoom()) ? 736 : on.roomCode ? 712 : 620) : 660; // a room's code sits under the online button
   ctx.save(); ctx.fillStyle = 'rgba(255,249,234,0.97)'; rrect(ctx, cardX, cardY, cardW, cardH, 22); ctx.fill(); ctx.strokeStyle = '#e8a86a'; ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
   text('CÁ NGỰA', T.cx, cardY + (phone() ? 50 : 62), phone() ? 36 : 46, '#d9622b', 'center', 'bold');
   text(`Đua ngựa về chuồng · 2 đến 4 người · ${rulesNow().dice > 1 ? 'hai viên' : 'một viên'} xúc xắc`, T.cx, cardY + (phone() ? 92 : 112), phone() ? 15 : 18, '#6a4a32');

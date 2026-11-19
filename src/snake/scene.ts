@@ -395,7 +395,7 @@ function drawSetup(): void {
   const T = setupSpots();
   drawBoard(); ctx.fillStyle = 'rgba(191,230,245,0.72)'; ctx.fillRect(0, 0, W, H);
   const extra = !on.isHost() && !on.isGuest() && (localGame() || lastRoom());
-  const cardX = phone() ? 8 : 310, cardW = phone() ? W - 16 : 660, cardY = phone() ? 48 : 40, cardH = phone() ? (extra ? 780 : 670) : 660;
+  const cardX = phone() ? 8 : 310, cardW = phone() ? W - 16 : 660, cardY = phone() ? 48 : 40, cardH = phone() ? (extra || on.roomCode ? 780 : 670) : 660; // a room's code sits under the online button
   ctx.save(); ctx.fillStyle = 'rgba(255,249,234,0.97)'; rrect(ctx, cardX, cardY, cardW, cardH, 22); ctx.fill(); ctx.strokeStyle = '#e8a86a'; ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
   text('RẮN VÀ THANG', T.cx, cardY + (phone() ? 50 : 62), phone() ? 34 : 44, '#d9622b', 'center', 'bold');
   text(`Leo thang, né rắn, về ô 100 · 2 đến 4 người · ${rulesNow().dice > 1 ? 'hai viên' : 'một viên'} xúc xắc`, T.cx, cardY + (phone() ? 90 : 108), phone() ? 14 : 18, '#6a4a32');

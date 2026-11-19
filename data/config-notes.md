@@ -66,3 +66,12 @@ holds no comments. The values themselves are in `data/config.json`.
 - `event_every`: cứ mỗi bao nhiêu vòng thì rút một sự kiện cho cả bàn (0 = tắt). `event_rounds`: sự kiện kéo dài mấy vòng. `event_banner_time`: số giây hiện bảng thông báo lớn khi sự kiện bắt đầu. Danh sách sự kiện: EVENTS trong src/game/data.ts. Thêm 18/11/2026.
 - `ai_keep_rent_min`, `ai_keep_rent_share`: máy dùng Thẻ Miễn Thuê hay Thẻ Đổ Lại khi tiền thuê từ ai_keep_rent_min trở lên, hoặc từ ai_keep_rent_share tiền mặt (lấy mức thấp hơn), hoặc lớn hơn tiền đang có. Thêm 18/11/2026.
 - `chat_max_len` (100), `chat_gap` (3 giây giữa hai tin của một người), `chat_time` (giây bong bóng tin nhắn còn trên quân): chat khi chơi online. Không lọc từ, theo lựa chọn của người chơi. Thêm 18/11/2026.
+
+---- Cá Ngựa (thêm 19/11/2026) ----
+- `ludo_horses`: số ngựa mỗi người (4). Về chuồng đủ bấy nhiêu con thì thắng.
+- `ludo_exit_on_one`: 0 = chỉ đổ 6 mới ra quân; 1 = đổ 1 hoặc 6 đều ra được.
+- `ludo_bonus_six`: 1 = đổ 6 được đổ thêm một lần.
+- `ludo_bonus_kick`: 1 = đá được ngựa người khác thì được đổ thêm.
+- `ludo_no_jump`: 1 = không được nhảy qua đầu ngựa khác (luật Việt Nam); 0 = nhảy qua thoải mái.
+- `ludo_home_strict`: 1 = lên chuồng kiểu truyền thống: đứng ở cửa chuồng đổ k thì lên bậc k, lên bậc tiếp theo phải đổ đúng số bậc đó; 0 = đi thẳng vào chuồng theo số đổ, không được đi lố.
+- `ludo_hop_time`: giây mỗi bước nhảy của ngựa. `ludo_ai_delay`: máy nghĩ bao lâu trước khi lắc / chọn ngựa. `ludo_no_move_time`: giây hiện "Không đi được" trước khi qua lượt.

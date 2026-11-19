@@ -39,6 +39,10 @@ import { CHECKED } from './core/env';
 import { openSettings } from './ui/settings';
 import { prefs } from './core/prefs';
 import { CHIBI } from './core/theme';
+import { hubScene } from './ui/hub';
+import { ludoScenes, ludoNet, ludoView } from './ludo/scene';
+import { ludoSetup } from './ludo/game';
+import type { LudoSeat } from './ludo/rules';
 import '@fontsource/baloo-2/latin-400.css'; // Baloo 2 for the chibi look: Latin and Vietnamese, regular and bold (about 50 KB)
 import '@fontsource/baloo-2/vietnamese-400.css';
 import '@fontsource/baloo-2/latin-700.css';
@@ -88,7 +92,7 @@ beforeFit(chooseLayout);
 export const inBoard = (x: number, y: number): boolean => x >= L.bx && x < L.bx + L.bw && y >= L.by && y < L.by + L.bh;
 
 export const STEP = 1 / 60;            // simulation step in seconds; motion is per second, never per frame
-export const TITLE = 'Sự Thảy';
+export const TITLE = 'Cờ Tỷ Phú'; // this game's name on its setup screen; the site is Sự Thảy (src/ui/hub.ts)
 const CONTROLS = ['Chuột: bấm các nút', 'Space / Enter: đổ xúc xắc, đồng ý', 'N / Esc: bỏ qua', 'M: tắt tiếng'];
 export const events: Loose[] = []; // window.game.events: anything the game wants a run to see
 export let checkSeed: number | null = null; // a seed a check set for the next games (window.game.configure)
@@ -325,6 +329,10 @@ function buildTitleUI() {
   });
   { const r = rulesSpot(); btn(r.x, r.y, r.w, r.h, 'Luật chơi', () => showRules(true), 'room'); }
   { const r = settingsSpot(); btn(r.x, r.y, r.w, r.h, 'Cài đặt', openSettings, 'room'); }
+  if (!isGuest() && !isHost()) { // back to the hub's other games (in a room, leaving it comes first)
+    if (L.phone) btn(W / 2 - 42, 6, 84, 30, '‹ Sảnh', () => { F.picker = null; setScene('hub'); }, 'room');
+    else btn(PX + PW / 2 - 46, 28, 92, 32, '‹ Sảnh', () => { F.picker = null; setScene('hub'); }, 'room');
+  }
   const b4 = (r: number[], label: string, fn: () => void, role: string, color: string) => btn(r[0], r[1], r[2], r[3], label, fn, role, true, color);
   if (isGuest()) { b4(T.leave, 'Rời phòng', leaveRoom, 'secondary', '#6a4a2a'); buildPicker(); return; }
   setup.seats.forEach((s, i) => {
@@ -380,6 +388,8 @@ function speedSpot(): { x: number; y: number; w: number; h: number } {
 
 // ---- Scenes ------------------------------------------------------------------------------
 const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
+  hub: hubScene,   // the first screen: pick a game (src/ui/hub.ts)
+  ...ludoScenes,   // Cá Ngựa: ludoSetup, ludo (src/ludo/)
   figures: {
     update(dt: number) { state.t += dt; },
     draw() {
@@ -557,7 +567,7 @@ function updateTurn(dt: number) {
 // ---- Loop: fixed step, frame time clamped ---------------------------------------------
 function step() {
   if (pressed('KeyM')) { setMuted(!muted()); hit.delete('KeyM'); }
-  scenes[scene].update(STEP); netStep(); hit.clear();
+  scenes[scene].update(STEP); netStep(); ludoNet(); hit.clear();
 }
 let last = 0, acc = 0;
 function tick() {
@@ -577,6 +587,9 @@ install({
   press(code: string) { hit.add(code); },
   hold(code: string, on: boolean) { if (on) down.add(code); else down.delete(code); },
   get events() { return events; },
+  get ludo() { return ludoView(); },
+  /** For checks: Cá Ngựa's seats for the next game, and its setup screen (where Enter starts it). */
+  configureLudo(o: { seats?: LudoSeat[] }) { if (o.seats) ludoSetup.seats = o.seats.map(x => ({ ...x })); F.picker = null; setScene('ludoSetup'); },
   get render() { const r = renderer?.info.render, c = renderer?.domElement; return { calls: r?.calls, triangles: r?.triangles, px: c ? c.width * c.height : 0, shadows: renderer?.shadowMap.enabled }; },
   /** For checks and the balance tools: the seats, the kind of game, the seed and tuning values for the next game, and
    * back to the title screen, where Enter starts it. */
@@ -606,7 +619,7 @@ build3D();
 // the chibi look's rounded font is embedded in the build; once the browser has it, the board's face is drawn again with it
 if (CHIBI) Promise.all(['400 20px "Baloo 2"', '700 20px "Baloo 2"'].map(f => document.fonts.load(f, 'Sự Thảy · Việt Nam'))).then(redrawBoardFace, () => {});
 reset();
-setScene(params.get('scene') || 'title');
+setScene(params.get('scene') || ({ typhu: 'title', cangua: 'ludoSetup' } as Record<string, string>)[params.get('game') || ''] || 'hub');
 if (scene === 'play') clearVis();
 last = clock.now();
 if (params.get('manual') === '1') drawFrame();

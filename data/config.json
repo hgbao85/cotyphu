@@ -60,5 +60,14 @@
   "dice_time": { "value": 1.1, "min": 0.3, "max": 3, "step": 0.05 },
   "shake_full_time": { "value": 1.2, "min": 0.3, "max": 3, "step": 0.1 },
   "shake_max_time": { "value": 4, "min": 1, "max": 10, "step": 0.5 },
-  "hop_time": { "value": 0.17, "min": 0.05, "max": 0.6, "step": 0.01 }
+  "hop_time": { "value": 0.17, "min": 0.05, "max": 0.6, "step": 0.01 },
+  "ludo_horses": { "value": 4, "min": 1, "max": 4, "step": 1 },
+  "ludo_exit_on_one": { "value": 0, "min": 0, "max": 1, "step": 1 },
+  "ludo_bonus_six": { "value": 1, "min": 0, "max": 1, "step": 1 },
+  "ludo_bonus_kick": { "value": 0, "min": 0, "max": 1, "step": 1 },
+  "ludo_no_jump": { "value": 1, "min": 0, "max": 1, "step": 1 },
+  "ludo_home_strict": { "value": 1, "min": 0, "max": 1, "step": 1 },
+  "ludo_hop_time": { "value": 0.16, "min": 0.05, "max": 0.6, "step": 0.01 },
+  "ludo_ai_delay": { "value": 0.6, "min": 0.1, "max": 3, "step": 0.1 },
+  "ludo_no_move_time": { "value": 1.2, "min": 0.3, "max": 4, "step": 0.1 }
 }

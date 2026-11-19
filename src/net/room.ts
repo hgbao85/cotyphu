@@ -143,6 +143,9 @@ function onGuestAct(from: number, a: Loose) {
 /** Guest: a message from the host. */
 function onHostMsg(d: Loose) {
   if (!d) return;
+  if (typeof d.k === 'string' && d.k.startsWith('ludo')) { // a Cá Ngựa room: this panel joins Cờ tỷ phú rooms only
+    net.leave(); goOffline('Mã này là phòng Cá Ngựa: về sảnh, chọn Cá Ngựa rồi vào phòng nhé.'); return;
+  }
   if (d.k === 'you') mySeat = d.seat;
   else if (d.k === 'full') { F.netError = d.msg; }
   else if (d.k === 'history') showHistory(d.list || []);
@@ -170,7 +173,8 @@ export function netStep() {
     }
   } else if (isHost() && scene === 'title') {
     if (++sendEvery >= 30) { sendEvery = 0; sendLobby(); }
-  }
+  } else pendingSfx = []; // another game's room (src/ludo/net.ts) sends its own sounds
+
   if (isGuest() && F.guestShaking && !(pointerHeld || down.has('Space') || down.has('Enter'))) {
     F.guestShaking = false; sendAct('throw');
   }
@@ -178,7 +182,11 @@ export function netStep() {
 
 // The online panel: plain HTML over the canvas, so phones get their own keyboard for the name and code.
 export let onlinePanel: HTMLDivElement | null = null;
-export function showOnlinePanel(on: boolean) {
+/** What the panel's two buttons do for another game (Cá Ngựa); null: this game's rooms. */
+let panelFor: { create(name: string): void; join(code: string, name: string): void } | null = null;
+/** Shows the online panel; `target` makes its buttons open or join another game's room. */
+export function showOnlinePanel(on: boolean, target: typeof panelFor = null) {
+  if (on) panelFor = target;
   if (!onlinePanel) {
     const d = document.createElement('div');
     d.id = 'online';
@@ -200,6 +208,7 @@ export function showOnlinePanel(on: boolean) {
     const nameOk = (): string => { const n = name.value.trim(); if (!n) { setErr('Nhập tên của bạn trước nhé.'); name.focus(); } return n; };
     (d.querySelector('#op-create') as HTMLButtonElement).onclick = () => {
       const n = nameOk(); if (!n) return;
+      if (panelFor) { panelFor.create(n); showOnlinePanel(false); return; }
       myName = n; peers.clear(); setup.seats[0] = { kind: 'human' };
       pendingRestore = false; store()?.removeItem('tpdv-host-game');
       net.createRoom(n, handlers); showOnlinePanel(false);
@@ -207,6 +216,7 @@ export function showOnlinePanel(on: boolean) {
     (d.querySelector('#op-join') as HTMLButtonElement).onclick = () => {
       const n = nameOk(); if (!n) return;
       if (!/^[A-Za-z]{2}\d{2}$/.test(code.value.trim())) { setErr('Mã phòng gồm 2 chữ và 2 số, ví dụ HN42.'); code.focus(); return; }
+      if (panelFor) { panelFor.join(code.value, n); showOnlinePanel(false); return; }
       myName = n; mySeat = -1; lobby = null;
       net.joinRoom(code.value, n, handlers); showOnlinePanel(false);
     };
@@ -216,6 +226,7 @@ export function showOnlinePanel(on: boolean) {
   }
   const setErr = (m: string) => { (onlinePanel!.querySelector('#op-error') as HTMLElement).textContent = m; };
   setErr(F.netError);
+  (onlinePanel.querySelector('h2') as HTMLElement).textContent = panelFor ? 'Cá Ngựa online với bạn bè' : 'Chơi online với bạn bè';
   onlinePanel.style.display = on ? 'flex' : 'none';
 }
 /** Leaves the room and goes back to playing on this screen. */

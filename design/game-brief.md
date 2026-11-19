@@ -58,6 +58,7 @@ After play: Đổi tiền thuê qua R2 (rent_scale 3), thiết kế thêm landma
 After play: Phòng online: ghế thứ 2 không chọn được Không chơi; người vào phòng bị xếp ghế 3 thay vì ghế 2 → ghế 2–4 đều chọn được Không chơi (cần ít nhất 2 người mới bắt đầu); bạn vào phòng lấy ghế sớm nhất là Máy hoặc trống
 After play: Ô thuế 10% / 2.000.000: ưu tiên nộp 10%, tối đa 2.000.000, khỏi phải chọn
 After play: Sao đang cầm cố đất mà vẫn gọi là đủ nhóm → đất cầm cố không tính để gom đủ nhóm (bến, công ty vốn đã không tính)
+After play: Đổi web thành board game nhiều game vui nhộn, signature vẫn là thảy xúc xắc → Sảnh chọn game; game thứ hai là Cá Ngựa (có online luôn)
 After play: Giá thu đủ nhóm lệch với bảng giá (Hà Nội 340.000 × 2 mà thu 670.000) → làm tròn trước rồi mới nhân đôi
 After play: Tại sao không nhân số nào để khỏi phải làm tròn → bỏ làm tròn tiền thuê: chính xác tới nghìn đồng (Hà Nội đất trống 336.000 đ, đủ nhóm 672.000 đ)
 After play: Bỏ hết làm tròn → giá xây và Thuế Tài Sản cũng chính xác tới nghìn đồng (10% của 5.763.000 đ là 576.000 đ)
@@ -169,6 +170,9 @@ Trang mở với màn chờ (con giáp nhảy trên đảo, đếm từ 30). Mà
 - [x] Biểu tượng app và ảnh xem trước khi chia sẻ link kiểu chibi (tools/icons/render.mjs)
 - [x] Màn chờ khi mở trang: đếm 30 giây rồi mới hiện "Đang chuẩn bị bàn cờ..."; mở phòng lúc máy chủ đang thức dậy cũng đếm 30 giây
 - [x] Chạy mượt trên điện thoại yếu (đo bằng tools/fps.mjs)
+- [x] Sảnh chọn game khi mở trang (Cờ Tỷ Phú, Cá Ngựa, thẻ "Sắp có thêm"); mỗi game có nút ‹ Sảnh; link thẳng ?game=typhu / ?game=cangua
+- [x] Cá Ngựa: bàn 2D chibi, 2–4 chỗ ngồi (Người, Máy Dễ/Vừa/Khó, Bạn online, Không chơi), 4 ngựa mỗi người, giữ để lắc thả để thảy một viên xúc xắc chấm dấu chân; đổ 6 ra quân và thảy thêm; không nhảy qua đầu; đá ngựa về chuồng; lên chuồng Truyền thống (đổ đúng từng bậc) hoặc Nhanh; màn thắng; luật chơi; chơi online cùng máy chủ phòng
+- [ ] Thêm game: Bầu Cua, Rắn và Thang, Xì Xúc Xắc
 
 ## Your systems
 - người hoặc máy cho từng chỗ ngồi · in the slice

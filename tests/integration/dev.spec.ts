@@ -17,7 +17,7 @@ test("the dev server's page loads every module and starts a game with no errors"
   // Regression: tips.ts read CHEAP from main.ts while the modules were loading: a blank page under `npm run dev`.
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));
-  await page.goto(`http://localhost:${PORT}/?manual=1&seed=7`);
+  await page.goto(`http://localhost:${PORT}/?game=typhu&manual=1&seed=7`);
   await expect.poll(() => page.evaluate(() => typeof window.game?.step), { timeout: 20000 }).toBe('function');
   await page.evaluate(() => { window.game!.press('Enter'); window.game!.step(5); });
   expect(await page.evaluate(() => window.game!.scene)).toBe('play');

@@ -40,7 +40,7 @@ async function screen(browser: Browser): Promise<{ page: Page; errors: string[] 
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
-  await page.goto(`${BASE}?render=cheap`); // light 3D: two screens draw in software at once
+  await page.goto(`${BASE}?game=typhu&render=cheap`); // light 3D: two screens draw in software at once
   await expect.poll(() => page.evaluate(() => typeof window.game?.step)).toBe('function');
   return { page, errors };
 }

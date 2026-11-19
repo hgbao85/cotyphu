@@ -27,7 +27,7 @@ if (location.protocol.startsWith('http') && !import.meta.env.DEV) {
 let wakeLock: { release(): Promise<void> } | null = null;
 /** Keeps a phone's screen on while a game is being played, and lets it sleep otherwise. */
 async function keepAwake() {
-  const want = scene === 'play' && document.visibilityState === 'visible';
+  const want = (scene === 'play' || scene === 'ludo') && document.visibilityState === 'visible';
   const nav = navigator as Loose;
   if (want && !wakeLock && nav.wakeLock) {
     try { wakeLock = await nav.wakeLock.request('screen'); (wakeLock as Loose).addEventListener?.('release', () => { wakeLock = null; }); } catch { wakeLock = null; }

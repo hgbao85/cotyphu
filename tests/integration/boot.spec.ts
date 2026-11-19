@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url';
 import { CARDS } from '../../src/game/data';
 
 const config = JSON.parse(readFileSync('data/config.json', 'utf8'));
-const build = (query: string): string => `${pathToFileURL(resolve('dist-single/index.html')).href}?${query}`;
+const build = (query: string): string => `${pathToFileURL(resolve('dist-single/index.html')).href}?game=typhu&${query}`;
 
 /** Taps a point of the wide 1280x720 layout. */
 async function tapAt(page: Page, x: number, y: number) {

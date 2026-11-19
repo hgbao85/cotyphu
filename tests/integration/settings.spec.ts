@@ -4,7 +4,7 @@ import { expect, test } from '@playwright/test';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const build = (query: string): string => `${pathToFileURL(resolve('dist-single/index.html')).href}?${query}`;
+const build = (query: string): string => `${pathToFileURL(resolve('dist-single/index.html')).href}?game=typhu&${query}`;
 
 test('keeps the volume and the effects switch for the next visit', async ({ page }) => {
   // Arrange: the title screen, nothing kept yet

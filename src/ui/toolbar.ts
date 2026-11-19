@@ -12,6 +12,7 @@ import { cleanChat } from '../game/chat';
 
 import { showHistory } from '../ui/pages';
 import { showChat, setChatSender } from '../ui/chatBox';
+import { EMOTES } from '../ui/words';
 
 import { log } from '../game/turn';
 
@@ -43,7 +44,6 @@ export function historySpot(): { x: number; y: number; w: number; h: number } {
 }
 /** The phone toolbar's width over the board: only the emotes, online. */
 export const phoneToolbarEnd = (): number => 12 + (roomCode ? 96 + 8 : 0);
-const EMOTES = ['Haha!', 'Trả tiền đi!', 'Hên quá!', 'Xui thế!', 'Nhanh lên!', 'Cảm ơn nha!', 'Chờ đó!', 'Hay lắm!'];
 const emoteLast: number[] = [];       // host: when each seat last sent one, so nobody floods the table
 const emoteSeen = new Set<string>();  // the bubbles already heard here, so each pops once
 /** Host: a player sends a quick emote; it shows over their piece for everyone. */
@@ -81,7 +81,7 @@ export function buildEmoteMenu() {
   const bw = L.phone ? 200 : 180, bh = 48, cols = L.phone ? 2 : 4, x0 = L.cx - (cols * bw + (cols - 1) * 10) / 2, y0 = L.phone ? 400 : 270;
   EMOTES.forEach((e, k) => btn(x0 + (k % cols) * (bw + 10), y0 + Math.floor(k / cols) * (bh + 10), bw, bh, e, () => sendEmote(k), 'menu', true, '#8a5a2a'));
   const rows = Math.ceil(EMOTES.length / cols);
-  btn(L.cx - 170, y0 + rows * (bh + 10) + 6, 160, 46, 'Nhắn tin…', () => { F.emoteMenu = false; showChat(true); }, 'menu', true, '#2b6cd6');
+  btn(L.cx - 170, y0 + rows * (bh + 10) + 6, 160, 46, 'Nhắn tin…', () => { F.emoteMenu = false; setChatSender(sendChat); showChat(true); }, 'menu', true, '#2b6cd6');
   btn(L.cx + 10, y0 + rows * (bh + 10) + 6, 160, 46, 'Đóng', () => { F.emoteMenu = false; }, 'menuSecondary', true, '#6a4a2a');
 }
 export function drawEmoteMenu() {

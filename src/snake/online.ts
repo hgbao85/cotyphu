@@ -13,7 +13,9 @@ import { tune, CONFIG } from '../config';
 import { rawSfx } from '../net/room';
 import { scene, setScene } from '../core/store';
 import type { Loose } from '../game/types';
-import { G, setG, snakeSetup, newGame, startShake, curP, sounds, recordSounds, RULE_KEYS } from './game';
+import { G, setG, snakeSetup, newGame, startShake, curP, sounds, recordSounds, RULE_KEYS, history, log } from './game';
+import { makeRoomExtras, type RoomGame } from '../net/roomExtras';
+import { showHistory } from '../ui/pages';
 import type { SnakeSeat } from './rules';
 import { keepRoom, lastRoom, hostGame, keepHostGame, keepLocal } from './keep';
 
@@ -138,6 +140,18 @@ export function sendLobby(): void {
     net.toOne(id, { k: 'snakeYou', seat: p ? p.seat : snakeSetup.seats.findIndex(s => s.kind === 'remote' && s.peer === id) });
   }
 }
+/** What the room screen's buttons need from the scene: set by src/snake/scene.ts. */
+export const roomUi = { btn: (() => {}) as (x: number, y: number, w: number, h: number, label: string, fn: () => void, role: string, enabled?: boolean, color?: string) => void, cx: () => 0, phone: () => false };
+/** Emotes, chat and the vote for a new game, as Cờ Tỷ Phú's room has them (src/net/roomExtras.ts). */
+export const extras = makeRoomExtras({
+  G: () => (G?.players ? G as unknown as RoomGame : null),
+  isHost, isGuest, peerOnline,
+  mySlot: () => (G?.players ? G.players.findIndex(p => p.seat === (isGuest() ? mySeat : 0)) : -1),
+  sendAct: (act, extra) => net.toHost({ k: 'snakeAct', act, ...extra }),
+  restart: () => hostNewGame(),
+  log,
+  btn: (...a) => roomUi.btn(...a), cx: () => roomUi.cx(), phone: () => roomUi.phone(),
+});
 /** Host: starts the game for everyone; friends' names come from their seats. */
 export function hostNewGame(): void {
   newGame(undefined, snakeSetup.seats.map(s => s.name), names.animalName);
@@ -145,6 +159,8 @@ export function hostNewGame(): void {
 
 /** Host: a friend's press, counted only on their own turn (or their own seat, for the animal). */
 function onAct(from: number, a: Loose): void {
+  if (a.act === 'history') { if (scene === 'snake') net.toOne(from, { k: 'snakeHistory', list: history }); return; } // "Lịch sử" on a friend's screen
+  if (scene === 'snake' && extras.onAct(from, a)) return; // an emote, a line, a vote: any friend in the game, any time
   if (a.act === 'animal') {
     const i = snakeSetup.seats.findIndex(s => s.kind === 'remote' && s.peer === from);
     if (i >= 0 && scene === 'snakeSetup') { names.nextAnimal(i); sendLobby(); }
@@ -157,6 +173,8 @@ function onAct(from: number, a: Loose): void {
   else if (a.act === 'throw' && G.shake?.remote) G.shake.released = true;
 }
 /** Friend: a press for the host. */
+/** "Lịch sử": the whole game's lines (a friend asks the host, who keeps them). */
+export function openHistory(): void { if (isGuest()) sendAct('history'); else showHistory(history); }
 export function sendAct(act: string): void {
   net.toHost({ k: 'snakeAct', act });
   if (act === 'shake') guestShaking = true;
@@ -170,6 +188,7 @@ function onHostMsg(d: Loose): void {
     goOffline(`Mã này là phòng ${other}: về sảnh, chọn ${other} rồi vào phòng nhé.`); setScene('snakeSetup'); return;
   }
   if (d.k === 'snakeYou') mySeat = d.seat;
+  else if (d.k === 'snakeHistory') showHistory(Array.isArray(d.list) ? d.list : []);
   else if (d.k === 'snakeFull') note = d.msg;
   else if (d.k === 'snakeLobby') { lobby = { hostName: d.hostName, seats: d.seats }; for (const k of SHARED) if (typeof d.rules?.[k] === 'number') CONFIG[k].value = d.rules[k]; if (scene === 'snake' && !d.playing) setScene('snakeSetup'); }
   else if (d.k === 'snake') {

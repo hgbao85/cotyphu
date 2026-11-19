@@ -57,10 +57,12 @@ export function cellOf(side: number, p: number): Cell | null {
 }
 
 /** A seat on the setup screen. */
-export interface LudoSeat { kind: 'human' | 'ai' | 'remote' | 'off'; lv?: number; peer?: number; name?: string }
+export interface LudoSeat { kind: 'human' | 'ai' | 'remote' | 'off'; lv?: number; peer?: number; name?: string; /** The zodiac animal on this side's horses (src/game/data.ts ANIMALS), as in Cờ Tỷ Phú. */ animal?: number }
 /** One player in a game. */
 export interface LudoPlayer {
   id: number; side: number; name: string; kind: LudoSeat['kind']; lv: number; peer?: number;
+  /** The zodiac animal on this player's horses (a game kept before animals: none, see animalOf). */
+  animal?: number;
   /** Each horse's progress. */
   horses: number[];
   /** Finished: 1 for first, 2 for second... (0 while still racing). */

@@ -16,14 +16,32 @@ import { drawButton, drawTokenIcon, lacquer, messageBox } from '../ui/draw';
 import { openPicker, buildPicker, drawPicker } from '../ui/setupScreen';
 import { openPage } from '../ui/pages';
 import { openSettings } from '../ui/settings';
+import { LEAVE_LOCAL, CHANGE_PLAYERS } from '../ui/words';
+import { wideSpeedSpot, phoneRow, resultsBox, mostOf, drawSummary } from '../ui/gameChrome';
+import { makeTips } from '../ui/gameTips';
+import { tiltOf, tiltAngle, type Tilt, type Spot } from '../ui/tilt';
+import { figure, drawFigure } from '../three/figureSprites';
+
+/** First-game tips, as Cờ Tỷ Phú's: the first throw, the first horse to pick. */
+const tips = makeTips('ludo:', {
+  roll: 'Giữ nút đỏ để lắc xúc xắc, thả ra để thảy. Muốn ra quân phải đổ đúng số: xem "Luật".',
+  choose: 'Bấm vào con ngựa đang sáng để đi. Ngựa đi được hai cách thì chọn số bước ở các nút bên dưới.',
+});
 import { showOnlinePanel } from '../net/room';
-import { G, setG, diceText, SIDES, LV_NAMES, ludoSetup, newGame, startShake, pickHorse, curP, step as gameStep, shakePower, ranking, rulesNow, autoPlays } from './game';
+import { G, setG, diceText, SIDES, LV_NAMES, ludoSetup, newGame, startShake, pickHorse, curP, step as gameStep, shakePower, ranking, rulesNow, autoPlays, animalOf, animalName } from './game';
 import { cellOf, moveValue, GATE, STEPS, TRACK, startOf, stepCell, exitRolls, type LudoSeat } from './rules';
 import * as on from './online';
 import { localGame, lastRoom, restoreRules, type KeptGame } from './keep';
 
-/** The horse's face on every piece: Ngựa, the seventh of the twelve animals. */
-const HORSE = 6;
+/** Gives seat i the next animal no other playing seat has (a tap on its piece on the setup screen). */
+export function nextAnimal(i: number): void {
+  const used = new Set(ludoSetup.seats.filter((s, k) => k !== i && s.kind !== 'off').map((s, k) => animalOf(s, k)));
+  let a = animalOf(ludoSetup.seats[i], i);
+  for (let k = 0; k < 12; k++) { a = (a + 1) % 12; if (!used.has(a)) break; }
+  ludoSetup.seats[i].animal = a;
+  sfx.animal(a);
+}
+on.useAnimalTap(nextAnimal);
 
 // ---- Layout ------------------------------------------------------------------------------------
 const phone = (): boolean => L.phone;
@@ -33,11 +51,11 @@ function boardRect(): { x: number; y: number; s: number } {
 }
 /** The wide layout's panel. */
 const PX = 740, PWD = 1280 - 740;
-/** A point of the grid (rows and columns, as fractions) on the screen. */
-function at(r: number, c: number): { x: number; y: number } {
-  const b = boardRect(), cs = b.s / 15;
-  return { x: b.x + c * cs, y: b.y + r * cs };
-}
+/** The board seen tilted, as Cờ Tỷ Phú's table (src/ui/tilt.ts). */
+const tilt = (): Tilt => tiltOf('ludo', boardRect(), phone());
+/** A point of the grid (rows and columns, as fractions) on the screen, and how big things are there (k:
+ * 1 is the flat board's size; the far side smaller). */
+function at(r: number, c: number): Spot { return tilt().project(c / 15, r / 15); }
 const cellSize = (): number => boardRect().s / 15;
 /** The corner yard of each side: its top-left cell. */
 const YARD: [number, number][] = [[0, 0], [0, 9], [9, 9], [9, 0]];
@@ -125,13 +143,12 @@ function drawBoard(): void {
     const c = boardCache.getContext('2d')!; c.scale(px / b.s, px / b.s);
     drawBoardInto(c, b.s); cacheKey = key;
   }
-  ctx.save(); ctx.fillStyle = 'rgba(40,90,110,0.18)'; rrect(ctx, b.x + 6, b.y + 10, b.s, b.s, b.s / 15 * 0.9); ctx.fill(); ctx.restore();
-  ctx.drawImage(boardCache, b.x, b.y, b.s, b.s);
+  tilt().draw(ctx, boardCache); // the flat board, seen tilted
 }
 
 // ---- Horses ------------------------------------------------------------------------------------
-/** One horse: a round coloured base, the horse's face on it. */
-function drawHorse(x: number, y: number, size: number, side: number, lift = 0, glow = 0): void {
+/** One horse: a round base in its side's colour, the player's zodiac animal on it (as Cờ Tỷ Phú's pieces). */
+function drawHorse(x: number, y: number, size: number, side: number, animal: number, lift = 0, glow = 0): void {
   const col = SIDES[side].color;
   ctx.save();
   ctx.fillStyle = 'rgba(40,60,30,0.28)'; ctx.beginPath(); ctx.ellipse(x, y + size * 0.42, size * 0.42 * (1 - lift * 0.01), size * 0.14, 0, 0, 7); ctx.fill();
@@ -140,24 +157,35 @@ function drawHorse(x: number, y: number, size: number, side: number, lift = 0, g
   ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y - lift, size * 0.46, 0, 7); ctx.fill();
   ctx.strokeStyle = '#fff6e2'; ctx.lineWidth = size * 0.06; ctx.stroke();
   ctx.restore();
-  drawTokenIcon(HORSE, x, y - lift - size * 0.02, size * 0.86, col, glow ? 'happy' : undefined);
+  drawTokenIcon(animal, x, y - lift - size * 0.02, size * 0.86, col, glow ? 'happy' : undefined);
 }
-/** Where a horse is drawn now: hopping, flying home after a kick, or standing. */
-function horsePos(pi: number, h: number): { x: number; y: number; lift: number } {
+/** A horse standing on the board: Cờ Tỷ Phú's 3D figure of the player's animal in the side's colour, its
+ * shadow and (for a horse that may move) a glowing ring on the board under it. The flat token without WebGL. */
+function drawBoardHorse(x: number, y: number, size: number, side: number, animal: number, lift: number, glow: number): void {
+  const f = figure(animal, SIDES[side].color, tiltAngle(phone()));
+  if (!f) { drawHorse(x, y, size, side, animal, lift, glow); return; }
+  ctx.save();
+  ctx.fillStyle = 'rgba(40,60,30,0.3)'; ctx.beginPath(); ctx.ellipse(x, y, size * 0.4 * (1 - Math.min(0.5, lift / size)), size * 0.17, 0, 0, 7); ctx.fill();
+  if (glow) { ctx.strokeStyle = `rgba(255,236,120,${0.5 + 0.5 * glow})`; ctx.lineWidth = size * 0.1; ctx.beginPath(); ctx.ellipse(x, y, size * 0.52, size * 0.24, 0, 0, 7); ctx.stroke(); }
+  ctx.restore();
+  drawFigure(ctx, f, x, y, size * 1.1, lift); // as big on its cell as Cờ Tỷ Phú's pieces on their tiles
+}
+/** Where a horse is drawn now: hopping, flying home after a kick, or standing (k: its size there). */
+function horsePos(pi: number, h: number): { x: number; y: number; lift: number; k: number } {
   const p = G.players[pi], cs = cellSize();
   const hp = G.hop;
   if (hp && hp.pi === pi && hp.h === h && hp.path.length) {
     const a = spot(p.side, h, p.horses[h]), b = spot(p.side, h, hp.path[0]);
     const u = Math.min(1, hp.t / tune.ludo_hop_time), q = at(a.r + (b.r - a.r) * u, a.c + (b.c - a.c) * u);
-    return { x: q.x, y: q.y, lift: Math.sin(u * Math.PI) * cs * 0.55 };
+    return { x: q.x, y: q.y, lift: Math.sin(u * Math.PI) * cs * 0.55 * q.k, k: q.k };
   }
   const k = G.kicked.find(x => x.pi === pi && x.h === h);
   if (k) {
     const a = spot(p.side, h, k.from), b = nest(p.side, h), u = Math.min(1, k.t / 0.6), q = at(a.r + (b.r - a.r) * u, a.c + (b.c - a.c) * u);
-    return { x: q.x, y: q.y, lift: Math.sin(u * Math.PI) * cs * 2 };
+    return { x: q.x, y: q.y, lift: Math.sin(u * Math.PI) * cs * 2 * q.k, k: q.k };
   }
   const s = spot(p.side, h, p.horses[h]), q = at(s.r, s.c);
-  return { x: q.x, y: q.y, lift: 0 };
+  return { x: q.x, y: q.y, lift: 0, k: q.k };
 }
 /** True when this screen chooses the current player's horse. */
 function myTurn(): boolean {
@@ -183,6 +211,11 @@ function spentDice(): boolean[] {
 /** The colours of the two "how far" buttons, and of the band each paints to its cell. */
 const HINT = ['#ff8a5c', '#5aa2ec', '#7cc95a'];
 /** The tapped horse's ways to go: a band of its colour over the cells it passes, its end cell ringed and numbered. */
+/** A cell of the grid as its tilted outline (inset: how far in from its edges, in cells), ready to fill or stroke. */
+function cellQuad(r: number, c: number, inset: number): void {
+  const a = at(r + inset, c + inset), b = at(r + inset, c + 1 - inset), d = at(r + 1 - inset, c + 1 - inset), e = at(r + 1 - inset, c + inset);
+  ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(d.x, d.y); ctx.lineTo(e.x, e.y); ctx.closePath();
+}
 function drawHints(): void {
   const h = picked(); if (h < 0) return;
   const p = curP(), cs = cellSize(), pulse = 0.75 + 0.25 * Math.sin(G.t * 5);
@@ -192,13 +225,14 @@ function drawHints(): void {
     const path: number[] = m.from === GATE && m.to > GATE && rulesNow().homeStrict ? [m.to] : Array.from({ length: m.to - m.from }, (_, j) => m.from + 1 + j);
     ctx.save();
     path.forEach((q, j) => {
-      const c = cellOf(p.side, q)!, o = at(c[0], c[1]), last = j === path.length - 1;
+      const c = cellOf(p.side, q)!, last = j === path.length - 1;
       ctx.globalAlpha = last ? 0.55 * pulse : 0.32;
-      ctx.fillStyle = HINT[k]; rrect(ctx, o.x + cs * 0.08, o.y + cs * 0.08, cs * 0.84, cs * 0.84, cs * 0.22); ctx.fill();
+      ctx.fillStyle = HINT[k]; cellQuad(c[0], c[1], 0.08); ctx.fill();
       if (last) {
         ctx.globalAlpha = 1; ctx.strokeStyle = HINT[k]; ctx.lineWidth = Math.max(3, cs * 0.12);
-        rrect(ctx, o.x + cs * 0.02, o.y + cs * 0.02, cs * 0.96, cs * 0.96, cs * 0.26); ctx.stroke();
-        text(String(d), o.x + cs * 0.82, o.y + cs * 0.14, Math.round(cs * 0.42), HINT[k], 'center', 'bold');
+        cellQuad(c[0], c[1], 0.02); ctx.stroke();
+        const o = at(c[0] + 0.14, c[1] + 0.82);
+        text(String(d), o.x, o.y, Math.round(cs * 0.42 * o.k), HINT[k], 'center', 'bold');
       }
     });
     ctx.restore();
@@ -207,20 +241,21 @@ function drawHints(): void {
 function drawHorses(): void {
   drawHints();
   const cs = cellSize(), mv = movable();
-  const list: { pi: number; h: number; x: number; y: number; lift: number }[] = [];
+  const list: { pi: number; h: number; x: number; y: number; lift: number; k: number }[] = [];
   G.players.forEach((p, pi) => p.horses.forEach((_, h) => list.push({ pi, h, ...horsePos(pi, h) })));
   list.sort((a, b) => a.y - b.y); // the lower ones in front
   for (const it of list) {
     const p = G.players[it.pi], mine = it.pi === G.cur && mv.includes(it.h);
-    const bob = mine && prefs.effects ? Math.abs(Math.sin(G.t * 5 + it.h)) * cs * 0.18 : 0;
-    const breathe = prefs.effects && it.pi === G.cur && !mine ? Math.sin(G.t * 3 + it.h) * cs * 0.03 : 0;
+    const ck = cs * it.k; // a cell's size where the horse stands: the far side smaller
+    const bob = mine && prefs.effects ? Math.abs(Math.sin(G.t * 5 + it.h)) * ck * 0.18 : 0;
+    const breathe = prefs.effects && it.pi === G.cur && !mine ? Math.sin(G.t * 3 + it.h) * ck * 0.03 : 0;
     const chosen = mine && it.h === picked(); // the tapped horse, waiting for how far
-    drawHorse(it.x, it.y, cs * (chosen ? 1.12 : 0.95), p.side, it.lift + bob + breathe + (chosen ? cs * 0.2 : 0), mine ? (chosen ? 1 : 0.5 + 0.5 * Math.sin(G.t * 6)) : 0);
-    if (mine && mv.length > 1) text(String(it.h + 1), it.x + cs * 0.38, it.y - it.lift - bob - cs * 0.4, Math.round(cs * 0.36), '#4a3020', 'center', 'bold');
+    drawBoardHorse(it.x, it.y, ck * (chosen ? 1.12 : 0.95), p.side, animalOf(p, p.side), it.lift + bob + breathe + (chosen ? ck * 0.2 : 0), mine ? (chosen ? 1 : 0.5 + 0.5 * Math.sin(G.t * 6)) : 0);
+    if (mine && mv.length > 1) text(String(it.h + 1), it.x + ck * 0.38, it.y - it.lift - bob - ck * 0.4, Math.round(ck * 0.36), '#4a3020', 'center', 'bold');
   }
   for (const f of G.floaters) {
     const u = f.t / 1.4;
-    const q = f.pi >= 0 ? horsePos(f.pi, f.h) : { ...at(7.5, 7.5), lift: cs * 1.4 };
+    const q = f.pi >= 0 ? horsePos(f.pi, f.h) : { ...at(7.5, 7.5), lift: cs * 1.4 * at(7.5, 7.5).k };
     ctx.save(); ctx.globalAlpha = 1 - Math.max(0, u - 0.6) / 0.4;
     ctx.font = `bold ${Math.round(cs * 0.55)}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const y = q.y - q.lift - cs * 0.9 - u * cs, b = boardRect(), x = Math.max(b.x + cs * 1.6, Math.min(b.x + b.s - cs * 1.6, q.x)); // kept on the board
@@ -251,7 +286,7 @@ function drawDieFace(x: number, y: number, s: number, n: number, rot: number): v
   ctx.restore();
 }
 function drawDie(): void {
-  const cs = cellSize(), c = at(7.5, 7.5), n = rulesNow().dice, s = n > 1 ? cs * 1.22 : cs * 1.75;
+  const c = at(7.5, 7.5), cs = cellSize() * c.k, n = rulesNow().dice, s = n > 1 ? cs * 1.22 : cs * 1.75; // sized where they lie
   const last = G.dice.length === n ? G.dice : Array(n).fill(6);
   for (let k = 0; k < n; k++) { // two dice side by side in the centre, each tumbling its own way
     const ox = n > 1 ? (k ? 1 : -1) * s * 0.62 : 0, ph = k * 1.7;
@@ -273,7 +308,7 @@ function drawDie(): void {
 }
 /** Over the horses: the numbers as the dice stop, and the power bar while shaking. */
 function drawDiceTop(): void {
-  const cs = cellSize(), c = at(7.5, 7.5);
+  const c = at(7.5, 7.5), cs = cellSize() * c.k;
   if (G.show && G.show.t < 1.4 && G.phase !== 'dice') { // the numbers, big, as the dice stop
     const d = G.show.dice, dbl = d.length === 2 && d[0] === d[1];
     const label = d.length === 2 ? (dbl ? `Đôi ${d[0]}!` : `${d[0]} + ${d[1]} = ${d[0] + d[1]}`) : String(d[0]);
@@ -341,7 +376,7 @@ function handleTaps(): void {
     const b = F.ui.find(x => c.x >= x.x && c.x <= x.x + x.w && c.y >= x.y && c.y <= x.y + x.h);
     if (b) { if (b.enabled && !pressedOne) { press(b); pressedOne = true; } continue; }
     if (pressedOne) continue;
-    if (scene === 'ludo' && G && !F.roomMenu && movable().length) { // a tap on a glowing horse moves it (not under the leave menu)
+    if (scene === 'ludo' && G && !F.roomMenu && !F.emoteMenu && !G.vote && movable().length) { // a tap on a glowing horse moves it (not under the leave menu)
       const cs = cellSize();
       let best = -1, bd = cs * 0.75;
       for (const h of movable()) { const q = horsePos(G.cur, h), d = Math.hypot(c.x - q.x, c.y - q.y); if (d < bd) { bd = d; best = h; } }
@@ -351,12 +386,12 @@ function handleTaps(): void {
   clicks.length = 0;
   if (F.picker && (pressed('Escape') || pressed('Enter'))) { F.picker = null; return; }
   if (pressedOne) return;
-  if (scene === 'ludo' && !F.roomMenu && movable().length) { // the leave menu open: only its buttons answer
+  if (scene === 'ludo' && !F.roomMenu && !F.emoteMenu && !G.vote && movable().length) { // the leave menu open: only its buttons answer
     for (let k = 0; k < 4; k++) if (pressed('Digit' + (k + 1)) && movable().includes(k)) { choose(k); return; }
     if ((pressed('Space') || pressed('Enter')) && picked() < 0) { choose(movable()[0]); return; }
   }
   if (pressed('Space') || pressed('Enter')) { const b = F.ui.find(x => x.role === 'primary' && x.enabled); if (b) press(b); }
-  if (pressed('Escape')) { const b = F.ui.find(x => x.role === 'secondary' && x.enabled); if (b) press(b); }
+  if (pressed('Escape') || pressed('KeyN')) { const b = F.ui.find(x => (x.role === 'secondary' || x.role === 'menuSecondary') && x.enabled); if (b) press(b); } // N / Esc: "bỏ qua", as in Cờ Tỷ Phú (and "Ở lại" under the leave menu)
 }
 /** A horse tapped: it goes at once when it has one way to go; with two (two different dice) the buttons ask how far. */
 function choose(h: number): void {
@@ -394,8 +429,8 @@ function showLudoRules(): void {
 // ---- The setup screen --------------------------------------------------------------------------
 function setupSpots() {
   return phone()
-    ? { cx: 240, y0: 200, step: 64, rowH: 52, kindX: 200, kindW: 264, homeY: 462, start: [16, 528, 448, 60], online: [16, 598, 448, 54], resume: [16, 664, 448, 50], rejoin: [16, 722, 448, 50], back: [12, 8, 92, 32], rules: [W - 104, 8, 92, 32] }
-    : { cx: 640, y0: 222, step: 64, rowH: 50, kindX: 650, kindW: 300, homeY: 482, start: [370, 562, 260, 60], online: [650, 562, 260, 60], resume: [370, 636, 260, 50], rejoin: [650, 636, 260, 50], back: [326, 56, 100, 32], rules: [854, 56, 100, 32] };
+    ? { cx: 240, y0: 200, step: 64, rowH: 52, kindX: 200, kindW: 264, homeY: 462, start: [16, 528, 448, 60], online: [16, 598, 448, 54], resume: [16, 664, 448, 50], rejoin: [16, 722, 448, 50], back: [12, 8, 92, 32], rules: [W - 104, 8, 92, 32], settings: [W - 202, 8, 92, 32] }
+    : { cx: 640, y0: 222, step: 64, rowH: 50, kindX: 650, kindW: 300, homeY: 482, start: [370, 562, 260, 60], online: [650, 562, 260, 60], resume: [370, 636, 260, 50], rejoin: [650, 636, 260, 50], back: [326, 56, 100, 32], rules: [854, 56, 100, 32], settings: [746, 56, 100, 32] };
 }
 function seatsShown(): LudoSeat[] { return on.isGuest() ? (on.lobby?.seats ?? []) : ludoSetup.seats; }
 function buildSetup(): void {
@@ -404,6 +439,11 @@ function buildSetup(): void {
   const b4 = (r: number[], label: string, fn: () => void, role: string, color: string) => btn(r[0], r[1], r[2], r[3], label, fn, role, true, color);
   b4(T.back, '‹ Sảnh', () => { if (on.isHost() || on.isGuest()) on.leaveRoom(); setScene('hub'); }, 'room', '');
   b4(T.rules, 'Luật', showLudoRules, 'room', '');
+  b4(T.settings, 'Cài đặt', openSettings, 'room', ''); // the sound and the effects, as on Cờ Tỷ Phú's setup screen
+  seatsShown().forEach((s, i) => { // a tap on the piece changes its animal (your own seat, online), as in Rắn và Thang
+    const mine = on.isGuest() ? i === on.mySeat : !(on.isHost() && s.kind === 'remote');
+    if (s.kind !== 'off' && mine) btn((phone() ? 44 : 380) - 26, T.y0 + i * T.step - 2, 160, T.rowH + 4, '', () => { if (on.isGuest()) on.sendAct('animal'); else { nextAnimal(i); on.sendLobby(); } }, 'hidden');
+  });
   if (on.isGuest()) { b4(T.online, 'Rời phòng', on.leaveRoom, 'secondary', '#6a4a2a'); return; }
   ludoSetup.seats.forEach((s, i) => {
     const locked = on.isHost() && (i === 0 || (s.kind === 'remote' && on.peerOnline(s.peer)));
@@ -414,7 +454,9 @@ function buildSetup(): void {
       LV_NAMES.forEach((n, lv) => items.push({ label: `Máy · ${n}`, value: 'ai' + lv }));
       if (i > 0) items.push({ label: 'Không chơi', value: 'off' });
       openPicker(r, items, s.kind === 'ai' ? 'ai' + s.lv : s.kind, v => {
-        const k = String(v); ludoSetup.seats[i] = k.startsWith('ai') ? { kind: 'ai', lv: Number(k[2]) } : { kind: k as LudoSeat['kind'] };
+        const k = String(v), animal = animalOf(s, i);
+        ludoSetup.seats[i] = k.startsWith('ai') ? { kind: 'ai', lv: Number(k[2]), animal } : { kind: k as LudoSeat['kind'], animal };
+        if (k !== 'off' && ludoSetup.seats.some((q, j) => j !== i && q.kind !== 'off' && animalOf(q, j) === animal)) nextAnimal(i); // two sides never share an animal
         on.setNote(''); on.sendLobby();
       });
     }, 'seat', !locked);
@@ -462,15 +504,16 @@ function drawSetup(): void {
   text('CÁ NGỰA', T.cx, cardY + (phone() ? 50 : 62), phone() ? 36 : 46, '#d9622b', 'center', 'bold');
   text(`Đua ngựa về chuồng · 2 đến 4 người · ${rulesNow().dice > 1 ? 'hai viên' : 'một viên'} xúc xắc`, T.cx, cardY + (phone() ? 92 : 112), phone() ? 15 : 18, '#6a4a32');
   const hint = on.isGuest() ? (on.lobby ? `Phòng ${on.roomCode} · chờ ${on.lobby.hostName || 'chủ phòng'} bắt đầu ván` : `Đang vào phòng ${on.roomCode}...`)
-    : on.isHost() ? (on.roomCode ? `Gửi mã ${on.roomCode} cho bạn bè: họ vào bằng Cá Ngựa › Chơi online` : 'Đang mở phòng, chờ chút nhé...') : 'Bấm vào từng chỗ ngồi để chọn người hoặc máy';
+    : on.isHost() ? (on.roomCode ? `Gửi mã ${on.roomCode} cho bạn bè: họ vào bằng Cá Ngựa › Chơi online` : 'Đang mở phòng, chờ chút nhé...') : 'Bấm con vật để đổi, bấm chỗ ngồi để chọn người hoặc máy';
   ctx.font = `15px ${FONT}`;
   wrapLines(ctx, hint, cardW - 40).slice(0, 2).forEach((l, j) => text(l, T.cx, cardY + (phone() ? 122 : 150) + j * 20, phone() ? 15 : 16, on.isGuest() || on.isHost() ? '#d9622b' : '#8a6a4a'));
   seatsShown().forEach((s, i) => {
     const y = T.y0 + i * T.step + T.rowH / 2, off = s.kind === 'off';
     ctx.save(); ctx.globalAlpha = off ? 0.45 : 1;
     const hx = phone() ? 44 : 380;
-    drawHorse(hx, y + 4, 46, i, prefs.effects && !off ? Math.abs(Math.sin(performance.now() / 400 + i)) * 4 : 0);
-    text(`Ngựa ${SIDES[i].name}`, hx + 34, y, phone() ? 18 : 20, '#4a3020', 'left', 'bold');
+    drawHorse(hx, y + 4, 46, i, animalOf(s, i), prefs.effects && !off ? Math.abs(Math.sin(performance.now() / 400 + i)) * 4 : 0);
+    text(animalName(animalOf(s, i)), hx + 34, y - 6, phone() ? 18 : 20, '#4a3020', 'left', 'bold');
+    text(`phe ${SIDES[i].name}${off ? '' : ' · bấm để đổi'}`, hx + 34, y + 15, 12, '#8a6a4a', 'left');
     ctx.restore();
     if (on.isGuest()) {
       const me = i === on.mySeat;
@@ -500,27 +543,53 @@ function drawLink(cx: number): void {
 }
 
 // ---- The game ----------------------------------------------------------------------------------
+// The room's dialogs (src/net/roomExtras.ts) build their buttons with this screen's btn, centred on the board.
+Object.assign(on.roomUi, { btn, cx: (): number => (phone() ? W / 2 : PX / 2), phone });
+/** Where a player's card is (its top middle), for the bubbles over it. */
+function cardSpot(i: number): { x: number; y: number } {
+  if (!phone()) return { x: PX + PWD / 2, y: 76 + i * 68 };
+  const cw = (W - 24) / 2;
+  return { x: 8 + (i % 2) * (cw + 8) + cw / 2, y: 532 + Math.floor(i / 2) * 64 };
+}
 function buildPlay(): void {
   F.ui = [];
-  const ph = phone();
+  const ph = phone(), inRoom = on.isHost() || on.isGuest();
   btn(ph ? 8 : PX + 14, ph ? 8 : 14, ph ? 82 : 92, 32, '‹ Sảnh', () => { F.roomMenu = true; }, 'room', true, '');
   btn(ph ? 96 : PX + 114, ph ? 8 : 14, ph ? 62 : 64, 32, 'Luật', showLudoRules, 'room', true, '');
   btn(W - 52, ph ? 6 : 12, 40, 34, '', openSettings, 'mute');
-  if (!on.isGuest() && G.players.some(p => p.kind !== 'human')) btn(ph ? 164 : PX + 186, ph ? 8 : 14, ph ? 52 : 56, 32, `×${speedNow()}`, cycleSpeed, 'room', true, '');
+  const speedOn = !on.isGuest() && G.players.some(p => p.kind !== 'human');
+  if (ph) { // the row at the foot, as Cờ Tỷ Phú's: the history left, the speed right
+    const r = phoneRow();
+    btn(r.left, r.y, r.w, r.h, 'Lịch sử', on.openHistory, '', true, '#6a4a2a');
+    if (speedOn) btn(r.right, r.y, r.w, r.h, `Tốc độ ×${speedNow()}`, cycleSpeed, '', true, '#6a4a2a');
+  } else {
+    if (speedOn) { const r = wideSpeedSpot(); btn(r.x, r.y, r.w, r.h, `×${speedNow()}`, cycleSpeed, 'room', true, ''); }
+    btn(W - 118, LOG_Y - 14, 88, 28, 'Lịch sử', on.openHistory, 'room', true, '');
+  }
+  if (inRoom) { // quick emotes and chat, as in Cờ Tỷ Phú's room
+    if (ph) { const r = phoneRow(); btn(W / 2 - 52, r.y, 104, r.h, 'Biểu cảm', on.extras.toggleEmotes, '', true, '#8a5a2a'); }
+    else btn(W - 214, LOG_Y - 14, 88, 28, 'Biểu cảm', on.extras.toggleEmotes, 'room', true, '');
+  }
+  if (G.vote) { on.extras.buildOverlay(); return; } // the vote for a new game, over everything
   if (F.roomMenu) { // leaving the game: asked once
     const y = ph ? H / 2 : 400;
     const go = on.isHost() ? 'Giải tán & về sảnh' : on.isGuest() ? 'Rời phòng' : 'Về sảnh';
     btn(W / 2 - 210, y, 200, 54, go, () => { F.roomMenu = false; if (on.isHost() || on.isGuest()) on.leaveRoom(); setScene('hub'); }, 'menu', true, '#c8201f');
     btn(W / 2 + 10, y, 200, 54, 'Ở lại', () => { F.roomMenu = false; }, 'menuSecondary', true, '#6a4a2a');
+    if (inRoom) btn(W / 2 - 210, y + 66, 420, 50, 'Bỏ phiếu chơi lại ván mới', on.extras.startVote, 'menu', true, '#2b6cd6'); // as Cờ Tỷ Phú's room menu
     return;
   }
+  if (on.extras.buildOverlay()) return; // the emote menu
+  if (G.phase !== 'over') tips.build(myTurn() && G.phase === 'roll' ? 'roll' : myTurn() && G.phase === 'choose' && movable().length ? 'choose' : null, ph, PX, btn);
   const bx = ph ? 16 : PX + 40, bw = ph ? W - 32 : PWD - 80, by = ph ? H - 176 : 404;
   if (G.phase === 'over') {
-    const cy = ph ? H / 2 + 150 : 520;
-    if (on.isGuest()) btn(W / 2 - 110, cy, 220, 54, 'Rời phòng', () => { on.leaveRoom(); setScene('hub'); }, 'secondary', true, '#6a4a2a');
-    else {
-      btn(W / 2 - 230, cy, 220, 54, 'Chơi lại (Enter)', () => { if (on.isHost()) on.hostNewGame(); else newGame(checkSeed()); }, 'primary', true, '#c8201f');
-      btn(W / 2 + 10, cy, 220, 54, 'Đổi người chơi', () => { setScene('ludoSetup'); on.sendLobby(); }, 'secondary', true, '#6a4a2a');
+    const box = resultsBox(G.players.length, ph, PX / 2), cy = box.by, mid = box.cx;
+    if (on.isGuest()) { // a friend asks for another game, as in Cờ Tỷ Phú: the host and the others vote
+      btn(mid - 230, cy, 220, 54, 'Chơi lại', on.extras.startVote, 'primary', true, '#c8201f');
+      btn(mid + 10, cy, 220, 54, 'Rời phòng', () => { on.leaveRoom(); setScene('hub'); }, 'secondary', true, '#6a4a2a');
+    } else {
+      btn(mid - 230, cy, 220, 54, 'Chơi lại (Enter)', () => { if (on.isHost()) on.extras.startVote(); else newGame(checkSeed()); }, 'primary', true, '#c8201f');
+      btn(mid + 10, cy, 220, 54, CHANGE_PLAYERS, () => { setScene('ludoSetup'); on.sendLobby(); }, 'secondary', true, '#6a4a2a');
     }
     return;
   }
@@ -545,9 +614,12 @@ function drawPlay(): void {
   if (phone()) drawPhonePanel(); else drawWidePanel();
   if (G.phase === 'over') drawResults(); // the card first, its buttons over it
   F.ui.forEach(b => { if (b.role !== 'menu' && b.role !== 'menuSecondary') drawButton(b); });
-  if (F.roomMenu) {
+  tips.draw(phone(), PX, F.ui);
+  on.extras.drawBubbles(i => (G.players[i] ? cardSpot(i) : null), i => SIDES[G.players[i]?.side ?? 0].dark);
+  on.extras.drawOverlay(F.ui); // the vote or the emote menu
+  if (F.roomMenu && !G.vote) {
     ctx.save(); ctx.fillStyle = 'rgba(70,110,130,0.35)'; ctx.fillRect(0, 0, W, H); ctx.restore();
-    messageBox([on.isHost() ? 'Giải tán phòng? Mọi người sẽ ra khỏi ván.' : on.isGuest() ? 'Rời phòng? Máy sẽ chơi thay bạn.' : 'Về sảnh? Ván này sẽ bỏ dở.'], W / 2, (phone() ? H / 2 : 400) - 60, 460);
+    messageBox([on.isHost() ? 'Giải tán phòng? Mọi người sẽ ra khỏi ván.' : on.isGuest() ? 'Rời phòng? Máy sẽ chơi thay bạn.' : LEAVE_LOCAL], W / 2, (phone() ? H / 2 : 400) - 60, 460);
     F.drawingMenu = true; F.ui.forEach(b => { if (b.role === 'menu' || b.role === 'menuSecondary') drawButton(b); }); F.drawingMenu = false;
   }
   drawLink(phone() ? W / 2 : PX + PWD / 2);
@@ -568,26 +640,36 @@ function playerCard(i: number, x: number, y: number, w: number, h: number): void
   ctx.save();
   ctx.fillStyle = cur ? lighten(SIDES[p.side].color, 0.55) : '#fff6e2'; rrect(ctx, x, y, w, h, 12); ctx.fill();
   ctx.strokeStyle = cur ? SIDES[p.side].dark : '#e8c9a0'; ctx.lineWidth = cur ? 3 : 1.5; ctx.stroke(); ctx.restore();
-  drawHorse(x + h / 2, y + h / 2 + 2, h * 0.7, p.side, cur && prefs.effects ? Math.abs(Math.sin(G.t * 4)) * 3 : 0);
+  drawHorse(x + h / 2, y + h / 2 + 2, h * 0.7, p.side, animalOf(p, p.side), cur && prefs.effects ? Math.abs(Math.sin(G.t * 4)) * 3 : 0);
   const off = p.kind === 'remote' && on.isHost() && !on.peerOnline(p.peer);
   text(p.name + (me ? ' (bạn)' : '') + (off ? ' (máy chơi thay)' : ''), x + h + 2, y + h * 0.32, Math.min(18, h * 0.32), '#4a3020', 'left', 'bold');
   text(horseSummary(i), x + h + 2, y + h * 0.7, phone() ? 13 : 15, '#6a4a32', 'left');
+}
+/** The wide panel's "Diễn biến" line, its history button beside it. */
+const LOG_Y = 500;
+/** "Tổng kết ván": who kicked most, who was kicked most, who threw the most doubles (or sixes). */
+function summaryLines(): string[] {
+  const k = mostOf(G.players, p => p.kicks), kd = mostOf(G.players, p => p.kicked), sx = mostOf(G.players, p => p.sixes);
+  const six = rulesNow().dice > 1 ? 'đôi' : 'số 6';
+  return [k ? `Đá nhiều nhất: ${k.p.name} (${k.n} lần)` : 'Không ai bị đá về chuồng.', kd ? `Bị đá nhiều nhất: ${kd.p.name} (${kd.n} lần)` : '', sx ? `Đổ ${six} nhiều nhất: ${sx.p.name} (${sx.n} lần)` : ''].filter(Boolean);
 }
 function drawWidePanel(): void {
   lacquer(PX, 0, PWD, H);
   text('CÁ NGỰA', PX + PWD / 2 + 70, 31, 26, '#d9622b', 'center', 'bold');
   if (on.roomCode) text(`Phòng ${on.roomCode}`, W - 70, 62, 16, '#d9622b', 'right', 'bold');
-  G.players.forEach((_, i) => playerCard(i, PX + 24, 76 + i * 72, PWD - 48, 62));
+  G.players.forEach((_, i) => playerCard(i, PX + 24, 76 + i * 68, PWD - 48, 60)); // four cards clear of the turn's line under them
   const line = turnLine();
-  if (line) { ctx.font = `bold 20px ${FONT}`; wrapLines(ctx, line, PWD - 60).slice(0, 2).forEach((l, j) => text(l, PX + PWD / 2, 366 + j * 24, 20, '#4a3020', 'center', 'bold')); }
-  text('Diễn biến', PX + 30, 500, 17, '#b0501f', 'left', 'bold');
+  if (G.phase === 'over') drawSummary(PX + 24, 360, PWD - 48, summaryLines()); // as Cờ Tỷ Phú's after a game
+  else if (line) { ctx.font = `bold 20px ${FONT}`; wrapLines(ctx, line, PWD - 60).slice(0, 2).forEach((l, j) => text(l, PX + PWD / 2, 366 + j * 24, 20, '#4a3020', 'center', 'bold')); }
+  text('Diễn biến', PX + 30, LOG_Y, 17, '#b0501f', 'left', 'bold');
   G.log.slice(0, 7).forEach((l, j) => { ctx.font = `15px ${FONT}`; text(wrapLines(ctx, l, PWD - 60)[0], PX + 30, 528 + j * 25, 15, j ? '#8a6a4a' : '#4a3020', 'left'); });
 }
 function drawPhonePanel(): void {
-  ctx.save(); ctx.fillStyle = 'rgba(255,249,234,0.92)'; ctx.fillRect(0, 0, W, 48); ctx.restore();
+  lacquer(0, 0, W, 48); // the header and the strip under the board: one sign each, as Cờ Tỷ Phú's
   text('CÁ NGỰA', W / 2 + 40, 25, 22, '#d9622b', 'center', 'bold');
   if (on.roomCode) text(on.roomCode, W - 62, 25, 15, '#d9622b', 'right', 'bold');
   const y0 = 532, cw = (W - 24) / 2;
+  lacquer(0, y0 - 12, W, H - y0 + 12);
   G.players.forEach((_, i) => playerCard(i, 8 + (i % 2) * (cw + 8), y0 + Math.floor(i / 2) * 64, cw, 56));
   const line = turnLine(), ly = H - 214;
   if (line) { ctx.font = `bold 18px ${FONT}`; wrapLines(ctx, line, W - 30).slice(0, 2).forEach((l, j) => text(l, W / 2, ly + j * 24 - 10, 18, '#4a3020', 'center', 'bold')); }
@@ -595,8 +677,8 @@ function drawPhonePanel(): void {
   G.log.slice(0, Math.max(1, Math.floor((ly - 30 - logY) / 22))).forEach((l, j) => { ctx.font = `14px ${FONT}`; text(wrapLines(ctx, l, W - 30)[0], 16, logY + j * 22, 14, j ? '#8a6a4a' : '#4a3020', 'left'); });
 }
 function drawResults(): void {
-  const ph = phone(), w = ph ? W - 24 : 640, h = ph ? 470 : 480, x = W / 2 - w / 2, y = ph ? H / 2 - 260 : 90;
-  ctx.save(); ctx.fillStyle = 'rgba(70,110,130,0.3)'; ctx.fillRect(0, 0, W, H);
+  const ph = phone(), rank = ranking(), win = rank[0], { x, y, w, h, cx } = resultsBox(rank.length, ph, PX / 2);
+  ctx.save(); ctx.fillStyle = 'rgba(70,110,130,0.3)'; ctx.fillRect(0, 0, ph ? W : PX, H); // the board dims, the panel's summary stays clear
   ctx.fillStyle = 'rgba(255,249,234,0.97)'; rrect(ctx, x, y, w, h, 22); ctx.fill(); ctx.strokeStyle = '#e8a86a'; ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
   if (prefs.effects) { // confetti: pastel dots and petals falling inside the card
     ctx.save(); rrect(ctx, x, y, w, h, 22); ctx.clip();
@@ -607,14 +689,15 @@ function drawResults(): void {
     }
     ctx.restore();
   }
-  const rank = ranking(), win = rank[0];
-  drawHorse(W / 2, y + 74, 72, win.side, prefs.effects ? Math.abs(Math.sin(G.timer * 5)) * 14 : 0, 1);
-  text(`${win.name} thắng!`, W / 2, y + 150, ph ? 28 : 32, '#d9622b', 'center', 'bold');
+  text(`Đưa đủ ${rulesNow().horses} ngựa lên chuồng trước!`, cx, y + 26, 15, '#8a6a4a', 'center'); // why it ended, as Cờ Tỷ Phú's
+  rank.slice(1, 3).forEach((p, j) => drawHorse(cx + (j ? 120 : -120), y + 96, 44, p.side, animalOf(p, p.side))); // the podium: second left, third right
+  drawHorse(cx, y + 86, 72, win.side, animalOf(win, win.side), prefs.effects ? Math.abs(Math.sin(G.timer * 5)) * 14 : 0, 1);
+  text(`${win.name} thắng!`, cx, y + 160, ph ? 28 : 32, '#d9622b', 'center', 'bold');
   rank.forEach((p, j) => {
-    const ry = y + 196 + j * 52;
+    const ry = y + 206 + j * 52;
     ctx.save(); ctx.fillStyle = j === 0 ? '#ffd99a' : '#fff6e2'; rrect(ctx, x + 20, ry - 22, w - 40, 44, 10); ctx.fill(); ctx.restore();
     text(`${j + 1}.`, x + 42, ry, 19, '#d9622b', 'center', 'bold');
-    drawHorse(x + 76, ry + 2, 32, p.side);
+    drawHorse(x + 76, ry + 2, 32, p.side, animalOf(p, p.side));
     text(p.name, x + 100, ry, ph ? 16 : 18, '#4a3020', 'left', 'bold');
     text(`Lên ${p.horses.filter(v => v > GATE).length} · đá ${p.kicks} · bị đá ${p.kicked} · ${rulesNow().dice > 1 ? 'đôi' : 'số 6'}: ${p.sixes}`, x + w - 34, ry, ph ? 13 : 15, '#6a4a32', 'right');
   });
@@ -641,6 +724,7 @@ export const ludoScenes: Record<string, { update(dt: number): void; draw(): void
       if (!ready()) { if (on.isGuest()) return; setScene('ludoSetup'); return; }
       buildPlay(); handleTaps();
       if (scene !== 'ludo') return;
+      on.extras.step(dt); // the bubbles age; the host runs the vote's clock
       if (on.isGuest()) { G.t += dt; if (G.hop) G.hop.t = Math.min(G.hop.t + dt, tune.ludo_hop_time); if (G.throwAt) G.throwAt.t += dt; if (G.shake) G.shake.t += dt; if (G.show) G.show.t += dt; for (const f of G.floaters) f.t += dt; return; }
       gameStep(dt * turnSpeed(), holding(), on.peerOnline); // the computer's turns at the chosen speed
     },
@@ -654,5 +738,5 @@ export const ludoScenes: Record<string, { update(dt: number): void; draw(): void
 export function ludoNet(): void { on.ludoNetStep(holding()); }
 /** For checks: who plays which side and what they can do, read-only. */
 export function ludoView(): Loose {
-  return G ? { phase: G.phase, cur: G.cur, dice: G.dice, use: G.use, moves: G.moves.map(m => m.h), horses: G.players.map(p => [...p.horses]), winner: G.winner, auto: G.players.map(p => autoPlays(p, on.peerOnline)) } : null;
+  return G ? { phase: G.phase, cur: G.cur, dice: G.dice, use: G.use, moves: G.moves.map(m => m.h), horses: G.players.map(p => [...p.horses]), winner: G.winner, auto: G.players.map(p => autoPlays(p, on.peerOnline)), names: G.players.map(p => p.name), bubbles: (G.emotes || []).map(e => e.text ?? e.i), vote: G.vote ? G.vote.list.map(e => e.ans) : null, tip: tips.now, tapAt: G.phase === 'choose' ? movable().map(h => { const q = horsePos(G.cur, h); return { h, x: q.x, y: q.y - q.lift }; }) : [] } : null;
 }

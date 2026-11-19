@@ -42,9 +42,14 @@ document.addEventListener('visibilitychange', () => { keepAwake(); });
 export function settingsSpot(): { x: number; y: number; w: number; h: number } {
   return L.phone ? { x: 12, y: 6, w: 84, h: 30 } : { x: PX + 16, y: 28, w: 84, h: 32 };
 }
-/** Where the rules button sits: the title's corner, the panel's top, or the phone's header. */
+/** Where the rules button sits: the title's corner, or in a game beside "‹ Sảnh" (the panel's top or the
+ * phone's header), where Cá Ngựa and Rắn và Thang have theirs. */
 export function rulesSpot(): { x: number; y: number; w: number; h: number } {
   if (scene === 'title') return L.phone ? { x: W - 92, y: 6, w: 80, h: 30 } : { x: PX + PW - 104, y: 28, w: 84, h: 32 };
-  return L.phone ? { x: 186, y: 9, w: 56, h: 32 } : { x: PX + 14, y: 14, w: 64, h: 30 };
+  return L.phone ? { x: 96, y: 9, w: 62, h: 32 } : { x: PX + 114, y: 14, w: 64, h: 32 };
+}
+/** Where "‹ Sảnh" sits in a game on one screen: the panel's or the phone header's top left. */
+export function backSpot(): { x: number; y: number; w: number; h: number } {
+  return L.phone ? { x: 8, y: 9, w: 82, h: 32 } : { x: PX + 14, y: 14, w: 92, h: 32 };
 }
 

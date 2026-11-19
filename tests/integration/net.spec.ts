@@ -145,3 +145,36 @@ test('a friend who leaves a room plays by their own rules again, not the host\'s
   expect(s.some(x => x.startsWith('Thảy là vào'))).toBe(true);
   expect(s.some(x => x.startsWith('Đúng ô 100'))).toBe(true);
 });
+
+test('a Cá Ngựa room has emotes, chat and the vote for a new game, as Cờ Tỷ Phú\'s room has', async ({ page }) => {
+  // The review of 19/11/2026: the new games' rooms had none of them.
+  const srv = await fakeServer(page, (ws, m) => {
+    if (m.t !== 'create') return;
+    ws.send(JSON.stringify({ t: 'created', code: CODE, id: 0 }));
+    ws.send(JSON.stringify({ t: 'peer', id: 1, name: 'Ban', online: true })); // a friend comes in and takes a seat
+  });
+  const friend = (data: Record<string, unknown>) => srv.sockets[0].send(JSON.stringify({ t: 'fromPeer', from: 1, data: { k: 'ludoAct', ...data } }));
+  type L = { phase: string; bubbles: (string | number)[]; vote: (boolean | null)[] | null; names: string[] };
+  const ludo = () => page.evaluate(() => { window.game!.step(1); return (window.game as unknown as { ludo: L | null }).ludo; });
+  await page.goto(`${BASE}?render=cheap&manual=1`);
+  await expect.poll(() => page.evaluate(() => typeof window.game?.step)).toBe('function');
+  await page.evaluate(() => (window.game as unknown as { configureLudo(o: unknown): void }).configureLudo({ seats: [{ kind: 'human' }, { kind: 'ai', lv: 1 }, { kind: 'off' }, { kind: 'off' }] }));
+  await tap(page, 780, 592);                                   // "Chơi online"
+  await page.fill('#op-name', 'Chu');
+  await page.click('#op-create');
+  await expect.poll(() => srv.sockets.length).toBe(1);
+  await page.evaluate(() => { window.game!.step(3); window.game!.press('Enter'); window.game!.step(3); }); // the host starts
+  await expect.poll(async () => (await ludo())?.names ?? []).toContain('Ban');
+
+  friend({ act: 'emote', i: 0 });                              // "Haha!"
+  friend({ act: 'chat', text: 'chào cả nhà' });
+  await expect.poll(async () => (await ludo())!.bubbles).toEqual([0, 'chào cả nhà']);
+
+  friend({ act: 'voteStart' });                                // the friend asks for a new game
+  await expect.poll(async () => (await ludo())!.vote).toEqual([null, true]); // the host has not answered, the friend has
+  const yes = (await page.evaluate(() => (window.game!.view as { buttons: { label: string; x: number; y: number; w: number; h: number }[] }).buttons)).find(b => b.label === 'Đồng ý')!;
+  const box = (await page.locator('#game').boundingBox())!;
+  await page.mouse.click(box.x + (yes.x + yes.w / 2) * box.width / 1280, box.y + (yes.y + yes.h / 2) * box.height / 720);
+  await expect.poll(async () => (await ludo())!.vote).toBeNull(); // both said yes: a new game
+  expect((await ludo())!.bubbles).toEqual([]);
+});

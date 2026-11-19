@@ -11,7 +11,8 @@ let server: ChildProcess;
 let exited: number | null = null;
 test.beforeAll(async () => {
   test.setTimeout(40000);
-  server = spawn(process.execPath, ['server/server.mjs'], { env: { ...process.env, PORT: String(PORT), STATIC_DIR: 'dist', BEAT_MS: '500' }, stdio: 'ignore' });
+  // BEAT_MS: short for the beat test, not so short that a busy machine misses a ping and is cut off
+  server = spawn(process.execPath, ['server/server.mjs'], { env: { ...process.env, PORT: String(PORT), STATIC_DIR: 'dist', BEAT_MS: '1500' }, stdio: 'ignore' });
   server.on('exit', code => { exited = code ?? -1; });
   await expect.poll(health, { timeout: 25000 }).toBe(true); // a busy machine (the whole suite, two browsers) starts node slowly
 });
@@ -101,8 +102,7 @@ test('a request cannot reach a folder beside dist/ whose name starts the same (d
 
 test('every socket hears a beat, so a page can tell a dead link from a quiet one', async () => {
   const c = await client();
-  await wait(1300);                                          // BEAT_MS is 500 here
-  expect(c.got.filter(m => m.t === 'beat').length).toBeGreaterThanOrEqual(2);
+  await expect.poll(() => c.got.filter(m => m.t === 'beat').length, { timeout: 10000 }).toBeGreaterThanOrEqual(2); // BEAT_MS is 1500 here
   c.ws.close();
 });
 

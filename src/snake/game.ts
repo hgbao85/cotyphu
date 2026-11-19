@@ -3,6 +3,7 @@
 // in ./rules.ts; the screens in ./scene.ts; online play in ./online.ts.
 // Online, only the host runs this; a friend's screen draws the G the host sends.
 
+import type { Bubble, Vote } from '../net/roomExtras';
 import { tune, CONFIG } from '../config';
 import { sfx } from '../audio';
 import { rng, setSeed, freshSeed } from '../game/rng';
@@ -23,6 +24,9 @@ export interface Hop { pi: number; path: number[]; t: number }
 export interface Slide { pi: number; link: Link; t: number }
 /** The game being played. Plain data: online, the host sends it as it is. */
 export interface SnakeGame {
+  /** Online: the bubbles over the players' cards and the vote for a new game (src/net/roomExtras.ts). */
+  emotes?: Bubble[];
+  vote?: Vote;
   seed: number;
   players: SnakePlayer[];
   cur: number;
@@ -82,15 +86,22 @@ export const curP = (): SnakePlayer => G.players[G.cur];
 export const autoPlays = (p: SnakePlayer, peerOnline: (id?: number) => boolean): boolean => p.kind === 'ai' || (p.kind === 'remote' && !peerOnline(p.peer));
 
 /** A line in the game's log, newest first. */
-export function log(s: string): void { G.log.unshift(s); if (G.log.length > 40) G.log.length = 40; }
+/** The whole game's lines, oldest first, for "Lịch sử" (the host's; a friend asks for it). Kept out of G,
+ * which is sent 20 times a second, so it costs nothing on the wire until someone opens it. */
+export const history: string[] = [];
+export function log(s: string): void {
+  G.log.unshift(s); if (G.log.length > 40) G.log.length = 40;
+  history.push(s); if (history.length > 300) history.shift();
+}
 
 /** Starts a new game from the setup seats; `names` gives each seat's name when it is a person online. */
 export function newGame(seed?: number, names: (string | undefined)[] = [], animalName: (a: number) => string = a => `Quân ${a + 1}`): void {
+  history.length = 0; // a new game, a new history
   const s = seed ?? freshSeed(); setSeed(s);
   const players: SnakePlayer[] = [];
   snakeSetup.seats.forEach((st, i) => {
     if (st.kind === 'off') return;
-    const name = names[i] || st.name || (st.kind === 'ai' ? `Máy ${animalName(st.animal)}` : animalName(st.animal));
+    const name = names[i] || st.name || (st.kind === 'ai' ? `Máy ${animalName(st.animal)}` : `Người ${animalName(st.animal)}`); // Người / Máy + the animal, as in Cờ Tỷ Phú
     players.push({ id: players.length, seat: i, name, kind: st.kind, animal: st.animal, peer: st.peer, pos: 0, ladders: 0, bites: 0, sixes: 0 });
   });
   G = { seed: s, players, cur: Math.floor(rng() * players.length), phase: 'roll', t: 0, timer: 0, dice: [], shake: null, throwAt: null, show: null, hop: null, slide: null, pending: null, again: false, log: [], winner: -1, floaters: [], rules: Object.fromEntries(RULE_KEYS.map(k => [k, tune[k]])) };

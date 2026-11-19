@@ -34,7 +34,8 @@ import { moodStep } from './three/moods';
 import { confetti, partyAnimals } from './ui/celebrate';
 import { FLIGHT_TIME } from './three/coinFlights';
 import { buildToolbar, buildPhoneHistory, buildEmoteMenu, drawEmotes, drawEmoteMenu } from './ui/toolbar';
-import { rulesSpot, settingsSpot } from './app/install';
+import { rulesSpot, settingsSpot, backSpot } from './app/install';
+import { LEAVE_LOCAL, CHANGE_PLAYERS } from './ui/words';
 import { speedNow, cycleSpeed } from './core/speed';
 import { openSettings } from './ui/settings';
 import { prefs } from './core/prefs';
@@ -152,7 +153,7 @@ function buildUI() {
       return;
     }
     btn(L.cx - 200, L.phone ? 840 + phoneExtra() / 2 : 560, 190, 52, 'Chơi lại (Enter)', () => { if (roomCode) startVote(); else { reset(); clearVis(); setScene('play'); } }, 'primary');
-    btn(L.cx + 10, L.phone ? 840 + phoneExtra() / 2 : 560, 190, 52, 'Ván mới (N)', () => { setScene('title'); }, 'secondary');
+    btn(L.cx + 10, L.phone ? 840 + phoneExtra() / 2 : 560, 190, 52, CHANGE_PLAYERS, () => { setScene('title'); }, 'secondary');
     return;
   }
   if (scene !== 'play') return;
@@ -160,10 +161,9 @@ function buildUI() {
   { const r = rulesSpot(); btn(r.x, r.y, r.w, r.h, 'Luật', () => showRules(true), 'room'); }
   const speedOn = !isGuest() && state.players.some(p => p.kind !== 'human');
   if (speedOn && !L.phone) { const r = speedSpot(); btn(r.x, r.y, r.w, r.h, `×${speedNow()}`, cycleSpeed, 'room'); }
-  if (roomCode) {
-    const r = roomPill();
-    btn(r.x, r.y, r.w, r.h, `Phòng ${roomCode}`, () => { F.roomMenu = true; F.emoteMenu = false; F.inspect = -1; F.sheetOpen = false; }, 'room');
-  }
+  const openMenu = () => { F.roomMenu = true; F.emoteMenu = false; F.inspect = -1; F.sheetOpen = false; };
+  if (roomCode) { const r = roomPill(); btn(r.x, r.y, r.w, r.h, `Phòng ${roomCode}`, openMenu, 'room'); }
+  else { const r = backSpot(); btn(r.x, r.y, r.w, r.h, '‹ Sảnh', openMenu, 'room'); } // on one screen: back to the hub, asked once
   buildToolbar();
   buildTip();
   if (state.vote) { buildVoteUI(); return; }
@@ -239,6 +239,11 @@ export function roomPill(): { x: number; y: number; w: number; h: number } {
 /** The room menu's two buttons, over everything. */
 function buildRoomMenu() {
   const y = (L.phone ? 470 : 360) + 46;
+  if (!roomCode) { // on one screen: the game is kept, "Chơi tiếp ván trước" brings it back
+    btn(L.cx - 210, y, 200, 54, 'Về sảnh', () => { F.roomMenu = false; setScene('hub'); }, 'menu', true, '#c8201f');
+    btn(L.cx + 10, y, 200, 54, 'Ở lại', () => { F.roomMenu = false; }, 'menuSecondary', true, '#6a4a2a');
+    return;
+  }
   const go = isHost() ? 'Giải tán phòng' : 'Rời phòng';
   btn(L.cx - 210, y + 66, 420, 50, 'Bỏ phiếu chơi lại ván mới', startVote, 'menu', true, '#2b6cd6');
   btn(L.cx - 210, y, 200, 54, go, leaveRoom, 'menu', true, '#c8201f');
@@ -246,10 +251,10 @@ function buildRoomMenu() {
 }
 /** The room menu: what leaving does, then the two buttons. */
 function drawRoomMenu() {
-  if (!F.roomMenu || !roomCode) return;
+  if (!F.roomMenu) return;
   ctx.save(); ctx.fillStyle = 'rgba(10,5,3,0.6)'; ctx.fillRect(0, 0, W, H); ctx.restore();
   const y = L.phone ? 470 : 360;
-  const say = isHost() ? [`Phòng ${roomCode}`, 'Giải tán phòng? Mọi người sẽ ra khỏi ván và về màn hình đầu.']
+  const say = !roomCode ? [LEAVE_LOCAL] : isHost() ? [`Phòng ${roomCode}`, 'Giải tán phòng? Mọi người sẽ ra khỏi ván và về màn hình đầu.']
     : [`Phòng ${roomCode}`, 'Rời phòng? Máy sẽ chơi thay chỗ của bạn trong ván này.'];
   messageBox(say, L.cx, y - 40, 460);
   F.drawingMenu = true; F.ui.forEach(b => { if (b.role === 'menu' || b.role === 'menuSecondary') drawButton(b); }); F.drawingMenu = false;

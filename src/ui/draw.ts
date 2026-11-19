@@ -96,7 +96,7 @@ export function faceOf(p: Player): IconMood | undefined {
 }
 export function drawPanel() {
   lacquer(PX, 0, PW, H);
-  text('SỰ THẢY', PX + PW / 2 + 14, 30, 24, '#f2c44a', 'center', 'bold');
+  fitText('CỜ TỶ PHÚ', PX + 254, 30, 136, 22, '#f2c44a', 'bold'); // the game's name, as Cá Ngựa and Rắn và Thang show theirs: between "Luật" and the speaker
   const roundTxt = state.mode === 'rounds' ? `Vòng ${Math.min(state.round, maxRounds())} / ${maxRounds()}` : `Vòng ${state.round} · tới khi phá sản`;
   if (roomCode) text(state.mode === 'rounds' ? `Vòng ${Math.min(state.round, maxRounds())}/${maxRounds()}` : `Vòng ${state.round}`, PX + 24, 59, 16, '#e8d9b5', 'left');
   else text(roundTxt, PX + PW / 2, 58, 16, '#e8d9b5');
@@ -140,7 +140,7 @@ export const propRows = (n: number): number => Math.min(n, PROP_MAX_ROWS);
 export const propArrowY = (n: number): number => PROP_Y + propRows(n) * PROP_ROW_H + 4;
 /** Where the log starts: under the list (or its empty note) and its arrows. */
 const panelLogTop = (n: number): number => PROP_Y + Math.max(1, propRows(n)) * PROP_ROW_H + (n > PROP_MAX_ROWS ? 30 : 0) + 14;
-/** The game's latest lines, newest at the bottom, filling the panel down to its foot. */
+/** The game's latest lines, newest at the top (as in Cá Ngựa and Rắn và Thang), filling the panel down to its foot. */
 function drawPanelLog(top: number) {
   const x = PX + 14, w = PW - 28, bottom = H - 16, lineH = 20;
   ctx.save(); ctx.fillStyle = 'rgba(10,5,3,0.35)'; rrect(ctx, x, top, w, bottom - top, 8); ctx.fill(); ctx.restore();
@@ -149,7 +149,7 @@ function drawPanelLog(top: number) {
   const room = Math.floor((bottom - top - 34) / lineH), lines: { s: string; last: boolean }[] = [];
   for (let k = state.log.length - 1; k >= 0 && lines.length < room; k--) {
     const wrapped = wrapLines(ctx, state.log[k], w - 20);
-    for (let j = wrapped.length - 1; j >= 0 && lines.length < room; j--) lines.unshift({ s: wrapped[j], last: k === state.log.length - 1 });
+    for (let j = 0; j < wrapped.length && lines.length < room; j++) lines.push({ s: wrapped[j], last: k === state.log.length - 1 });
   }
   ctx.restore();
   lines.forEach((l, j) => text(l.s, x + 10, top + 38 + j * lineH, 14, l.last ? '#fff8e6' : '#cbb994', 'left'));

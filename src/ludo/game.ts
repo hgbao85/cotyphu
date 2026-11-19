@@ -3,6 +3,8 @@
 // themselves are in ./rules.ts; the screens in ./scene.ts; online play in ./online.ts.
 // Online, only the host runs this; a friend's screen draws the G the host sends.
 
+import { ANIMALS } from '../game/data';
+import type { Bubble, Vote } from '../net/roomExtras';
 import { tune } from '../config';
 import { sfx } from '../audio';
 import { rng, setSeed, freshSeed } from '../game/rng';
@@ -25,6 +27,9 @@ export interface Hop { pi: number; h: number; path: number[]; t: number; move: L
 export interface Kicked { pi: number; h: number; from: number; t: number }
 /** The game being played. Plain data: online, the host sends it as it is. */
 export interface LudoGame {
+  /** Online: the bubbles over the players' cards and the vote for a new game (src/net/roomExtras.ts). */
+  emotes?: Bubble[];
+  vote?: Vote;
   seed: number;
   players: LudoPlayer[];
   cur: number;
@@ -52,7 +57,13 @@ export interface LudoGame {
 }
 
 /** The setup screen's seats. */
-export const ludoSetup: { seats: LudoSeat[] } = { seats: [{ kind: 'human' }, { kind: 'ai', lv: 1 }, { kind: 'ai', lv: 1 }, { kind: 'off' }] };
+/** Each side's animal at first, in the side's colour: Trâu (red), Rồng (green), Khỉ (yellow), Mèo (blue). */
+export const LUDO_ANIMALS = [1, 4, 8, 3];
+export const ludoSetup: { seats: LudoSeat[] } = { seats: [{ kind: 'human', animal: 1 }, { kind: 'ai', lv: 1, animal: 4 }, { kind: 'ai', lv: 1, animal: 8 }, { kind: 'off', animal: 3 }] };
+/** A seat's or a player's animal: its own, or its side's first one (a seat or a kept game from before animals). */
+export const animalOf = (x: { animal?: number }, side: number): number => x.animal ?? LUDO_ANIMALS[side];
+/** An animal's name (Chuột, Trâu...). */
+export const animalName = (a: number): string => ANIMALS[a]?.name ?? 'Ngựa';
 /** The game being played (null before the first). */
 export let G: LudoGame = null as unknown as LudoGame;
 /** Puts a whole game in place (a friend's screen, from the host). */
@@ -82,17 +93,24 @@ export const curP = (): LudoPlayer => G.players[G.cur];
 export const autoPlays = (p: LudoPlayer, peerOnline: (id?: number) => boolean): boolean => p.kind === 'ai' || (p.kind === 'remote' && !peerOnline(p.peer));
 
 /** A line in the game's log, newest first. */
-export function log(s: string): void { G.log.unshift(s); if (G.log.length > 40) G.log.length = 40; }
+/** The whole game's lines, oldest first, for "Lịch sử" (the host's; a friend asks for it). Kept out of G,
+ * which is sent 20 times a second, so it costs nothing on the wire until someone opens it. */
+export const history: string[] = [];
+export function log(s: string): void {
+  G.log.unshift(s); if (G.log.length > 40) G.log.length = 40;
+  history.push(s); if (history.length > 300) history.shift();
+}
 
 /** Starts a new game from the setup seats; `names` gives each seat's name when it is a person online. */
 export function newGame(seed?: number, names: (string | undefined)[] = []): void {
+  history.length = 0; // a new game, a new history
   const s = seed ?? freshSeed(); setSeed(s);
   const R = rulesNow();
   const players: LudoPlayer[] = [];
   ludoSetup.seats.forEach((st, i) => {
     if (st.kind === 'off') return;
-    const name = names[i] || st.name || (st.kind === 'ai' ? `Máy ${SIDES[i].name}` : `Ngựa ${SIDES[i].name}`);
-    players.push({ id: players.length, side: i, name, kind: st.kind, lv: st.lv ?? 1, peer: st.peer, horses: Array(R.horses).fill(-1), place: 0, kicks: 0, kicked: 0, sixes: 0 });
+    const name = names[i] || st.name || (st.kind === 'ai' ? `Máy ${animalName(animalOf(st, i))}` : `Người ${animalName(animalOf(st, i))}`); // Người / Máy + the animal, as Cờ Tỷ Phú's Người Trâu, Máy Khỉ
+    players.push({ id: players.length, side: i, name, kind: st.kind, lv: st.lv ?? 1, peer: st.peer, animal: animalOf(st, i), horses: Array(R.horses).fill(-1), place: 0, kicks: 0, kicked: 0, sixes: 0 });
   });
   G = { seed: s, players, cur: Math.floor(rng() * players.length), phase: 'roll', t: 0, timer: 0, dice: [], use: [], shake: null, throwAt: null, show: null, moves: [], hop: null, kicked: [], again: false, log: [], winner: -1, floaters: [] };
   log(`Ván mới! ${curP().name} đi trước.`);

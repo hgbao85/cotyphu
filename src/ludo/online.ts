@@ -13,7 +13,9 @@ import { tune, CONFIG } from '../config';
 import { rawSfx } from '../net/room';
 import { scene, setScene } from '../core/store';
 import type { Loose } from '../game/types';
-import { G, setG, ludoSetup, newGame, startShake, pickHorse, curP, sounds, recordSounds } from './game';
+import { G, setG, ludoSetup, newGame, startShake, pickHorse, curP, sounds, recordSounds, history, log } from './game';
+import { makeRoomExtras, type RoomGame } from '../net/roomExtras';
+import { showHistory } from '../ui/pages';
 import type { LudoSeat } from './rules';
 import { keepRoom, lastRoom, hostGame, keepHostGame, keepLocal, pickedRules, restoreRules } from './keep';
 
@@ -41,7 +43,7 @@ const handlers: net.NetHandlers = {
     if (isHost() && restoring) { // a host back after a reload: the game kept for this room, if the server still had it
       restoring = false;
       const k = hostGame(code);
-      if (k) { restoreRules(k.rules); setG(k.g); ludoSetup.seats = k.seats.map(s => ({ ...s })); ludoSetup.seats[0] = { kind: 'human', name: myName }; setScene('ludo'); }
+      if (k) { restoreRules(k.rules); setG(k.g); ludoSetup.seats = k.seats.map(s => ({ ...s })); ludoSetup.seats[0] = { kind: 'human', name: myName, animal: ludoSetup.seats[0].animal }; setScene('ludo'); }
       else if (restoringCode && restoringCode !== code) note = `Phòng ${restoringCode} đã đóng: đây là phòng mới ${code}, gửi mã mới cho bạn bè nhé.`;
     }
     if (isHost()) sendLobby();
@@ -68,7 +70,7 @@ let restoring = false, restoringCode = '';
 /** Opens a Cá Ngựa room; this screen hosts it and plays seat 1. */
 export function createRoom(name: string, fresh = true): void { // fresh: a new room; false: the last one back
   active = true; myName = name; peers.clear(); roomCode = ''; note = '';
-  ludoSetup.seats[0] = { kind: 'human', name };
+  ludoSetup.seats[0] = { kind: 'human', name, animal: ludoSetup.seats[0].animal };
   recordSounds(true);
   net.createRoom(name, handlers, 'ludo', fresh);
 }
@@ -96,7 +98,7 @@ function goOffline(msg: string): void {
   keepRoom(null); // left on purpose, or the room is gone: nothing to go back into
   if (ownRules) { restoreRules(ownRules); ownRules = null; } // a friend back on their own: their own rules again
   recordSounds(false);
-  ludoSetup.seats.forEach((s, i) => { if (s.kind === 'remote') ludoSetup.seats[i] = { kind: 'ai', lv: 1 }; });
+  ludoSetup.seats.forEach((s, i) => { if (s.kind === 'remote') ludoSetup.seats[i] = { kind: 'ai', lv: 1, animal: s.animal }; });
   if (scene === 'ludo') setScene('ludoSetup');
 }
 
@@ -107,20 +109,20 @@ function seatPeer(id: number, name: string): void {
     const p = G.players.find(q => q.kind === 'remote' && !peerOnline(q.peer) && q.name === name) || G.players.find(q => q.kind === 'remote' && !peerOnline(q.peer));
     if (!p) { net.toOne(id, { k: 'ludoFull', msg: 'Ván đang chơi: chờ ván sau nhé.' }); return; }
     p.peer = id; p.name = name;
-    ludoSetup.seats[p.side] = { kind: 'remote', peer: id, name };
+    ludoSetup.seats[p.side] = { kind: 'remote', peer: id, name, animal: ludoSetup.seats[p.side].animal };
     return;
   }
   if (ludoSetup.seats.some(s => s.kind === 'remote' && s.peer === id)) return;
   let i = [1, 2, 3].find(k => ludoSetup.seats[k].kind === 'remote' && ludoSetup.seats[k].peer === undefined);
   if (i === undefined) i = [1, 2, 3].find(k => ludoSetup.seats[k].kind === 'ai' || ludoSetup.seats[k].kind === 'off');
   if (i === undefined) { net.toOne(id, { k: 'ludoFull', msg: 'Phòng đã đủ người.' }); return; }
-  ludoSetup.seats[i] = { kind: 'remote', peer: id, name };
+  ludoSetup.seats[i] = { kind: 'remote', peer: id, name, animal: ludoSetup.seats[i].animal };
 }
 /** Host: a friend left for good: before a game the seat waits for someone new; in a game the computer plays it. */
 function peerLeft(id: number, name: string): void {
   peers.delete(id);
   const i = ludoSetup.seats.findIndex(s => s.kind === 'remote' && s.peer === id);
-  if (i >= 0) ludoSetup.seats[i] = { kind: 'remote' };
+  if (i >= 0) ludoSetup.seats[i] = { kind: 'remote', animal: ludoSetup.seats[i].animal };
   if (G?.players) for (const p of G.players) if (p.peer === id) { p.kind = 'ai'; p.lv = 1; delete p.peer; G.log.unshift(`${name || p.name} đã rời phòng, máy chơi thay.`); }
   sendLobby();
 }
@@ -133,6 +135,21 @@ export function sendLobby(): void {
     net.toOne(id, { k: 'ludoYou', seat: p ? p.side : ludoSetup.seats.findIndex(s => s.kind === 'remote' && s.peer === id) });
   }
 }
+/** The setup screen's "next animal" for a seat (set by src/ludo/scene.ts, which owns the sound). */
+let animalTap: (i: number) => void = () => {};
+export function useAnimalTap(fn: (i: number) => void): void { animalTap = fn; }
+/** What the room screen's buttons need from the scene: set by src/ludo/scene.ts. */
+export const roomUi = { btn: (() => {}) as (x: number, y: number, w: number, h: number, label: string, fn: () => void, role: string, enabled?: boolean, color?: string) => void, cx: () => 0, phone: () => false };
+/** Emotes, chat and the vote for a new game, as Cờ Tỷ Phú's room has them (src/net/roomExtras.ts). */
+export const extras = makeRoomExtras({
+  G: () => (G?.players ? G as unknown as RoomGame : null),
+  isHost, isGuest, peerOnline,
+  mySlot: () => (G?.players ? G.players.findIndex(p => p.side === (isGuest() ? mySeat : 0)) : -1),
+  sendAct: (act, extra) => net.toHost({ k: 'ludoAct', act, ...extra }),
+  restart: () => hostNewGame(),
+  log,
+  btn: (...a) => roomUi.btn(...a), cx: () => roomUi.cx(), phone: () => roomUi.phone(),
+});
 /** Host: starts the game for everyone; friends' names come from their seats. */
 export function hostNewGame(): void {
   newGame(undefined, ludoSetup.seats.map(s => s.name));
@@ -140,7 +157,14 @@ export function hostNewGame(): void {
 
 /** Host: a friend's press, counted only on their own turn. */
 function onAct(from: number, a: Loose): void {
+  if (a.act === 'animal') { // a friend taps their piece on the setup screen: the next free animal
+    const i = ludoSetup.seats.findIndex(s => s.kind === 'remote' && s.peer === from);
+    if (i >= 0 && scene === 'ludoSetup') { animalTap(i); sendLobby(); }
+    return;
+  }
   if (scene !== 'ludo' || !G?.players) return;
+  if (a.act === 'history') { net.toOne(from, { k: 'ludoHistory', list: history }); return; } // "Lịch sử" on a friend's screen
+  if (extras.onAct(from, a)) return; // an emote, a line, a vote: any friend in the game, any time
   if (a.act === 'again') return; // only the host starts another game
   const p = curP();
   if (p.kind !== 'remote' || p.peer !== from) return;
@@ -148,6 +172,8 @@ function onAct(from: number, a: Loose): void {
   else if (a.act === 'throw' && G.shake?.remote) G.shake.released = true;
   else if (a.act === 'pick' && Number.isInteger(a.h)) pickHorse(a.h, Number.isInteger(a.d) ? a.d : undefined);
 }
+/** "Lịch sử": the whole game's lines (a friend asks the host, who keeps them). */
+export function openHistory(): void { if (isGuest()) sendAct('history'); else showHistory(history); }
 /** Friend: a press for the host. */
 export function sendAct(act: string, h?: number, d?: number): void {
   net.toHost({ k: 'ludoAct', act, h, d });
@@ -159,6 +185,7 @@ function onHostMsg(d: Loose): void {
   if (!d || typeof d.k !== 'string') return;
   if (!d.k.startsWith('ludo')) { const other = d.k.startsWith('snake') ? 'Rắn và Thang' : 'Cờ Tỷ Phú'; goOffline(`Mã này là phòng ${other}: về sảnh, chọn ${other} rồi vào phòng nhé.`); setScene('ludoSetup'); return; }
   if (d.k === 'ludoYou') mySeat = d.seat;
+  else if (d.k === 'ludoHistory') showHistory(Array.isArray(d.list) ? d.list : []);
   else if (d.k === 'ludoFull') note = d.msg;
   else if (d.k === 'ludoLobby') { lobby = { hostName: d.hostName, seats: d.seats }; if (typeof d.strict === 'number') CONFIG.ludo_home_strict.value = d.strict; if (scene === 'ludo' && !d.playing) setScene('ludoSetup'); }
   else if (d.k === 'ludo') {

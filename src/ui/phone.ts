@@ -38,12 +38,15 @@ function phoneCard(pi: number): { x: number; y: number; w: number; h: number } {
 /** The header, the log line, the players and the strip behind the buttons. */
 export function drawPhoneChrome() {
   lacquer(0, 0, W, L.by);
-  text('SỰ THẢY', 12, L.by / 2, 17, '#f2c44a', 'left', 'bold');
   const roundTxt = state.mode === 'rounds' ? `Vòng ${Math.min(state.round, maxRounds())}/${maxRounds()}` : `Vòng ${state.round}`;
-  if (roomCode) { // in the gap between the rules pill and the room pill, smaller if it does not fit
+  if (roomCode) { // the game's name left (no "‹ Sảnh" online: the room pill leaves); the round between the rules pill and the room pill
+    fitText('CỜ TỶ PHÚ', 48, L.by / 2, 84, 16, '#f2c44a', 'bold');
     const r = rulesSpot(), left = r.x + r.w + 6, right = roomPill().x - 6;
     fitText(roundTxt, (left + right) / 2, L.by / 2, right - left, 15, '#e8d9b5', '');
-  } else text(roundTxt, W - 64, L.by / 2, 15, '#e8d9b5', 'right');
+  } else { // ‹ Sảnh, Luật, the game's name, the round: as Cá Ngựa's and Rắn và Thang's header
+    text('CỜ TỶ PHÚ', W / 2 + 30, L.by / 2, 18, '#f2c44a', 'center', 'bold');
+    text(roundTxt, W - 64, L.by / 2, 15, '#e8d9b5', 'right');
+  }
   const top = L.by + L.bh;
   lacquer(0, top, W, H - top);
   const last = state.log[state.log.length - 1] || '';

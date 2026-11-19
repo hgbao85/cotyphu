@@ -22,7 +22,7 @@ export function setState(s: GameState) { state = s; }
  * that closes under it (or any other change of screen) must not leave it open over the next game. */
 export function setScene(s: string) {
   if (s === scene) return;
-  F.roomMenu = false; scene = s;
+  F.roomMenu = false; F.emoteMenu = false; scene = s;
   for (const fn of sceneWatchers) fn(s);
 }
 const sceneWatchers: ((s: string) => void)[] = [];

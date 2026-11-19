@@ -4,6 +4,7 @@
 // The turns are in ./game.ts, online play in ./online.ts, the rules in ./rules.ts.
 
 import { tune, CONFIG } from '../config';
+import { CHECKED } from '../core/env';
 import { sfx } from '../audio';
 import { W, H, FONT, ctx, text, rrect, clear, screenScale, wrapLines } from '../screen';
 import { setScene, scene } from '../core/store';
@@ -500,6 +501,7 @@ function buildPlay(): void {
   btn(ph ? 8 : PX + 14, ph ? 8 : 14, ph ? 82 : 92, 32, '‹ Sảnh', () => { F.roomMenu = true; }, 'room', true, '');
   btn(ph ? 96 : PX + 114, ph ? 8 : 14, ph ? 62 : 64, 32, 'Luật', showLudoRules, 'room', true, '');
   btn(W - 52, ph ? 6 : 12, 40, 34, '', openSettings, 'mute');
+  if (!on.isGuest() && G.players.some(p => p.kind !== 'human')) btn(ph ? 164 : PX + 186, ph ? 8 : 14, ph ? 52 : 56, 32, `×${speed}`, cycleSpeed, 'room', true, '');
   if (F.roomMenu) { // leaving the game: asked once
     const y = ph ? H / 2 : 400;
     const go = on.isHost() ? 'Giải tán & về sảnh' : on.isGuest() ? 'Rời phòng' : 'Về sảnh';
@@ -613,6 +615,23 @@ function drawResults(): void {
   });
 }
 
+// ---- Fast forward ----------------------------------------------------------------------------
+// The computer's turns (and a friend's who dropped, the computer playing for them) run at ×2 or ×4:
+// its shake, its throw, its hops, its thinking. A person's turn always runs at its own pace. Online,
+// the host's button sets it for everyone. The choice is shared with Cờ Tỷ Phú's button.
+const SPEEDS = [1, 2, 4];
+let speed = 1;
+try { const k = Number(localStorage.getItem('tpdv-speed')); speed = !CHECKED && SPEEDS.includes(k) ? k : 1; } catch { speed = 1; } // a check always runs at ×1
+function cycleSpeed(): void {
+  speed = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length];
+  try { localStorage.setItem('tpdv-speed', String(speed)); } catch { /* not kept: fine */ }
+}
+/** How much faster this step runs: the computer's turns at the chosen speed, a person's at ×1. */
+function turnSpeed(): number {
+  if (!G?.players || G.phase === 'over') return 1;
+  return autoPlays(curP(), on.peerOnline) ? speed : 1;
+}
+
 /** The two screens of Cá Ngựa, for main.ts's scene table. */
 export const ludoScenes: Record<string, { update(dt: number): void; draw(): void }> = {
   ludoSetup: {
@@ -625,7 +644,7 @@ export const ludoScenes: Record<string, { update(dt: number): void; draw(): void
       buildPlay(); handleTaps();
       if (scene !== 'ludo') return;
       if (on.isGuest()) { G.t += dt; if (G.hop) G.hop.t = Math.min(G.hop.t + dt, tune.ludo_hop_time); if (G.throwAt) G.throwAt.t += dt; if (G.shake) G.shake.t += dt; if (G.show) G.show.t += dt; for (const f of G.floaters) f.t += dt; return; }
-      gameStep(dt, holding(), on.peerOnline);
+      gameStep(dt * turnSpeed(), holding(), on.peerOnline); // the computer's turns at the chosen speed
     },
     draw() {
       if (!ready()) { clear('#bfe6f5'); text('Đang tải ván...', W / 2, H / 2, 22, '#4a3020', 'center', 'bold'); return; }

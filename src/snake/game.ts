@@ -121,7 +121,7 @@ function afterDie(): void {
   G.timer = 0;
   if (!L.path.length) {
     G.phase = 'nomove';
-    float(-1, 'Cần đổ 6 để vào bàn', '#d9442b');
+    float(-1, R.dice > 1 ? 'Cần 6 hoặc đôi để vào bàn' : 'Cần đổ 6 để vào bàn', '#d9442b');
     log(`${p.name} đổ ${diceText(d)}: chưa vào bàn được.`);
     return;
   }
@@ -191,7 +191,7 @@ export function step(dt: number, held: boolean, peerOnline: (id?: number) => boo
       if (G.throwAt!.t >= G.throwAt!.dur) { G.throwAt = null; afterDie(); }
       break;
     case 'nomove':
-      if (G.timer >= tune.ludo_no_move_time) endRoll();
+      if (G.timer >= tune.snake_no_move_time) endRoll();
       break;
     case 'move': {
       const hp = G.hop!; hp.t += dt;

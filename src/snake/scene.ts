@@ -188,7 +188,7 @@ function drawPieces(): void {
     const u = f.t / 1.4, b = boardRect();
     let x: number, y: number;
     if (f.pi >= 0) { const q = piecePos(f.pi), s = at(q.r, q.c); x = s.x; y = s.y - cs * 0.8 - u * cs * 0.8; }
-    else { const d = dieSpot(); x = d.x; y = d.y - d.s * 0.9 - u * 30; }
+    else { x = b.x + b.s / 2; y = b.y + b.s / 2 - u * cs; } // about the throw: the middle of the board, clear of the panel
     if (f.pi >= 0) x = Math.max(b.x + cs * 1.4, Math.min(b.x + b.s - cs * 1.4, x)), y = Math.max(b.y + cs * 0.4, y);
     ctx.save(); ctx.globalAlpha = 1 - Math.max(0, u - 0.6) / 0.4;
     ctx.font = `bold ${Math.round(Math.max(18, cs * 0.42))}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -245,7 +245,7 @@ function drawDie(): void {
   if (G.show && G.show.t < 1.4 && G.phase !== 'dice') { // the number, big, as the die stops
     const d = G.show.dice, label = d.length === 2 ? (d[0] === d[1] ? `Đôi ${d[0]}!` : `${d[0] + d[1]}`) : String(d[0]);
     const t = G.show.t, pop = t < 0.15 ? 0.5 + t / 0.15 * 0.7 : 1.2 - Math.min(0.2, (t - 0.15) * 0.8), alpha = t > 1 ? 1 - (t - 1) / 0.4 : 1;
-    ctx.save(); ctx.globalAlpha = Math.max(0, alpha); ctx.translate(D.x, D.y - D.s * 1.05); ctx.scale(pop, pop);
+    ctx.save(); ctx.globalAlpha = Math.max(0, alpha); ctx.translate(D.x, D.y - D.s * 0.1); ctx.scale(pop, pop); // over the dice: the turn line runs above them
     ctx.font = `bold 40px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.lineWidth = 8; ctx.strokeStyle = '#fff6e2'; ctx.strokeText(label, 0, 0);
     ctx.fillStyle = d.includes(6) ? '#d9442b' : '#4a3020'; ctx.fillText(label, 0, 0); ctx.restore();
@@ -275,7 +275,7 @@ function turnLine(): string {
     case 'dice': return 'Xúc xắc đang lăn...';
     case 'move': return `${who} đổ ${d}, đi ${G.dice.reduce((a, b) => a + b, 0)} ô`;
     case 'slide': return G.slide?.link.kind === 'ladder' ? `${who} leo thang lên ô ${G.slide.link.to}!` : `${who} bị rắn đớp, tuột xuống ô ${G.slide?.link.to}`;
-    case 'nomove': return `${who} đổ ${d}: cần 6 mới vào bàn`;
+    case 'nomove': return `${who} đổ ${d}: cần ${rulesNow().dice > 1 ? '6 hoặc đôi' : '6'} mới vào bàn`;
     default: return '';
   }
 }

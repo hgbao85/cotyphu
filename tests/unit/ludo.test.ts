@@ -83,6 +83,15 @@ describe('coming out', () => {
     expect(ends(legalMoves(table([10, YARD, YARD, YARD]), 0, [3, 3], off))).toEqual(['13:3', '16:3+3']);
   });
 
+  it('a double 6 brings out only one horse: the start is taken, the other 6 moves on', () => {
+    // asked on 2026-11-19: the first horse out stands on the start, so the second 6 cannot bring another
+    const players = table([YARD, YARD, YARD, YARD]);
+    applyMove(players, 0, legalMoves(players, 0, [6, 6], rules())[0]);
+    const after = legalMoves(players, 0, [6], rules());
+    expect(after.filter(m => m.from === YARD)).toEqual([]);
+    expect(ends(after)).toEqual(['6:6']);
+  });
+
   it('a double 6 brings a horse out with one die and leaves the other', () => {
     expect(ends(legalMoves(table([YARD, YARD, YARD, YARD]), 0, [6, 6], rules()))).toEqual(['0:6']);
   });

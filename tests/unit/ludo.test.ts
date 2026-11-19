@@ -8,7 +8,8 @@ import {
 } from '../../src/ludo/rules';
 
 // ---- Fixtures ---------------------------------------------------------------------------------
-/** The rules as data/config.json sets them (2 dice, a 1 or a 6 comes out, no jumping, traditional stable). */
+/** The rules as data/config.json sets them (2 dice, a 1 or a 6 comes out, no jumping, traditional stable),
+ * except exitDouble: on here, so the double-exit cases below run (config.json has ludo_exit_double 0). */
 function rules(over: Partial<LudoRules> = {}): LudoRules {
   return { horses: 4, dice: 2, exitOnOne: true, exitDouble: true, bonusSix: true, bonusKick: false, noJump: true, homeStrict: true, ...over };
 }

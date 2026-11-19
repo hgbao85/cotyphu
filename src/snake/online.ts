@@ -13,7 +13,7 @@ import { tune, CONFIG } from '../config';
 import { rawSfx } from '../net/room';
 import { scene, setScene } from '../core/store';
 import type { Loose } from '../game/types';
-import { G, setG, snakeSetup, newGame, startShake, curP, sounds, recordSounds } from './game';
+import { G, setG, snakeSetup, newGame, startShake, curP, sounds, recordSounds, RULE_KEYS } from './game';
 import type { SnakeSeat } from './rules';
 import { keepRoom, lastRoom, hostGame, keepHostGame, keepLocal } from './keep';
 
@@ -78,7 +78,10 @@ export function createRoom(name: string, fresh = true): void { // fresh: a new r
   net.createRoom(name, handlers, 'snake', fresh);
 }
 /** Joins a friend's Rắn và Thang room by its code. */
+/** A friend's own rules' switches, kept while the host's are in force in the room; put back on leaving. */
+let ownRules: Record<string, number> | null = null;
 export function joinRoom(code: string, name: string): void {
+  ownRules ??= Object.fromEntries(RULE_KEYS.map(k => [k, tune[k]])); // the host's rules come with its lobby and game
   active = true; myName = name; mySeat = -1; lobby = null; roomCode = code.trim().toUpperCase(); note = '';
   net.joinRoom(code, name, handlers, 'snake');
 }
@@ -96,6 +99,7 @@ function goOffline(msg: string): void {
   if (active && net.getRole() !== 'off') net.leave();
   active = false; roomCode = ''; mySeat = -1; lobby = null; peers.clear(); note = msg; guestShaking = false; restoring = false;
   keepRoom(null); // left on purpose, or the room is gone: nothing to go back into
+  if (ownRules) { for (const k of RULE_KEYS) CONFIG[k].value = ownRules[k]; ownRules = null; } // a friend back on their own: their own rules again
   recordSounds(false);
   snakeSetup.seats.forEach((s, i) => { if (s.kind === 'remote') snakeSetup.seats[i] = { kind: 'ai', animal: s.animal }; });
   if (scene === 'snake') setScene('snakeSetup');

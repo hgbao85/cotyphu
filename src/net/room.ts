@@ -316,12 +316,19 @@ export function startVote() {
   if (isGuest()) { sendAct('voteStart'); return; }
   hostStartVote('host');
 }
+/** Host: when each friend last asked for a new game (game time, state.t). A friend whose ask was
+ * turned down waits vote_again_time before asking again, so one player cannot reopen the vote over
+ * and over. Cleared with each new game (state.t starts again). */
+const lastAsk = new Map<string, number>();
 function hostStartVote(by: string) {
   if (state.vote) return;
   const list = voters();
   if (list.length <= 1) { restartGame(); return; }
   const who = list.find(v => v.id === by);
   if (!who) return;
+  const asked = lastAsk.get(by);
+  if (by !== 'host' && asked !== undefined && asked <= state.t && state.t - asked < tune.vote_again_time) return;
+  lastAsk.set(by, state.t);
   state.vote = { by: who.name, t: 0, list: list.map(v => ({ ...v, ans: v.id === by ? true : null })) };
   log(`${who.name} đề nghị chơi lại ván mới.`);
   F.roomMenu = false;

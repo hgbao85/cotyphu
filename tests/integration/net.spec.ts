@@ -85,3 +85,63 @@ test('a friend in a Rắn và Thang room reads the host\'s rules, "Phải đổ 
   expect(rules).toContain('mới được vào bàn');                  // "Phải đổ 6 mới được vào bàn"
   expect(rules).toContain('Đổ dư cũng về đích');
 });
+
+test('a friend whose ask for a new game was turned down cannot reopen the vote at once', async ({ page }) => {
+  // Bug: a friend could send voteStart again and again after a "no", and the vote kept opening.
+  const srv = await fakeServer(page, (ws, m) => {
+    if (m.t !== 'create') return;
+    ws.send(JSON.stringify({ t: 'created', code: CODE, id: 0 }));
+    ws.send(JSON.stringify({ t: 'peer', id: 1, name: 'Ban', online: true })); // a friend comes in
+  });
+  const friend = (act: string) => srv.sockets[0].send(JSON.stringify({ t: 'fromPeer', from: 1, data: { k: 'act', act } }));
+  await page.goto(`${BASE}?game=typhu&render=cheap&manual=1`);
+  await expect.poll(() => page.evaluate(() => typeof window.game?.step)).toBe('function');
+  await tap(page, 600, 630);                                   // "Chơi online"
+  await page.fill('#op-name', 'Chu');
+  await page.click('#op-create');
+  await expect.poll(() => page.evaluate(() => (window.game!.online as { seats: { kind: string }[] }).seats.some(s => s.kind === 'remote'))).toBe(true);
+  await page.evaluate(() => { window.game!.press('Enter'); window.game!.step(3); }); // the host starts the game
+  expect(await page.evaluate(() => window.game!.scene)).toBe('play');
+  const vote = () => page.evaluate(() => { window.game!.step(1); return !!(window.game!.state as { vote?: unknown }).vote; });
+
+  friend('voteStart'); await expect.poll(vote).toBe(true);    // the friend asks
+  await page.evaluate(() => { window.game!.press('KeyN'); window.game!.step(2); }); // the host says no
+  expect(await vote()).toBe(false);
+  friend('voteStart');                                         // and asks again at once
+  await page.waitForTimeout(300);
+  expect(await vote()).toBe(false);
+});
+
+/** A friend joins a room of this game, the host's lobby brings the host's rules, then the host closes
+ * the room: the labels of the friend's own rule buttons afterwards. */
+async function rulesAfterLeaving(page: Page, game: 'ludo' | 'snake', lobby: Record<string, unknown>, onlineAt: [number, number]): Promise<string[]> {
+  const srv = await fakeServer(page, (ws, m) => {
+    if (m.t !== 'join') return;
+    ws.send(JSON.stringify({ t: 'joined', code: CODE, id: 1, hostOnline: true }));
+    ws.send(JSON.stringify({ t: 'fromHost', data: { code: CODE, hostName: 'Chu', playing: false, seats: [{ kind: 'human', name: 'Chu' }, { kind: 'remote', peer: 1, name: 'Ban' }, { kind: 'off' }, { kind: 'off' }], ...lobby } }));
+  });
+  await page.goto(`${BASE}?render=cheap&manual=1`);
+  await expect.poll(() => page.evaluate(() => typeof window.game?.step)).toBe('function');
+  await page.evaluate(g => (window.game as unknown as Record<string, (o: unknown) => void>)[g === 'ludo' ? 'configureLudo' : 'configureSnake']({}), game);
+  await tap(page, onlineAt[0], onlineAt[1]);
+  await page.fill('#op-name', 'Ban');
+  await page.fill('#op-code', CODE);
+  await page.click('#op-join');
+  await expect.poll(() => srv.sent.some(m => m.t === 'join')).toBe(true);
+  await page.evaluate(() => window.game!.step(5));
+  srv.sockets[0].send(JSON.stringify({ t: 'closed' }));       // the host closes the room
+  await expect.poll(() => page.evaluate(() => (window.game!.online as { role: string }).role)).toBe('off');
+  return page.evaluate(() => { window.game!.step(2); return (window.game!.view as { buttons: { label: string }[] }).buttons.map(b => b.label); });
+}
+
+test('a friend who leaves a room plays by their own rules again, not the host\'s (Cá Ngựa, Rắn và Thang)', async ({ browser }) => {
+  // Bug: the host's rules were copied into the friend's settings and stayed after the room was gone.
+  const ludo = await browser.newPage();
+  const l = await rulesAfterLeaving(ludo, 'ludo', { k: 'ludoLobby', strict: 0 }, [780, 592]); // the host plays "Nhanh"
+  expect(l.some(x => x.startsWith('Truyền thống'))).toBe(true);    // the friend's own: data/config.json's
+  const snake = await browser.newPage();
+  const s = await rulesAfterLeaving(snake, 'snake', { k: 'snakeLobby', rules: { snake_dice: 2, snake_six_to_start: 1, snake_exact_finish: 0 } }, [780, 610]);
+  expect(s.some(x => x.startsWith('1 viên'))).toBe(true);
+  expect(s.some(x => x.startsWith('Thảy là vào'))).toBe(true);
+  expect(s.some(x => x.startsWith('Đúng ô 100'))).toBe(true);
+});

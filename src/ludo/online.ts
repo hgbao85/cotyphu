@@ -73,7 +73,10 @@ export function createRoom(name: string, fresh = true): void { // fresh: a new r
   net.createRoom(name, handlers, 'ludo', fresh);
 }
 /** Joins a friend's Cá Ngựa room by its code. */
+/** A friend's own picked rules, kept while the host's are in force in the room; put back on leaving. */
+let ownRules: Record<string, number> | null = null;
 export function joinRoom(code: string, name: string): void {
+  ownRules ??= pickedRules(); // the host's rules come with its lobby; these are this screen's own
   active = true; myName = name; mySeat = -1; lobby = null; roomCode = code.trim().toUpperCase(); note = '';
   net.joinRoom(code, name, handlers, 'ludo');
 }
@@ -91,6 +94,7 @@ function goOffline(msg: string): void {
   if (active && net.getRole() !== 'off') net.leave();
   active = false; roomCode = ''; mySeat = -1; lobby = null; peers.clear(); note = msg; guestShaking = false; restoring = false;
   keepRoom(null); // left on purpose, or the room is gone: nothing to go back into
+  if (ownRules) { restoreRules(ownRules); ownRules = null; } // a friend back on their own: their own rules again
   recordSounds(false);
   ludoSetup.seats.forEach((s, i) => { if (s.kind === 'remote') ludoSetup.seats[i] = { kind: 'ai', lv: 1 }; });
   if (scene === 'ludo') setScene('ludoSetup');

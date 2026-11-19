@@ -54,6 +54,7 @@ holds no comments. The values themselves are in `data/config.json`.
 - `shake_max_time`: giữ quá lâu thì tự ném (s)
 - `hop_time`: quân cờ nhảy một ô
 - vote_time: online, how long a vote for a new game stays open (seconds)
+- vote_again_time: online, how long a friend waits after asking for a new game before asking again (seconds; the host is not held back). Added 19/11/2026: a friend could reopen a turned-down vote over and over.
 - order_roll: 1 = each game opens with everyone throwing the dice; the lowest total goes first (0 = seat order)
 - order_show_time: how long a throw for the order stays on screen before the next player throws (seconds)
 - emote_time: seconds a quick emote's bubble stays over the piece online

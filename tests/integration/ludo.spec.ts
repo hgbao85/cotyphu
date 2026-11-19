@@ -332,3 +332,27 @@ test('Cá Ngựa: a game kept while a person held the shake comes back waiting f
   expect(after).toEqual({ scene: 'ludo', phase: 'roll' });
   expect(errors).toEqual([]);
 });
+
+test('Cá Ngựa: a game just won is forgotten at once, so "Chơi tiếp ván trước" never offers it back', async ({ page }) => {
+  // Regression (full review 19/11/2026): the game was kept about once a second; leaving the results within that second
+  // left the last keep, a game one hop before the win, and the setup screen offered it back. Seed 8: its win does not
+  // fall on the once-a-second keep (seed 6's did, and hid the bug).
+  const errors: string[] = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await page.goto(`${pathToFileURL(resolve(process.env.SPEC_SINGLE || 'dist-single', 'index.html')).href}?manual=1&seed=8`);
+  await expect.poll(() => page.evaluate(() => typeof window.game?.step)).toBe('function');
+  const r = await page.evaluate(() => {
+    const g = window.game as unknown as { configureLudo(o: unknown): void; press(c: string): void; step(n?: number, d?: boolean): void; ludo: { phase: string } | null };
+    g.configureLudo({ seats: [{ kind: 'ai', lv: 2 }, { kind: 'ai', lv: 2 }, { kind: 'off' }, { kind: 'off' }] });
+    g.press('Enter'); g.step(1, false);
+    let wasKept = false;
+    for (let k = 0; k < 80000 && g.ludo?.phase !== 'over'; k++) { g.step(1, false); wasKept ||= !!localStorage.getItem('tpdv-ludo-local'); }
+    const phase = g.ludo?.phase;
+    g.step(1, false);                                               // the step the win is seen: one frame, well inside the second
+    return { phase, wasKept, keptNow: localStorage.getItem('tpdv-ludo-local') };
+  });
+  expect(r.phase).toBe('over');
+  expect(r.wasKept).toBe(true);                                     // it was being kept while it ran
+  expect(r.keptNow).toBeNull();                                     // and is gone the moment it is won
+  expect(errors).toEqual([]);
+});

@@ -540,3 +540,39 @@ test('a rounds game that ends with the richest players level says it is a tie, n
   expect(r.gained).not.toContain('thắng ván');
   expect(errors).toEqual([]);
 });
+
+test('a game resumed after a reload throws the same dice it would have thrown had it gone on', async ({ page }) => {
+  // Regression (full review 19/11/2026): the random numbers were not kept with the game, so a resumed game drew from the
+  // page's own start, the same dice for every resumed game, whatever was left.
+  const errors = await open(page, 'manual=1&seed=7');
+  const DICE = /đổ (\d+)\s*[-+]\s*(\d+)/;
+  const live = await page.evaluate((src) => {
+    const g = window.game!, re = new RegExp(src);
+    g.configure({ seats: [{ kind: 'ai', lv: 1 }, { kind: 'ai', lv: 1 }, { kind: 'off' }, { kind: 'off' }] });
+    g.press('Enter'); g.step(1); g.step(600, false);                      // the computers play a while
+    const at = () => JSON.parse(localStorage.getItem('tpdv-local-game') || 'null');
+    let kept = at(), last = kept?.at;
+    for (let k = 0; k < 2000; k++) {                                      // to a keep made between two shakes
+      g.step(1, false); const now = at();
+      if (now && now.at !== last) { last = now.at; if (!now.state.shaking) { kept = now; break; } }
+    }
+    const from = kept.state.history.length;
+    g.step(4500, false);                                                  // the game goes on, never reloaded
+    const s = g.state as { history: string[] };
+    return { kept: JSON.stringify(kept), dice: s.history.slice(from).filter(l => re.test(l)).slice(0, 8).map(l => l.match(re)!.slice(1).join('-')) };
+  }, DICE.source);
+  expect(live.dice.length).toBe(8);
+  await page.evaluate(k => localStorage.setItem('tpdv-local-game', k), live.kept);
+  await page.reload();
+  await expect.poll(() => page.evaluate(() => typeof window.game?.step)).toBe('function');
+  const box = (await page.locator('#game').boundingBox())!;
+  await page.mouse.click(box.x + 1090 * box.width / 1280, box.y + 638 * box.height / 720); // "Chơi tiếp ván trước"
+  const resumed = await page.evaluate(({ src, from }) => {
+    const g = window.game!, re = new RegExp(src);
+    g.step(4500, false);
+    const s = g.state as { history: string[] };
+    return s.history.slice(from).filter(l => re.test(l)).slice(0, 8).map(l => l.match(re)!.slice(1).join('-'));
+  }, { src: DICE.source, from: JSON.parse(live.kept).state.history.length });
+  expect(resumed).toEqual(live.dice);
+  expect(errors).toEqual([]);
+});

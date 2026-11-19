@@ -167,3 +167,50 @@ test('a friend joins a room, picks an animal, throws for the order, sends an emo
   expect(host.errors).toEqual([]);
   expect(friend.errors).toEqual([]);
 });
+
+test("a friend back mid-way through the computer's shake on their seat cannot take it over", async ({ browser }) => {
+  // Regression (full review 19/11/2026): while a friend was away the computer shook for their seat; their "shake" act on
+  // coming back marked that shake as theirs, and their "throw" then set its power.
+  test.setTimeout(120000);
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } }); opened.push(ctx);
+  const page = await ctx.newPage();
+  // the host's socket, kept where the test can hand it a message as the server would
+  await page.addInitScript(() => {
+    const Real = window.WebSocket;
+    (window as unknown as { sockets: WebSocket[] }).sockets = [];
+    window.WebSocket = class extends Real { constructor(u: string | URL, p?: string | string[]) { super(u, p); (window as unknown as { sockets: WebSocket[] }).sockets.push(this); } } as typeof WebSocket;
+  });
+  await page.goto(`${BASE}?game=typhu&render=cheap`);
+  await expect.poll(() => page.evaluate(() => typeof window.game?.step)).toBe('function');
+  const host = { page, errors: [] as string[] };
+  page.on('pageerror', e => host.errors.push(e.message));
+  await tap(page, AT.online);
+  await page.fill('#op-name', 'Chu');
+  await page.click('#op-create');
+  await expect.poll(async () => (await online(page)).code, { timeout: 10000 }).toMatch(/^[A-Z0-9]{4}$/);
+  const friend = await screen(browser);
+  await tap(friend.page, AT.online);
+  await friend.page.fill('#op-name', 'Ban');
+  await friend.page.fill('#op-code', (await online(page)).code);
+  await friend.page.click('#op-join');
+  await expect.poll(async () => (await online(friend.page)).mySeat, { timeout: 10000 }).toBe(FRIEND_SEAT);
+  await tap(page, AT.start);
+  await expect.poll(() => sceneOf(page), { timeout: 10000 }).toBe('play');
+
+  const seen = await page.evaluate((seat) => {
+    type Sh = { t: number; ai: boolean; holdFor: number; rattle: number; zone: { a: number; b: number }; remote?: boolean; power?: number };
+    const s = window.game!.state as { ordering?: boolean; phase: string; cur: number; zone?: unknown; shaking?: Sh | null; players: { id: number; peer?: number }[] };
+    const fi = s.players.findIndex(p => p.id === seat), peer = s.players[fi].peer!;
+    // the friend's turn, the computer shaking for them (as while they were away), long enough for the test
+    s.ordering = false; s.cur = fi; s.phase = 'roll'; s.zone = undefined;
+    s.shaking = { t: 0, ai: true, holdFor: 8, rattle: 0, zone: { a: 0.4, b: 0.5 } };
+    const sock = (window as unknown as { sockets: WebSocket[] }).sockets.find(w => w.readyState === 1)!;
+    const fromFriend = (data: unknown) => sock.onmessage!(new MessageEvent('message', { data: JSON.stringify({ t: 'fromPeer', from: peer, data }) }));
+    fromFriend({ k: 'act', act: 'shake' });                    // back, and pressing shake at once
+    fromFriend({ k: 'act', act: 'throw', i: 0.45 });           // and letting go
+    return { ai: s.shaking?.ai, remote: !!s.shaking?.remote, power: s.shaking?.power ?? null };
+  }, FRIEND_SEAT);
+  expect(seen).toEqual({ ai: true, remote: false, power: null }); // still the computer's shake, its let-go its own
+  expect(host.errors).toEqual([]);
+  expect(friend.errors).toEqual([]);
+});

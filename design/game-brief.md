@@ -97,12 +97,24 @@ After play: Biểu tượng app và ảnh xem trước khi chia sẻ link → ki
 After play: Kiểm tra độ mượt → trên điện thoại yếu giả lập từ 13–15 lên 31–37 khung hình/giây (production/qa/evidence/perf-2026-11-18/)
 After play: Che trang chờ của Render → trang game lên Vercel (không ngủ), phòng online vẫn ở Render; màn chờ đếm 30 giây rồi mới hiện "Đang chuẩn bị bàn cờ..."
 After play: Đổi tên dự án "Tỷ phú đất Việt" thành "Sự thảy" → Sự Thảy; câu thắng "X là tỷ phú, thắng ván!"
+After play: Rắn và Thang chọn 1 hoặc 2 viên xúc xắc → 2 viên thì chỉ đổ đôi mới vào bàn
+After play: Cá Ngựa và Rắn và Thang đồng bộ giao diện với Cờ Tỷ Phú (bảng bên phải, nút, mẹo ván đầu); quân Cá Ngựa là 12 con giáp như Cờ Tỷ Phú; góc nhìn nghiêng
+After play: Cân bằng Cá Ngựa → máy lo về chuồng thay vì đá qua đá lại; ván 2 người thì ngồi đối diện nhau
+After play: Cá Ngựa và Rắn và Thang chưa có thảy chọn lượt → có, cả Cờ Caro cũng vậy; hòa thì người hòa thảy lại
+After play: Thêm game thứ tư → Cờ Caro (bàn 15×15, 5 quân liền thắng, luật chặn hai đầu, chơi online)
+After play: Bàn 3D thật cho Cá Ngựa, Rắn và Thang, Cờ Caro; cả bốn game kéo để xoay bàn, lăn chuột hoặc + / − để phóng to, ↻ xoay một góc, "Gốc" về như cũ
+After play: Người chơi thấy xui, thua máy Dễ 3 ván liền → kiểm 3 triệu lần đổ: xúc xắc công bằng, mỗi mặt 16,66–16,69% (khi bình phương 4,73); máy Dễ của Cờ Tỷ Phú giờ chơi dễ thật (mua đất 50%, xây 40%); (production/qa/balance/may-de-2026-11-19/); sau khi có lực lắc và vùng vàng: máy Vừa thắng Dễ 70%, Khó thắng Vừa 68% (production/qa/balance/luc-lac-2026-11-19/)
+After play: Lực mạnh thì thảy mạnh, lực yếu thì thảy yếu → xúc xắc nghiêng theo lực, mức "Vừa phải": thả cao dễ ra số lớn, thả thấp dễ ra số nhỏ, mặt nào cũng vẫn ra được (dice_power_tilt); chỉ máy Khó canh lực
+After play: Thanh lực có vùng vàng ngẫu nhiên → mỗi lần thảy một vùng 10–15% thanh, nằm trong khoảng 20–80%; giữ nút thì thanh chạy lên xuống, 10 giây để canh, chưa nhấn thì chưa đếm; thả trúng vùng thì 50% được thảy hai lần và giữ lần tốt hơn; máy trúng vùng theo cấp (Dễ 10%, Vừa 30%, Khó 30%) và máy Khó canh lực kém chính xác như người (production/qa/balance/luc-lac-2026-11-19/)
+After play: Thanh lực ở hai giao diện dài khác nhau → cùng một độ dài ở cả bốn game
+After play: Thanh lực nên ở giữa màn hình, dạng cong, hiện sẵn → đồng hồ lực nửa vòng giữa bàn, thấy vùng vàng trước khi nhấn; không cần kim; nút thảy nằm ngoài bàn cờ (bảng bên phải trên máy tính, dưới bàn trên điện thoại); thanh chạy chậm lại (1,6 giây từ trống tới đầy)
+After play: Kiểm tra lỗi toàn hệ thống (hai lượt) → sửa hết: chặn gian lận online cơ bản (chủ phòng tự tính lực thả của bạn, không gửi hạt giống xúc xắc), tải lại giữa lúc lắc không tự thảy, ván nạp lại giữ chuỗi ngẫu nhiên và lịch sử, giao diện Cờ Tỷ Phú trên điện thoại không còn chồng chữ
 
-**Pitch:** Sự Thảy là cờ tỷ phú trên bản đồ Việt Nam cho 2–4 người, mỗi chỗ là người hoặc máy, chơi một máy hoặc online: đổ xúc xắc, mua đất từ Hà Giang tới TP. Hồ Chí Minh, dẫm lại đất mình để xây nhà, khách sạn rồi Landmark, rút thẻ Cơ Hội và Khí Vận vui nhộn; ai trụ lại (hoặc giàu nhất sau 30 hay 50 vòng) là tỷ phú. Quân là 12 con giáp chibi trên một hòn đảo làng quê.
+**Pitch:** Sự Thảy là sảnh các trò chơi xúc xắc (Cờ Tỷ Phú, Cá Ngựa, Rắn và Thang, Cờ Caro), món chính là cờ tỷ phú trên bản đồ Việt Nam cho 2–4 người, mỗi chỗ là người hoặc máy, chơi một máy hoặc online: đổ xúc xắc, mua đất từ Hà Giang tới TP. Hồ Chí Minh, dẫm lại đất mình để xây nhà, khách sạn rồi Landmark, rút thẻ Cơ Hội và Khí Vận vui nhộn; ai trụ lại (hoặc giàu nhất sau 30 hay 50 vòng) là tỷ phú. Quân là 12 con giáp chibi trên một hòn đảo làng quê. Mọi game đều thảy bằng tay: giữ để lắc, canh đồng hồ lực, thả trúng vùng vàng thì may hơn.
 
 **Genre:** board game, property trading with dice (cờ tỷ phú)
 
-**Controls:** chuột hoặc chạm: bấm vào ô để xem thông tin, giữ nút (hoặc Space) để lắc xúc xắc rồi thả ra để ném, bấm nút Mua, Bỏ qua, Xây, Cầm cố; Space hoặc Enter để đổ xúc xắc / xác nhận, N hoặc Esc để bỏ qua, M để tắt tiếng; nút loa (hay nút Cài đặt ở màn tạo ván) mở cài đặt âm lượng và hiệu ứng.
+**Controls:** chuột hoặc chạm: bấm vào ô để xem thông tin, giữ nút (hoặc Space) để lắc xúc xắc, canh đồng hồ lực giữa bàn rồi thả ra để ném, bấm nút Mua, Bỏ qua, Xây, Cầm cố; Space hoặc Enter để đổ xúc xắc / xác nhận, N hoặc Esc để bỏ qua, M để tắt tiếng; kéo trên bàn để xoay, lăn chuột để phóng to; nút loa (hay nút Cài đặt ở màn tạo ván) mở cài đặt âm lượng và hiệu ứng.
 
 **Question:** một ván cờ tỷ phú trên đất Việt với luật xây khi dẫm lại ô có vui từ đầu tới cuối không?
 
@@ -136,7 +148,7 @@ Trang mở với màn chờ (con giáp nhảy trên đảo, đếm từ 30). Mà
 - [x] Nút tua nhanh lượt Máy (×1 / ×2 / ×4)
 - [x] Cài lên màn hình chính như app (PWA), giữ màn hình sáng khi chơi
 - [x] Nút Luật chơi (màn tạo ván và trong ván): bảng luật đầy đủ, số lấy từ cấu hình
-- [x] Đầu ván tung xúc xắc chọn thứ tự đi: cao nhất đi trước, thấp nhất đi cuối, hòa thì tung lại; bảng thứ tự nằm thấp trên bàn, không che xúc xắc
+- [x] Đầu ván tung xúc xắc chọn thứ tự đi (cả bốn game): cao nhất đi trước, thấp nhất đi cuối, hòa thì người hòa tung lại; bảng thứ tự nằm thấp trên bàn, không che xúc xắc
 - [x] Biểu cảm nhanh khi chơi online: 8 câu, hiện bóng chữ trên quân của người gửi
 - [x] Lịch sử ván: mọi dòng diễn biến theo vòng, mới nhất ở trên
 - [x] Quân cờ 12 con giáp 3D kiểu chibi, mỗi con một màu; bấm con vật ở màn tạo ván để đổi, bạn online tự chọn con của mình
@@ -160,7 +172,8 @@ Trang mở với màn chờ (con giáp nhảy trên đảo, đếm từ 30). Mà
 - [x] Màn kết thúc: bảng xếp hạng tài sản và nút Chơi lại
 - [x] Vòng đầu của mỗi người (tới khi qua Xuất Phát lần đầu): chưa được mua đất, dẫm ô thuế được miễn
 - [x] Bấm vào ô bất kỳ trên bàn (hoặc dòng trong danh sách tài sản) để xem thẻ thông tin
-- [x] Giữ để lắc xúc xắc (có thanh lực), thả ra để ném; xúc xắc dừng thì hiện số to, đổ đôi có hiệu ứng riêng
+- [x] Giữ để lắc xúc xắc, thả ra để ném; xúc xắc dừng thì hiện số to, đổ đôi có hiệu ứng riêng
+- [x] Đồng hồ lực (cả bốn game): nửa vòng giữa bàn, hiện sẵn khi tới lượt; giữ nút thì dải màu chạy lên xuống (1,6 giây một lượt), 10 giây để canh; thả cao dễ ra số lớn, thấp dễ ra số nhỏ; vùng vàng ngẫu nhiên 10–15% thanh, thả trúng thì may hơn một chút; nút thảy nằm ngoài bàn cờ
 - [x] Rút thẻ Vào tù: lần qua Xuất Phát tới mất lương, trừ khi ra tù bằng Thẻ Ra Tù
 - [x] Hũ tiền giữa bàn: chỉ tiền 2 ô thuế dồn vào hũ, dừng ở Bến Đỗ Tự Do lấy cả hũ
 - [x] Chơi online: tạo phòng có mã, bạn bè vào bằng mã, mỗi người chơi trên máy mình; rớt mạng vào lại đúng chỗ, lúc vắng thì máy đi thay
@@ -179,15 +192,19 @@ Trang mở với màn chờ (con giáp nhảy trên đảo, đếm từ 30). Mà
 - [x] Biểu tượng app và ảnh xem trước khi chia sẻ link kiểu chibi (tools/icons/render.mjs)
 - [x] Màn chờ khi mở trang: đếm 30 giây rồi mới hiện "Đang chuẩn bị bàn cờ..."; mở phòng lúc máy chủ đang thức dậy cũng đếm 30 giây
 - [x] Chạy mượt trên điện thoại yếu (đo bằng tools/fps.mjs)
-- [x] Sảnh chọn game khi mở trang (Cờ Tỷ Phú, Cá Ngựa, thẻ "Sắp có thêm"); mỗi game có nút ‹ Sảnh; link thẳng ?game=typhu / ?game=cangua
-- [x] Cá Ngựa: bàn 2D chibi, 2–4 chỗ ngồi (Người, Máy Dễ/Vừa/Khó, Bạn online, Không chơi), 4 ngựa mỗi người, giữ để lắc thả để thảy một viên xúc xắc chấm dấu chân; đổ 6 ra quân và thảy thêm; không nhảy qua đầu; đá ngựa về chuồng; lên chuồng Truyền thống (đổ đúng từng bậc) hoặc Nhanh; màn thắng; luật chơi; chơi online cùng máy chủ phòng
+- [x] Sảnh chọn game khi mở trang (Cờ Tỷ Phú, Cá Ngựa, Rắn và Thang, Cờ Caro, thẻ "Sắp có thêm"); mỗi game có nút ‹ Sảnh; link thẳng ?game=typhu / ?game=cangua / ?game=ranthang / ?game=caro
+- [x] Cá Ngựa: bàn 3D chibi, quân 12 con giáp như Cờ Tỷ Phú, 2–4 chỗ ngồi (Người, Máy Dễ/Vừa/Khó, Bạn online, Không chơi), 4 ngựa mỗi người, giữ để lắc thả để thảy một viên xúc xắc chấm dấu chân; đổ 6 ra quân và thảy thêm; không nhảy qua đầu; đá ngựa về chuồng; lên chuồng Truyền thống (đổ đúng từng bậc) hoặc Nhanh; màn thắng; luật chơi; chơi online cùng máy chủ phòng
 - [x] Cá Ngựa 2 viên xúc xắc: mỗi viên đi riêng, bấm ngựa, ngựa đi được nhiều cách thì chọn đi số nào hoặc đi tổng cả hai viên; một viên 1 hoặc 6 ra một ngựa; đôi 2–5 không ra quân (bỏ từ 19/11/2026); đổ đôi thảy thêm; lên chuồng truyền thống mỗi viên tính riêng. Ô ra quân ở góc ngoài mỗi cánh, sát chuồng ngựa
 - [x] Cá Ngựa giữ ván: tải lại trang vẫn chơi tiếp ván một máy; nút Vào lại phòng (30 phút), chủ phòng tải lại vẫn giữ ván; mỗi game một mã chủ phòng riêng nên không lấy nhầm phòng của game kia
 - [x] Cá Ngựa: nút tua nhanh ×1 / ×2 / ×4 cho lượt máy (chung lựa chọn với Cờ Tỷ Phú); chơi online thì chủ phòng chọn
 - [x] Cá Ngựa: máy Khó tính trước cả hai viên xúc xắc (thắng máy Dễ 19/24, máy Vừa 16/24 ván, 2 người)
 - [x] Chữ giới thiệu khi cài app / chia sẻ link và ảnh xem trước có cả ba game
-- [x] Rắn và Thang: bàn 100 ô chibi, 7 thang tre và 8 con rắn (data/snake-board.json); 2–4 chỗ (Người, Máy, Bạn online, Không chơi), quân là 12 con giáp bấm để đổi; giữ để lắc thả để thảy; leo thang, rắn đớp tuột xuống; đổ 6 thảy thêm; luật Về đích (đúng ô 100, dư lùi lại / vượt cũng được) và Vào bàn (thảy là vào / phải đổ 6); màn thắng, luật chơi, chơi online, giữ ván và Vào lại phòng; thẻ thứ ba trên sảnh, link ?game=ranthang
-- [ ] Thêm game: Bầu Cua, Rắn và Thang, Xì Xúc Xắc
+- [x] Rắn và Thang: bàn 100 ô chibi 3D, 1 hoặc 2 viên xúc xắc (2 viên thì đổ đôi mới vào bàn), 7 thang tre và 8 con rắn (data/snake-board.json); 2–4 chỗ (Người, Máy, Bạn online, Không chơi), quân là 12 con giáp bấm để đổi; giữ để lắc thả để thảy; leo thang, rắn đớp tuột xuống; đổ 6 thảy thêm; luật Về đích (đúng ô 100, dư lùi lại / vượt cũng được) và Vào bàn (thảy là vào / phải đổ 6); màn thắng, luật chơi, chơi online, giữ ván và Vào lại phòng; thẻ thứ ba trên sảnh, link ?game=ranthang
+- [x] Cờ Caro: bàn 15×15 3D, 2 chỗ (Người, Máy Dễ/Vừa/Khó, Bạn online); đầu ván thảy xúc xắc chọn ai đi trước, các ván sau người thua đi trước; 5 quân liền thì thắng, luật Việt Nam chặn hai đầu không tính (tắt được); tỉ số qua các ván; chơi online, giữ ván và Vào lại phòng; link ?game=caro
+- [x] Bàn 3D ở cả bốn game: kéo để xoay, lăn chuột hoặc + / − để phóng to, ↻ xoay một góc, "Gốc" về góc nhìn ban đầu; mỗi người giữ góc nhìn của mình
+- [x] Cá Ngựa: máy lo về chuồng thay vì đá qua đá lại; ván 2 người ngồi đối diện
+- [x] Máy chơi đúng sức ở Cờ Tỷ Phú (200 ván máy tự đánh): Vừa thắng Dễ 70%, Khó thắng Vừa 68% và Dễ 89%; xúc xắc đã kiểm công bằng
+- [ ] Thêm game: Bầu Cua, Xì Xúc Xắc
 
 ## Your systems
 - người hoặc máy cho từng chỗ ngồi · in the slice

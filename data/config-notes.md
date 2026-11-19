@@ -45,7 +45,11 @@ holds no comments. The values themselves are in `data/config.json`.
 - `ai_delay`: máy nghĩ bao lâu mỗi quyết định (s)
 - `ai_reserve_mid`: máy Vừa giữ lại ít nhất
 - `ai_reserve_hard`: máy Khó giữ lại ít nhất
-- `ai_easy_buy_chance`: máy Dễ mua đất với xác suất này
+- `ai_easy_buy_chance`: máy Dễ mua đất với xác suất này. `ai_easy_build_chance`: máy Dễ xây thêm nhà với xác suất này (trước 19/11/2026 viết cứng 0,7 trong `src/game/ai.ts`).
+  Chỉnh 19/11/2026 (0,75 / 0,7 → 0,5 / 0,4) vì người chơi phản ánh thua máy Dễ liên tục. Máy tự đánh, 2 người, 200 ván mỗi trận (số liệu thô: `production/qa/balance/may-de-2026-11-19/`):
+  - Trước: máy Dễ thắng máy Vừa 46% và máy Khó 35% (tới khi phá sản); ở kiểu 30 vòng còn thắng Vừa 52%, Khó 53%. Mua gần hết đất mà không giữ tiền là lối chơi mạnh ở Cờ Tỷ Phú.
+  - Sau: máy Dễ thắng máy Vừa 32% và máy Khó 18% (tới khi phá sản). Mức 0,3 / 0,2 quá tay: chỉ còn 7% / 4%.
+  - Kiểu 30 vòng gần như không đổi (Dễ thắng Vừa 47%): tiền lương và xúc xắc quyết định gần hết; ngay cả máy Dễ không mua gì vẫn thắng 33%. Muốn các cấp máy khác nhau ở kiểu này phải đổi luật (tiền thuê), xem `design/balance/self-play-2026-11-16.md`.
 - `ai_mid_mistake`: máy Vừa quyết sai với xác suất này
 
 ---- Motion (seconds) ----

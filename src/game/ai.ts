@@ -102,7 +102,7 @@ function maxRentAgainst(pi: number) { // the worst rent this player could meet o
 function aiWantsBuild(pi: number, i: number) {
   const p = state.players[pi], cost = buildPrice(i, state.level[i] + 1);
   if (p.cash < cost) return false;
-  if (p.lv === 0) return rng() < 0.7;
+  if (p.lv === 0) return rng() < tune.ai_easy_build_chance;
   const keep = p.lv === 2 ? hardReserve(pi) * tune.ai_hard_build_keep : tune.ai_reserve_mid + 300;
   let want = p.cash - cost >= keep;
   if (p.lv === 1 && rng() < tune.ai_mid_mistake) want = !want;

@@ -54,7 +54,7 @@ const wait = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 /** Waits until a client got a message that passes the test (a busy machine relays slowly). */
 const until = (c: { got: Record<string, unknown>[] }, ok: (m: Record<string, unknown>) => boolean) =>
-  expect.poll(() => c.got.find(ok) ?? null, { timeout: 10000 }).not.toBeNull();
+  expect.poll(() => c.got.find(ok) ?? null, { timeout: 20000 }).not.toBeNull(); // a whole-suite run (3D pages, two browsers) slows the relay a lot
 
 test('a host opening the room again from another tab closes the old tab, which can no longer send', async () => {
   // Bug: the old socket stayed open and kept sending, so guests saw two diverging games.

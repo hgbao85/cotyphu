@@ -1,4 +1,6 @@
-# Game Brief: Tỷ Phú Đất Việt
+# Game Brief: Sự Thảy
+
+*Tên cũ: Tỷ Phú Đất Việt (đổi ngày 2026-11-18). Bản chơi: <https://suthay.vercel.app/>.*
 
 ## In your words
 Game cờ tỷ phú
@@ -72,24 +74,38 @@ After play: Cho phép chat ký tự lặp như "aaaaaa" → giữ nguyên như �
 After play: Chơi đồng đội 2 đấu 2 → Kiểu ván "2 đội · tới khi phá sản" / "2 đội · 30 vòng"; ghế 1 và 3 là Đội 1, ghế 2 và 4 là Đội 2; đất đồng đội không mất tiền thuê; đội còn trụ lại (hoặc tổng tài sản lớn hơn) thắng; cần đủ 4 người
 After play: Tự chọn ai cùng đội, gom đủ nhóm màu tính chung cả đội; màn tạo ván chọn bằng danh sách (Đơn/Đội, 30 vòng/50 vòng/tới khi phá sản, con vật, loại người chơi, đội từng ghế)
 After play: Tổng kết cuối ván, hướng dẫn ván đầu, đặc sản từng tỉnh, tiếng chiêng trống khi Landmark mọc lên; tách main.ts thành các tệp nhỏ
+After play: Chỗ nào không dùng thì bỏ đi → bỏ code thừa sau khi tách tệp
+After play: Giao diện điện thoại → khung cao theo màn hình, bàn cờ to hơn; một dấu hiệu tới lượt (thẻ viền vàng); chữ giữa bàn in mờ; hàng nút Lịch sử · Tài sản · Tốc độ; nhật ký "Diễn biến" ở bảng bên phải trên máy tính
+After play: Gợi ý khi dẫm ô → dưới thẻ đất một dòng: mua là đủ nhóm, đối thủ đã có mấy ô (mua để chặn), sẽ có mấy ô trong nhóm; trả thuê thì ghi vì sao (cấp nhà, chủ đủ nhóm)
+After play: Chỉ cần số ×2 trên dải màu khi đủ nhóm → đồng xu ×2 (cùng cỡ trên mọi ô, bật lên lần lượt kèm tiếng chiêng)
+After play: Giao diện vibe cute → Làng quê chibi là giao diện mặc định (sơn mài cũ còn ở ?theme=lacquer); mặt con giáp đổi nét, xúc xắc chấm dấu chân, xu bay khi trả tiền, tiếng "bụp", font Baloo 2
+After play: Hoàn thiện chibi → màn kết thúc pháo giấy pastel và con giáp nhảy mừng; bảng chọn thứ tự đi kiểu chibi; tiếng xúc xắc gỗ, tiếng chuông nhận tiền
+After play: Quân chung ô bị chồng lên nhau → đứng cạnh nhau ở phần dưới ô, chừa tên ô; quân 3D nhảy cẫng khi nhận tiền, cúi đầu khi trả, ngủ gật trong tù; màn tạo ván con giáp đứng trên gò cỏ vẫy tay
+After play: Bảng luật, lịch sử bị tô tối → điện thoại bật "chế độ tối cho mọi trang"; trang giờ giữ màu riêng; bảng chừa chỗ chạm ra ngoài để đóng
+After play: Bảng cài đặt (âm lượng, bật/tắt hiệu ứng) → có; đổi giao diện trong bảng: làm rồi bỏ (Bỏ chức năng đổi giao diện đi)
+After play: Biểu tượng app và ảnh xem trước khi chia sẻ link → kiểu chibi (chú Trâu trên đảo cỏ)
+After play: Kiểm tra độ mượt → trên điện thoại yếu giả lập từ 13–15 lên 31–37 khung hình/giây (production/qa/evidence/perf-2026-11-18/)
+After play: Che trang chờ của Render → trang game lên Vercel (không ngủ), phòng online vẫn ở Render; màn chờ đếm 30 giây rồi mới hiện "Đang chuẩn bị bàn cờ..."
+After play: Đổi tên dự án "Tỷ phú đất Việt" thành "Sự thảy" → Sự Thảy; câu thắng "X là tỷ phú, thắng ván!"
 
-**Pitch:** Cờ tỷ phú trên bản đồ Việt Nam cho 2–4 người, mỗi chỗ là người hoặc máy: đổ xúc xắc, mua đất từ Hà Giang tới Cà Mau, dẫm lại đất mình để xây nhà, khách sạn rồi Landmark, rút thẻ Cơ Hội và Khí Vận vui nhộn; ai trụ lại (hoặc giàu nhất sau 30 vòng) là tỷ phú.
+**Pitch:** Sự Thảy là cờ tỷ phú trên bản đồ Việt Nam cho 2–4 người, mỗi chỗ là người hoặc máy, chơi một máy hoặc online: đổ xúc xắc, mua đất từ Hà Giang tới TP. Hồ Chí Minh, dẫm lại đất mình để xây nhà, khách sạn rồi Landmark, rút thẻ Cơ Hội và Khí Vận vui nhộn; ai trụ lại (hoặc giàu nhất sau 30 hay 50 vòng) là tỷ phú. Quân là 12 con giáp chibi trên một hòn đảo làng quê.
 
 **Genre:** board game, property trading with dice (cờ tỷ phú)
 
-**Controls:** chuột: bấm vào ô để xem thông tin, giữ nút (hoặc Space) để lắc xúc xắc rồi thả ra để ném, bấm nút Mua, Bỏ qua, Xây, Cầm cố; phím Space hoặc Enter để đổ xúc xắc / xác nhận *(guessed)*
+**Controls:** chuột hoặc chạm: bấm vào ô để xem thông tin, giữ nút (hoặc Space) để lắc xúc xắc rồi thả ra để ném, bấm nút Mua, Bỏ qua, Xây, Cầm cố; Space hoặc Enter để đổ xúc xắc / xác nhận, N hoặc Esc để bỏ qua, M để tắt tiếng; nút loa (hay nút Cài đặt ở màn tạo ván) mở cài đặt âm lượng và hiệu ứng.
 
-**Question:** một ván cờ tỷ phú đất Việt với luật xây khi dẫm lại ô có vui từ đầu tới cuối không?
+**Question:** một ván cờ tỷ phú trên đất Việt với luật xây khi dẫm lại ô có vui từ đầu tới cuối không?
 
 **Intent:** needs 2 players *(you said: 2–4 chỗ ngồi)*
 
 ## Look and references
-- Look: bàn cờ đồ chơi 3D tươi sáng đặt trên mặt bàn gỗ ấm, như buổi tối cả nhà quây quần chơi cờ. Bàn cờ màu kem; ba nhóm miền: Bắc đỏ son và hồng đào, Trung vàng nghệ và cam, Nam xanh lá và xanh ngọc; quân cờ 4 màu đậm (đỏ, xanh dương, vàng, tím) nổi hẳn trên bàn; bóng đổ ngả lạnh, ánh sáng ngả ấm. Quân cờ bóng như nhựa, mỗi quân một dáng riêng: trâu, cá chép, chim lạc, nón lá. Nhà là khối vuông mái dốc, khách sạn là khối cao có cờ, Landmark là mô hình công trình riêng của tỉnh (Chùa Một Cột, Ngọ Môn, Cầu Rồng, Chùa Cầu, Chợ Bến Thành...) *(guessed)*. Signature: xúc xắc lăn thật trên mặt bàn có bóng đổ, quân cờ nhảy từng ô kêu "tách", nhà mọc lên khỏi ô khi xây. Every figure drawn, no emoji, no plain circles.
+- Look (từ 2026-11-18, mặc định): **Làng quê chibi.** Bàn cờ nằm trên một hòn đảo cỏ giữa mặt nước xanh, mép đảo có cây tròn; ô đất là những tấm thẻ màu kem bo tròn, giữa các ô lộ cỏ; sân giữa là ruộng lúa chia ô và một ao sen có hai chú vịt bơi. Nhà và khách sạn kiểu đồ chơi mập mạp mái pastel; bảng và nút màu kem, đào, xanh trời, chữ nâu đậm, font tròn Baloo 2 (đủ dấu tiếng Việt). Quân là 12 con giáp chibi. Chi tiết: mặt con giáp trên thẻ đổi nét (cười khi nhận tiền, mếu khi trả, ngủ trong tù), xúc xắc chấm dấu chân, đồng xu bay từ người trả sang người nhận, đồng xu ×2 khi đủ nhóm, pháo giấy hình tim và sao khi kết thúc.
+- Look trước đó (còn mở được bằng `?theme=lacquer`): bàn cờ đồ chơi 3D tươi sáng đặt trên mặt bàn gỗ ấm, như buổi tối cả nhà quây quần chơi cờ. Bàn cờ màu kem; ba nhóm miền: Bắc đỏ son và hồng đào, Trung vàng nghệ và cam, Nam xanh lá và xanh ngọc; quân cờ 4 màu đậm (đỏ, xanh dương, vàng, tím) nổi hẳn trên bàn; bóng đổ ngả lạnh, ánh sáng ngả ấm. Quân cờ bóng như nhựa, mỗi quân một dáng riêng: trâu, cá chép, chim lạc, nón lá. Nhà là khối vuông mái dốc, khách sạn là khối cao có cờ, Landmark là mô hình công trình riêng của tỉnh (Chùa Một Cột, Ngọ Môn, Cầu Rồng, Chùa Cầu, Chợ Bến Thành...) *(guessed)*. Signature: xúc xắc lăn thật trên mặt bàn có bóng đổ, quân cờ nhảy từng ô kêu "tách", nhà mọc lên khỏi ô khi xây. Every figure drawn, no emoji, no plain circles.
 - References: none named.
-- View: 3D · Camera: cố định, nhìn nghiêng khoảng 55°, cả bàn cờ vừa khung hình; ô của người đang đi sáng lên *(provisional)*
+- View: 3D · Camera: cố định, nhìn nghiêng, cả bàn cờ vừa khung hình; trên điện thoại cầm dọc nhìn dốc hơn để đọc được chữ trên ô; ô của người đang đi sáng lên
 
 ## First minute
-Màn tạo ván: chọn 2–4 chỗ ngồi, mỗi chỗ Người hoặc Máy (Dễ, Vừa, Khó), chọn kiểu ván (Tới khi phá sản / 30 vòng), bấm Bắt đầu. Đến lượt bạn, nút Đổ xúc xắc nhấp nháy; xúc xắc lăn, quân cờ nhảy từng ô tới một tỉnh và thẻ đất hiện ra với giá, tiền thuê, nút Mua / Bỏ qua. Bấm Mua, ô đất viền màu của bạn. Máy đi tiếp và dẫm vào đất bạn: tiền bay từ quân máy sang bạn kèm tiếng "ting". *(guessed)*
+Trang mở với màn chờ (con giáp nhảy trên đảo, đếm từ 30). Màn tạo ván: con giáp mỗi chỗ đứng trên gò cỏ vẫy tay; chọn bằng danh sách mỗi chỗ là Người, Máy (Dễ, Vừa, Khó), Bạn online hay Không chơi, rồi Đơn/Đội và 30 vòng / 50 vòng / Tới khi phá sản; bấm Bắt đầu. Mọi người tung xúc xắc chọn thứ tự đi. Đến lượt bạn, nút Đổ xúc xắc nhấp nháy; xúc xắc lăn, quân cờ nhảy từng ô tới một tỉnh và thẻ đất hiện ra với giá, tiền thuê, nút Mua / Bỏ qua. Bấm Mua, ô đất viền màu của bạn. Máy đi tiếp và dẫm vào đất bạn: đồng xu bay từ quân máy sang quân bạn kèm tiếng chuông nhỏ, con giáp của bạn nhảy cẫng.
 
 ## Challenge
 Đầu ván ai cũng dư tiền, tiền thuê nhẹ. Vì chỉ xây khi dẫm lại đất mình, nhà mọc dần; khoảng vòng 8–10 bắt đầu có khách sạn và đi qua đất người khác phải tính. Landmark là "ô đáng sợ" cuối ván. Thiếu tiền thì cầm cố đất cho ngân hàng; cầm cố hết vẫn thiếu thì phá sản. Máy mức Khó mua có tính toán và giữ tiền dự phòng, mức Dễ mua lung tung. *(provisional)*
@@ -97,13 +113,13 @@ Màn tạo ván: chọn 2–4 chỗ ngồi, mỗi chỗ Người hoặc Máy (D�
 ## Core loop
 - Đổ 2 xúc xắc, đi quân, xử lý ô đứng: mua đất trống, trả thuê, rút thẻ, đóng thuế hoặc vào tù.
 - Dẫm lại vào đất của mình thì được xây thêm 1 cấp: Nhà 1 → Nhà 2 → Nhà 3 → Nhà 4 → Khách sạn → Landmark; mỗi cấp tiền thuê tăng.
-- Gom đủ một nhóm màu thì tiền thuê mọi ô trong nhóm ×2.
+- Gom đủ một nhóm màu thì tiền thuê mọi ô trong nhóm ×2 (đất cầm cố không tính; chơi đội thì tính chung cả đội). Tiền thuê đã nhân `rent_scale` 3, chính xác tới nghìn đồng.
 - Tiền 2 ô thuế dồn vào hũ tiền giữa bàn (tiền phạt, sửa nhà, nộp ra tù thì trả ngân hàng); dừng ở Bến Đỗ Tự Do thì lấy cả hũ.
 - Qua ô Xuất Phát nhận lương; thiếu tiền thì cầm cố, không trả nổi thì phá sản; ván kết thúc theo kiểu đã chọn, rồi Chơi lại.
 - Leads: luật cờ quyết định lượt đi và hành động của máy.
 
 ## Goal & fail state
-- Thắng: người cuối cùng chưa phá sản; ván 30 vòng thì người có tổng tài sản (tiền + giá đất + giá nhà) lớn nhất khi hết vòng.
+- Thắng: người cuối cùng chưa phá sản; ván 30 hay 50 vòng thì người có tổng tài sản (tiền + giá đất + giá nhà) lớn nhất khi hết vòng. Chơi đội: đội còn trụ lại (hoặc tổng tài sản lớn hơn) thắng.
 - Thua: không trả nổi tiền kể cả sau khi cầm cố hết đất: phá sản, bị loại.
 
 ## Features
@@ -124,11 +140,11 @@ Màn tạo ván: chọn 2–4 chỗ ngồi, mỗi chỗ Người hoặc Máy (D�
 - [x] Màn tạo ván chọn bằng danh sách thả xuống
 - [x] Tổng kết cuối ván (thu tiền thuê nhiều nhất, ô đáng sợ nhất, xui nhất), gợi ý cho ván đầu, đặc sản trên thẻ ô, tiếng chiêng trống khi xây Landmark
 - [x] Vào lại phòng: nút Vào lại phòng (30 phút), chủ phòng tải lại vẫn giữ ván, người đã rời vào lại cùng tên lấy lại ghế
-- [x] Màn tạo ván: 2–4 chỗ ngồi, mỗi chỗ Người hoặc Máy (Dễ/Vừa/Khó), kiểu ván Phá sản hoặc 30 vòng
+- [x] Màn tạo ván: 2–4 chỗ ngồi, mỗi chỗ Người, Máy (Dễ/Vừa/Khó), Bạn online hoặc Không chơi; kiểu ván 30 vòng, 50 vòng hoặc Tới khi phá sản
 - [x] Bàn 40 ô: 22 tỉnh thành chia 8 nhóm theo miền, 4 bến cảng/sân bay, 2 công ty (Điện, Nước), Cơ Hội ×3, Khí Vận ×3, Thuế ×2, Xuất Phát, Nhà Tù, Đi Tù, Bến Đỗ Tự Do
 - [x] Xúc xắc 3D lăn trên bàn, quân cờ nhảy từng ô; đổ đôi được đi tiếp, đôi 3 lần vào tù
 - [x] Mua đất trống; dẫm lại đất mình thì xây thêm 1 cấp (4 nhà, khách sạn, Landmark riêng của tỉnh); gom đủ nhóm thì thuê ×2; tiền tính bằng đồng (nhẹ nhàng)
-- [x] 16 thẻ Cơ Hội và 16 thẻ Khí Vận vui nhộn: trúng số, bị phạt, đi tới ô bất kỳ, sửa nhà...
+- [x] 17 thẻ Cơ Hội và 17 thẻ Khí Vận vui nhộn: trúng số, bị phạt, đi tới ô bất kỳ, sửa nhà... (xáo lại khi hết bộ)
 - [x] Cầm cố và chuộc đất với ngân hàng; phá sản thì bị loại
 - [x] Máy chơi 3 mức: Dễ, Vừa, Khó
 - [x] Màn kết thúc: bảng xếp hạng tài sản và nút Chơi lại
@@ -140,7 +156,19 @@ Màn tạo ván: chọn 2–4 chỗ ngồi, mỗi chỗ Người hoặc Máy (D�
 - [x] Chơi online: tạo phòng có mã, bạn bè vào bằng mã, mỗi người chơi trên máy mình; rớt mạng vào lại đúng chỗ, lúc vắng thì máy đi thay
 - [x] Phòng online: mã phòng hiện trong ván; bạn bè rời phòng (máy chơi thay), chủ phòng giải tán phòng; bỏ phiếu chơi lại ván mới (tất cả đồng ý, 30 giây)
 - [x] Chơi trên điện thoại: cầm dọc thì tự chuyển bố cục (bàn cờ vuông, người chơi 2×2, nút to, bảng Tài sản riêng), chạm giữ để lắc
-- [x] Đưa lên Internet: Render (render.yaml, docs/deploy.md)
+- [x] Đưa lên Internet: trang game trên Vercel (<https://suthay.vercel.app/>, vercel.json), phòng online trên Render (render.yaml); docs/deploy.md
+- [x] Giao diện điện thoại cao theo màn hình: bàn cờ to, nhìn dốc; hàng nút Lịch sử · Tài sản · Tốc độ; một dấu hiệu tới lượt; nhật ký "Diễn biến" ở bảng bên phải trên máy tính
+- [x] Gợi ý dưới thẻ đất khi được mua (đủ nhóm, chặn đối thủ, sẽ có mấy ô) và lý do tiền thuê khi trả
+- [x] Đồng xu ×2 trên các ô của nhóm đã gom đủ, bật lên lần lượt kèm tiếng chiêng
+- [x] Giao diện Làng quê chibi (mặc định): đảo cỏ, ao sen có vịt, ô bo tròn, nhà đồ chơi, bảng pastel, font Baloo 2; sơn mài cũ ở ?theme=lacquer
+- [x] Chi tiết dễ thương: mặt con giáp trên thẻ đổi nét, xúc xắc chấm dấu chân, xu bay khi trả tiền, tiếng bấm "bụp", tiếng xúc xắc gỗ, tiếng chuông khi nhận tiền
+- [x] Quân 3D biểu cảm: nhảy cẫng khi nhận tiền, cúi đầu khi trả, ngủ gật có chữ z khi ở tù; quân chung một ô đứng cạnh nhau, chừa tên ô
+- [x] Màn kết thúc kiểu chibi: pháo giấy pastel, con giáp mọi người nhảy mừng quanh người thắng; bảng chọn thứ tự đi có mặt con giáp và vương miện
+- [x] Màn tạo ván: con giáp đứng trên gò cỏ vẫy tay
+- [x] Bảng cài đặt: âm lượng, bật/tắt hiệu ứng chuyển động (máy bật "giảm chuyển động" thì tắt sẵn); nhớ cho lần sau
+- [x] Biểu tượng app và ảnh xem trước khi chia sẻ link kiểu chibi (tools/icons/render.mjs)
+- [x] Màn chờ khi mở trang: đếm 30 giây rồi mới hiện "Đang chuẩn bị bàn cờ..."; mở phòng lúc máy chủ đang thức dậy cũng đếm 30 giây
+- [x] Chạy mượt trên điện thoại yếu (đo bằng tools/fps.mjs)
 
 ## Your systems
 - người hoặc máy cho từng chỗ ngồi · in the slice
@@ -165,15 +193,14 @@ Màn tạo ván: chọn 2–4 chỗ ngồi, mỗi chỗ Người hoặc Máy (D�
 - Người lạ vào xem, xếp hạng online: not built yet
 - Luật nhà và biến thể khác (đấu giá đất): change it after play
 - Gợi ý nước đi hay: change it after play
-- Lưu ván dở để chơi tiếp: add it as a feature
 
 ## Build order
 1. Một ván trọn vẹn: tạo ván, đổ xúc xắc, đi quân, mua đất, trả thuê, rút thẻ, xây khi dẫm lại ô tới Landmark, cầm cố, phá sản, thắng theo một trong hai kiểu ván, máy ở cả 3 mức.
 2. Làm mượt: hiệu ứng tiền bay, âm thanh, cân lại giá đất và tiền thuê sau khi chơi thử.
 
 ---
-**Kill condition:** nếu chơi thử 2 ván mà vẫn thấy ván dài lê thê, nhàm chán dù đã chỉnh tiền thuê. *(guessed)*
+**Kill condition (khi mới làm, đã qua):** nếu chơi thử 2 ván mà vẫn thấy ván dài lê thê, nhàm chán dù đã chỉnh tiền thuê. *(guessed)*
 
-**Who it's for / what they feel:** gia đình và nhóm bạn ngồi chung một máy, cười đùa khi đối thủ dẫm phải đất mình. *(guessed)*
+**Who it's for / what they feel:** gia đình và nhóm bạn ngồi chung một máy hoặc mỗi người một điện thoại, cười đùa khi đối thủ dẫm phải đất mình.
 
 **Games you love / don't:** *(not given)*

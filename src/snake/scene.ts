@@ -275,12 +275,15 @@ function turnLine(): string {
     case 'dice': return 'Xúc xắc đang lăn...';
     case 'move': return `${who} đổ ${d}, đi ${G.dice.reduce((a, b) => a + b, 0)} ô`;
     case 'slide': return G.slide?.link.kind === 'ladder' ? `${who} leo thang lên ô ${G.slide.link.to}!` : `${who} bị rắn đớp, tuột xuống ô ${G.slide?.link.to}`;
-    case 'nomove': return `${who} đổ ${d}: cần ${rulesNow().dice > 1 ? '6 hoặc đôi' : '6'} mới vào bàn`;
+    case 'nomove': return `${who} đổ ${d}: cần đổ ${enterFace()} mới vào bàn`;
     default: return '';
   }
 }
 const finishName = (): string => (tune.snake_exact_finish >= 1 ? 'Đúng ô 100' : 'Vượt cũng được');
-const startName = (): string => (tune.snake_six_to_start >= 1 ? 'Phải đổ 6' : 'Thảy là vào');
+/** What brings a piece on under the six-to-start rule: a six with one die, a double with two. */
+const enterFace = (): string => (rulesNow().dice > 1 ? 'đôi' : '6');
+const diceName = (): string => (tune.snake_dice >= 2 ? '2 viên' : '1 viên');
+const startName = (): string => (tune.snake_six_to_start >= 1 ? `Phải đổ ${enterFace()}` : 'Thảy là vào');
 function kindName(s: SnakeSeat, i: number): string {
   if (s.kind === 'human' && i === 0 && (on.isHost() || on.isGuest())) return `Chủ phòng · ${on.isHost() ? on.myName : on.lobby?.hostName || ''}`;
   if (s.kind === 'human') return 'Người chơi';
@@ -314,7 +317,7 @@ function showSnakeRules(): void {
   openPage('Luật Rắn và Thang', `
     <h3>Mục tiêu</h3><ul><li>Bàn <b>100 ô</b>, đi từ ô 1 ở góc dưới, ngoằn ngoèo lên tới <b>ô 100</b> ở góc trên. Ai tới ô 100 trước thì <b>thắng</b>.</li></ul>
     <h3>Thảy xúc xắc</h3><ul><li><b>Giữ nút</b> để lắc (giữ càng lâu thảy càng mạnh), <b>thả ra</b> để thảy. ${R.dice > 1 ? 'Hai viên, đi <b>tổng</b> hai viên.' : 'Một viên, ra mấy đi mấy ô.'}</li>
-    <li>${R.sixToStart ? `Phải đổ <b>6</b>${R.dice > 1 ? ' (hoặc đôi)' : ''} mới được vào bàn.` : 'Thảy được bao nhiêu thì vào bàn bấy nhiêu ô.'}</li>
+    <li>${R.sixToStart ? `Phải đổ <b>${enterFace()}</b> mới được vào bàn${R.dice > 1 ? ' (một viên 6 không tính)' : ''}.` : 'Thảy được bao nhiêu thì vào bàn bấy nhiêu ô.'}</li>
     ${R.bonusSix ? `<li>Đổ <b>${R.dice > 1 ? 'đôi' : '6'}</b> được <b>thảy thêm</b> một lần.</li>` : ''}</ul>
     <h3>Thang và rắn</h3><ul><li>Dừng đúng <b>chân thang</b> thì leo lên đầu thang (${lad.length} cây: ${lad.map(l => `${l.from}→${l.to}`).join(', ')}).</li>
     <li>Dừng đúng <b>đầu rắn</b> thì bị đớp, tuột xuống đuôi rắn (${sn.length} con: ${sn.map(l => `${l.from}→${l.to}`).join(', ')}).</li>
@@ -326,8 +329,8 @@ function showSnakeRules(): void {
 // ---- The setup screen --------------------------------------------------------------------------
 function setupSpots() {
   return phone()
-    ? { cx: 240, y0: 196, step: 62, rowH: 50, pieceX: 44, kindX: 200, kindW: 264, ruleY: [450, 508], start: [16, 574, 448, 60], online: [16, 644, 448, 54], resume: [16, 708, 448, 50], rejoin: [16, 766, 448, 50], back: [12, 8, 92, 32], rules: [W - 104, 8, 92, 32], code: 730 }
-    : { cx: 640, y0: 196, step: 58, rowH: 48, pieceX: 380, kindX: 650, kindW: 300, ruleY: [438, 494], start: [370, 562, 260, 60], online: [650, 562, 260, 60], resume: [370, 636, 260, 50], rejoin: [650, 636, 260, 50], back: [326, 56, 100, 32], rules: [854, 56, 100, 32], code: 655 };
+    ? { cx: 240, y0: 196, step: 62, rowH: 50, pieceX: 44, kindX: 200, kindW: 264, ruleY: [446, 500, 554], ruleH: 46, start: [16, 614, 448, 56], online: [16, 678, 448, 52], resume: [16, 740, 448, 48], rejoin: [16, 796, 448, 48], back: [12, 8, 92, 32], rules: [W - 104, 8, 92, 32], code: 768 }
+    : { cx: 640, y0: 196, step: 58, rowH: 48, pieceX: 380, kindX: 650, kindW: 300, ruleY: [430, 482, 534], ruleH: 46, start: [370, 596, 260, 54], online: [650, 596, 260, 54], resume: [370, 656, 260, 40], rejoin: [650, 656, 260, 40], back: [326, 56, 100, 32], rules: [854, 56, 100, 32], code: 674 };
 }
 function seatsShown(): SnakeSeat[] { return on.isGuest() ? (on.lobby?.seats ?? []) : snakeSetup.seats; }
 function buildSetup(): void {
@@ -357,11 +360,13 @@ function buildSetup(): void {
     }, 'seat', !locked);
   });
   const rule = (k: number, label: string, items: { label: string; value: number }[], key: string) => {
-    const r = { x: T.kindX, y: T.ruleY[k], w: T.kindW, h: T.rowH };
-    btn(r.x, r.y, r.w, r.h, `${label} ▾`, () => openPicker(r, items, tune[key] >= 1 ? 1 : 0, v => { CONFIG[key].value = Number(v); on.sendLobby(); }), 'seat');
+    const r = { x: T.kindX, y: T.ruleY[k], w: T.kindW, h: T.ruleH };
+    const base = key === 'snake_dice' ? 1 : 0; // the dice count is 1 or 2, the other switches 0 or 1
+    btn(r.x, r.y, r.w, r.h, `${label} ▾`, () => openPicker(r, items, tune[key] - base >= 1 ? 1 : 0, v => { CONFIG[key].value = Number(v) + base; on.sendLobby(); }), 'seat');
   };
-  rule(0, finishName(), [{ label: 'Đúng ô 100', value: 1 }, { label: 'Vượt cũng được', value: 0 }], 'snake_exact_finish');
-  rule(1, startName(), [{ label: 'Thảy là vào', value: 0 }, { label: 'Phải đổ 6', value: 1 }], 'snake_six_to_start');
+  rule(0, diceName(), [{ label: '1 viên', value: 0 }, { label: '2 viên', value: 1 }], 'snake_dice');
+  rule(1, startName(), [{ label: 'Thảy là vào', value: 0 }, { label: `Phải đổ ${enterFace()}`, value: 1 }], 'snake_six_to_start');
+  rule(2, finishName(), [{ label: 'Đúng ô 100', value: 1 }, { label: 'Vượt cũng được', value: 0 }], 'snake_exact_finish');
   b4(T.start, phone() ? 'Bắt đầu' : 'Bắt đầu (Enter)', startSnake, 'primary', '#c8201f');
   if (on.isHost()) b4(T.online, `Giải tán phòng ${on.roomCode}`, on.leaveRoom, '', '#6a4a2a');
   else b4(T.online, 'Chơi online', () => showOnlinePanel(true, { create: on.createRoom, join: on.joinRoom }), '', '#2b6cd6');
@@ -395,7 +400,7 @@ function drawSetup(): void {
   const T = setupSpots();
   drawBoard(); ctx.fillStyle = 'rgba(191,230,245,0.72)'; ctx.fillRect(0, 0, W, H);
   const extra = !on.isHost() && !on.isGuest() && (localGame() || lastRoom());
-  const cardX = phone() ? 8 : 310, cardW = phone() ? W - 16 : 660, cardY = phone() ? 48 : 40, cardH = phone() ? (extra || on.roomCode ? 780 : 670) : 660; // a room's code sits under the online button
+  const cardX = phone() ? 8 : 310, cardW = phone() ? W - 16 : 660, cardY = phone() ? 48 : 40, cardH = phone() ? (extra ? 808 : on.roomCode ? 744 : 690) : 660; // a room's code sits under the online button
   ctx.save(); ctx.fillStyle = 'rgba(255,249,234,0.97)'; rrect(ctx, cardX, cardY, cardW, cardH, 22); ctx.fill(); ctx.strokeStyle = '#e8a86a'; ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
   text('RẮN VÀ THANG', T.cx, cardY + (phone() ? 50 : 62), phone() ? 34 : 44, '#d9622b', 'center', 'bold');
   text(`Leo thang, né rắn, về ô 100 · 2 đến 4 người · ${rulesNow().dice > 1 ? 'hai viên' : 'một viên'} xúc xắc`, T.cx, cardY + (phone() ? 90 : 108), phone() ? 14 : 18, '#6a4a32');
@@ -416,8 +421,8 @@ function drawSetup(): void {
       text(kindName(s, i) + (me ? ' (bạn)' : ''), T.kindX + T.kindW / 2, y, 17, '#4a3020', 'center', 'bold');
     }
   });
-  [['Về đích', tune.snake_exact_finish >= 1 ? 'dư thì lùi lại' : 'ván ngắn hơn', finishName()], ['Vào bàn', tune.snake_six_to_start >= 1 ? 'chờ được số 6' : 'ván nhanh hơn', startName()]].forEach(([a, b, v], k) => {
-    const y = T.ruleY[k] + T.rowH / 2;
+  [['Xúc xắc', tune.snake_dice >= 2 ? 'đi tổng hai viên' : 'ra mấy đi mấy', diceName()], ['Vào bàn', tune.snake_six_to_start >= 1 ? `chờ được ${enterFace() === '6' ? 'số 6' : 'đôi'}` : 'ván nhanh hơn', startName()], ['Về đích', tune.snake_exact_finish >= 1 ? 'dư thì lùi lại' : 'ván ngắn hơn', finishName()]].forEach(([a, b, v], k) => {
+    const y = T.ruleY[k] + T.ruleH / 2;
     text(a, T.pieceX - 22, y - 6, phone() ? 18 : 20, '#4a3020', 'left', 'bold');
     text(b, T.pieceX - 22, y + 15, 13, '#8a6a4a', 'left');
     if (on.isGuest()) text(v, T.kindX + T.kindW / 2, y, 17, '#4a3020', 'center', 'bold');

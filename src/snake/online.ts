@@ -2,7 +2,7 @@
 // own messages, each kind starting with 'snake'. The host's screen runs the game (./game.ts) and sends
 // G about 20 times a second with the sounds it played; a friend's screen draws it and sends its presses.
 //
-//   host -> friends   { k: 'snakeLobby', code, hostName, seats, exact, playing }   the seats (playing: a game is on)
+//   host -> friends   { k: 'snakeLobby', code, hostName, seats, rules, playing }   the seats and the rules' switches (playing: a game is on)
 //                     { k: 'snakeYou', seat }                       which seat is yours
 //                     { k: 'snake', scene, g, sfx }                 the game, and the sounds since the last
 //                     { k: 'snakeFull', msg }
@@ -31,6 +31,8 @@ export let lobby: { hostName: string; seats: SnakeSeat[] } | null = null;
 const peers = new Map<number, { name: string; online: boolean }>();
 export const peerOnline = (id?: number): boolean => id !== undefined && !!peers.get(id)?.online;
 let sendEvery = 0;
+/** The rules' switches the host picks on its setup screen, sent to the friends so their screens read the same. */
+const SHARED = ['snake_dice', 'snake_six_to_start', 'snake_exact_finish'];
 /** Friend: holding the shake button, waiting to let go. */
 export let guestShaking = false;
 /** How the setup screen names an animal and finds the next free one (set by ./scene.ts). */
@@ -126,7 +128,7 @@ function peerLeft(id: number, name: string): void {
 /** Host: the seats, and each friend's own seat. */
 export function sendLobby(): void {
   if (!isHost()) return;
-  net.toAll({ k: 'snakeLobby', code: roomCode, hostName: myName, seats: snakeSetup.seats.map(s => ({ ...s })), exact: tune.snake_exact_finish, playing: scene === 'snake' });
+  net.toAll({ k: 'snakeLobby', code: roomCode, hostName: myName, seats: snakeSetup.seats.map(s => ({ ...s })), rules: Object.fromEntries(SHARED.map(k => [k, tune[k]])), playing: scene === 'snake' });
   for (const id of peers.keys()) {
     const p = G?.players?.find(q => q.peer === id);
     net.toOne(id, { k: 'snakeYou', seat: p ? p.seat : snakeSetup.seats.findIndex(s => s.kind === 'remote' && s.peer === id) });
@@ -165,7 +167,7 @@ function onHostMsg(d: Loose): void {
   }
   if (d.k === 'snakeYou') mySeat = d.seat;
   else if (d.k === 'snakeFull') note = d.msg;
-  else if (d.k === 'snakeLobby') { lobby = { hostName: d.hostName, seats: d.seats }; if (typeof d.exact === 'number') CONFIG.snake_exact_finish.value = d.exact; if (scene === 'snake' && !d.playing) setScene('snakeSetup'); }
+  else if (d.k === 'snakeLobby') { lobby = { hostName: d.hostName, seats: d.seats }; for (const k of SHARED) if (typeof d.rules?.[k] === 'number') CONFIG[k].value = d.rules[k]; if (scene === 'snake' && !d.playing) setScene('snakeSetup'); }
   else if (d.k === 'snake') {
     setG(d.g);
     if (scene !== d.scene && (scene === 'snake' || scene === 'snakeSetup')) setScene(d.scene);

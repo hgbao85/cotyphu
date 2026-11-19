@@ -3,7 +3,7 @@
 // in ./rules.ts; the screens in ./scene.ts; online play in ./online.ts.
 // Online, only the host runs this; a friend's screen draws the G the host sends.
 
-import { tune } from '../config';
+import { tune, CONFIG } from '../config';
 import { sfx } from '../audio';
 import { rng, setSeed, freshSeed } from '../game/rng';
 import type { Loose } from '../game/types';
@@ -40,7 +40,12 @@ export interface SnakeGame {
   log: string[];
   winner: number;
   floaters: { text: string; color: string; pi: number; t: number }[];
+  /** The rules' switches this game was started with (RULE_KEYS), so a kept game or a friend's screen plays by them. */
+  rules?: Record<string, number>;
 }
+
+/** The data/config.json switches a game keeps with it. */
+export const RULE_KEYS = ['snake_dice', 'snake_six_to_start', 'snake_exact_finish', 'snake_bonus_six'];
 
 /** The setup screen's seats. */
 export const snakeSetup: { seats: SnakeSeat[] } = {
@@ -49,7 +54,10 @@ export const snakeSetup: { seats: SnakeSeat[] } = {
 /** The game being played (null before the first). */
 export let G: SnakeGame = null as unknown as SnakeGame;
 /** Puts a whole game in place (a friend's screen, from the host). */
-export function setG(g: SnakeGame): void { G = g; }
+export function setG(g: SnakeGame): void {
+  G = g;
+  for (const k of RULE_KEYS) if (typeof g.rules?.[k] === 'number') CONFIG[k].value = g.rules[k]; // play by the game's own rules
+}
 
 /** Sounds played since the host last sent the game, for the friends' screens. */
 export const sounds: Loose[] = [];
@@ -85,7 +93,7 @@ export function newGame(seed?: number, names: (string | undefined)[] = [], anima
     const name = names[i] || st.name || (st.kind === 'ai' ? `Máy ${animalName(st.animal)}` : animalName(st.animal));
     players.push({ id: players.length, seat: i, name, kind: st.kind, animal: st.animal, peer: st.peer, pos: 0, ladders: 0, bites: 0, sixes: 0 });
   });
-  G = { seed: s, players, cur: Math.floor(rng() * players.length), phase: 'roll', t: 0, timer: 0, dice: [], shake: null, throwAt: null, show: null, hop: null, slide: null, pending: null, again: false, log: [], winner: -1, floaters: [] };
+  G = { seed: s, players, cur: Math.floor(rng() * players.length), phase: 'roll', t: 0, timer: 0, dice: [], shake: null, throwAt: null, show: null, hop: null, slide: null, pending: null, again: false, log: [], winner: -1, floaters: [], rules: Object.fromEntries(RULE_KEYS.map(k => [k, tune[k]])) };
   log(`Ván mới! ${curP().name} đi trước.`);
 }
 
@@ -121,7 +129,7 @@ function afterDie(): void {
   G.timer = 0;
   if (!L.path.length) {
     G.phase = 'nomove';
-    float(-1, R.dice > 1 ? 'Cần 6 hoặc đôi để vào bàn' : 'Cần đổ 6 để vào bàn', '#d9442b');
+    float(-1, R.dice > 1 ? 'Cần đổ đôi để vào bàn' : 'Cần đổ 6 để vào bàn', '#d9442b');
     log(`${p.name} đổ ${diceText(d)}: chưa vào bàn được.`);
     return;
   }

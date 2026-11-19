@@ -38,8 +38,9 @@ export interface SnakePlayer {
 /** What the rules read from data/config.json. */
 export interface SnakeRules { dice: number; exactFinish: boolean; sixToStart: boolean; bonusSix: boolean }
 
-/** True when this throw lets a piece waiting beside the board come on (any throw, or a six when that rule is on). */
-export const canEnter = (dice: number[], R: SnakeRules): boolean => !R.sixToStart || dice.includes(6) || (dice.length === 2 && dice[0] === dice[1]);
+/** True when this throw lets a piece waiting beside the board come on: any throw, or, when that rule is
+ * on, a six with one die and a double (any double, not a single six) with two. */
+export const canEnter = (dice: number[], R: SnakeRules): boolean => !R.sixToStart || (dice.length === 2 ? dice[0] === dice[1] : dice[0] === 6);
 /** True when this throw earns another: a six with one die, a double with two. */
 export const throwsAgain = (dice: number[]): boolean => (dice.length === 2 ? dice[0] === dice[1] : dice[0] === 6);
 

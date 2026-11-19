@@ -84,6 +84,9 @@ const wss = new WebSocketServer({ server, path: '/ws', maxPayload: MAX_MESSAGE }
 wss.on('connection', ws => {
   ws.isAlive = true;
   ws.on('pong', () => { ws.isAlive = true; });
+  // A bad frame (too big, broken UTF-8, a wrong opcode) makes ws emit 'error' and then close the
+  // socket. With no listener that error would end the whole process and every room with it.
+  ws.on('error', () => {});
   /** what this socket is: { room, role: 'host' | 'guest', id } */
   let me = null;
 

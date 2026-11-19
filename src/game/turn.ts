@@ -110,7 +110,7 @@ export function payRent(i: number, rent: number, o: number) {
   const st = (state.stats ||= { paid: [0, 0, 0, 0], got: [0, 0, 0, 0], tile: {} }); // for the end-of-game summary, by seat
   st.paid[p.id] += rent; st.got[owner.id] += rent; st.tile[i] = (st.tile[i] || 0) + rent;
   state.popup = { kind: 'rent', tile: i, rent, owner: o };
-  charge([{ to: o, amt: rent }], `${p.name} trả ${owner.name} ${money(rent)} tiền thuê ở ${TILES[i].n}.`, () => { state.phase = 'rentShow'; state.timer = 0; });
+  charge([{ to: o, amt: rent }], `${p.name} trả ${owner.name} ${money(rent)} tiền thuê ở ${TILES[i].n}.`, 'rent');
 }
 /** Thẻ Miễn Thuê: this rent is not paid. */
 export function useNoRent() {
@@ -301,13 +301,19 @@ function lose(pi: number, amt: number) {
   floatAtRow(pi, '-' + money(amt), '#ff9a8a'); floatAtToken(pi, '-' + money(amt), '#ff5a4a');
 }
 // pay: the current player pays amounts to players (or the bank, to -1). If the cash is short the
-// game enters the debt phase and pays once the money is raised; `then` runs after paying.
-function charge(payments: Loose[], why: string, then: () => void) {
+// game enters the debt phase and pays once the money is raised; `next` says where the turn goes after paying.
+/** What comes after a charge is paid. A name, not a function, because a debt is saved with the game
+ * (JSON) and must still know where to go after a reload. */
+type AfterCharge = 'rent' | 'after';
+function afterCharge(next: AfterCharge) {
+  if (next === 'rent') { state.phase = 'rentShow'; state.timer = 0; } else afterAction();
+}
+function charge(payments: Loose[], why: string, next: AfterCharge) {
   const pi = state.cur, p = curP();
   const total = payments.reduce((s: number, x: Loose) => s + x.amt, 0);
-  if (total <= 0) { then(); return; }
-  if (p.cash >= total) { settle(pi, payments); if (why) log(why); then(); return; }
-  state.debt = { payments, total, why, then };
+  if (total <= 0) { afterCharge(next); return; }
+  if (p.cash >= total) { settle(pi, payments); if (why) log(why); afterCharge(next); return; }
+  state.debt = { payments, total, why, next };
   state.phase = 'debt'; state.timer = 0;
   log(`${p.name} thiếu tiền: cần ${money(total)}.`);
 }
@@ -546,11 +552,11 @@ export function resolveLanding() {
   }
   if (t.t === 'tax' && t.kind === 'prop') { // Thuế Tài Sản: 10% of the cash in hand, capped at the flat sum; no choice
     const amt = R.propertyTax(p.cash);
-    charge([{ to: -1, amt, pot: true }], `${p.name} đóng ${t.n}: ${money(amt)} (${Math.round(tune.prop_tax_pct * 100)}% tiền mặt, tối đa ${money(tune.prop_tax_flat)}; vào hũ).`, afterAction); return;
+    charge([{ to: -1, amt, pot: true }], `${p.name} đóng ${t.n}: ${money(amt)} (${Math.round(tune.prop_tax_pct * 100)}% tiền mặt, tối đa ${money(tune.prop_tax_flat)}; vào hũ).`, 'after'); return;
   }
   if (t.t === 'tax') {
     const amt = tune.income_tax;
-    charge([{ to: -1, amt, pot: true }], `${p.name} đóng ${t.n}: ${money(amt)} (vào hũ).`, afterAction); return;
+    charge([{ to: -1, amt, pot: true }], `${p.name} đóng ${t.n}: ${money(amt)} (vào hũ).`, 'after'); return;
   }
   if (t.t === 'gojail') { log(`${p.name} bị dẫn vào tù!`); sendToJail(pi); toEnd(); return; }
   if (t.t === 'free') takePot(pi);
@@ -584,7 +590,7 @@ export function applyCard() {
     case 'money': { // no card moves more than card_max either way
       const v = Math.max(-tune.card_max, Math.min(tune.card_max, c.v));
       if (v >= 0) { gain(pi, v); afterAction(); }
-      else charge([{ to: -1, amt: -v }], '', afterAction);
+      else charge([{ to: -1, amt: -v }], '', 'after');
     }
       return;
     case 'move': beginMove((c.to - p.pos + 40) % 40 || 40, 1, true); return;
@@ -594,8 +600,8 @@ export function applyCard() {
       sendToJail(pi); p.noSalary = true; log(`${p.name} sẽ mất lương lần qua Xuất Phát tới.`); toEnd(); return;
     case 'free': p.freeCards.push(deckKind); afterAction(); return;
     case 'norent': case 'reroll': (p.keep ||= []).push({ act: c.act, deck: deckKind }); afterAction(); return;
-    case 'repair': charge([{ to: -1, amt: Math.min(tune.card_max, c.v * levelsOf(pi)) }], '', afterAction); return;
-    case 'payeach': charge(state.players.map((q, j) => ({ to: j, amt: (j !== pi && !q.bankrupt) ? c.v : 0 })).filter(x => x.amt > 0), '', afterAction); return;
+    case 'repair': charge([{ to: -1, amt: Math.min(tune.card_max, c.v * levelsOf(pi)) }], '', 'after'); return;
+    case 'payeach': charge(state.players.map((q, j) => ({ to: j, amt: (j !== pi && !q.bankrupt) ? c.v : 0 })).filter(x => x.amt > 0), '', 'after'); return;
     case 'collect':
       state.players.forEach((q, j) => {
         if (j === pi || q.bankrupt) return;
@@ -635,7 +641,7 @@ export function payDebt() {
   if (!d || p.cash < d.total) return;
   state.debt = null;
   settle(state.cur, d.payments); if (d.why) log(d.why);
-  d.then();
+  afterCharge(d.next === 'rent' ? 'rent' : 'after'); // a game saved before 'next' existed goes on as 'after'
 }
 export function declareBankrupt() {
   const d = state.debt; state.debt = null; state.popup = null;

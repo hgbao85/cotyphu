@@ -330,3 +330,66 @@ test('a first-game tip shows at the first throw, goes for good with Đã hiểu,
   expect(await tip()).toBe(null);
   expect(errors).toEqual([]);
 });
+
+/** Two computers play until a turn is about to be thrown, then the player to move becomes a
+ * person, so a check can put that person in a spot (in debt, in jail) and press the keys. */
+async function personToMove(page: Page) {
+  await page.evaluate(() => {
+    const g = window.game!;
+    g.configure({ seats: [{ kind: 'ai', lv: 1 }, { kind: 'ai', lv: 1 }, { kind: 'off' }, { kind: 'off' }] });
+    g.press('Enter'); g.step(1, false);
+    type S = { phase: string; ordering?: boolean; cur: number; players: { kind: string }[] };
+    const s = (): S => g.state as S;
+    for (let n = 0; n < 20000 && !(s().phase === 'roll' && !s().ordering); n++) g.step(1, false);
+    s().players[s().cur].kind = 'human';
+  });
+}
+
+test('a game kept while a person is in debt comes back after a reload, and paying the debt goes on with the turn', async ({ page }) => {
+  // Bug: the debt kept a function for "what comes after paying"; a kept game (JSON) lost it, and
+  // after a reload "Trả nợ" threw and froze the game for good.
+  const errors = await open(page, 'manual=1&seed=7');
+  await personToMove(page);
+  await page.evaluate(() => {
+    const g = window.game!;
+    const s = g.state as { phase: string; timer: number; debt: unknown; cur: number; players: { cash: number }[] };
+    s.players[s.cur].cash = 500;
+    s.debt = { payments: [{ to: -1, amt: 100 }], total: 100, why: '', next: 'rent' }; s.phase = 'debt'; s.timer = 0;
+    g.step(120, false);                                       // long enough for the game to be kept
+  });
+  const kept = await page.evaluate(() => JSON.parse(localStorage.getItem('tpdv-local-game') || 'null').state.phase);
+  expect(kept).toBe('debt');
+  await page.reload();
+  await expect.poll(() => page.evaluate(() => typeof window.game?.step)).toBe('function');
+  await tapAt(page, 1090, 638);                               // "Chơi tiếp ván trước"
+  expect(await page.evaluate(() => window.game!.scene)).toBe('play');
+  const after = await page.evaluate(() => {
+    const g = window.game!;
+    g.press('Space'); g.step(2);                              // "Trả nợ"
+    const s = g.state as { phase: string; debt: unknown; cur: number; players: { cash: number }[] };
+    return { phase: s.phase, debt: s.debt, cash: s.players[s.cur].cash };
+  });
+  expect(after).toEqual({ phase: 'rentShow', debt: null, cash: 400 });
+  expect(errors).toEqual([]);
+});
+
+test('N and Esc never declare bankruptcy in debt, nor spend the Thẻ Ra Tù in jail', async ({ page }) => {
+  // Bug: N / Esc ("bỏ qua") pressed the first secondary button: "Phá sản" in debt, the jail card in jail.
+  const errors = await open(page, 'manual=1&seed=7');
+  await personToMove(page);
+  const seen = await page.evaluate(() => {
+    const g = window.game!;
+    type P = { cash: number; bankrupt: boolean; inJail: boolean; freeCards: string[] };
+    const s = g.state as { phase: string; timer: number; debt: unknown; cur: number; players: P[] };
+    const p = s.players[s.cur];
+    p.inJail = true; p.freeCards = ['co']; s.phase = 'jail'; s.timer = 0; // jail first: a bankruptcy would end the game
+    g.step(1, false); g.press('KeyN'); g.step(1, false); g.press('Escape'); g.step(1, false);
+    const jail = { phase: s.phase, inJail: p.inJail, cards: p.freeCards.length };
+    p.inJail = false; p.freeCards = [];
+    p.cash = 50; s.debt = { payments: [{ to: -1, amt: 100 }], total: 100, why: '', next: 'after' }; s.phase = 'debt'; s.timer = 0;
+    g.step(1, false); g.press('KeyN'); g.step(1, false); g.press('Escape'); g.step(1, false);
+    return { debt: { phase: s.phase, bankrupt: p.bankrupt }, jail };
+  });
+  expect(seen).toEqual({ debt: { phase: 'debt', bankrupt: false }, jail: { phase: 'jail', inJail: true, cards: 1 } });
+  expect(errors).toEqual([]);
+});

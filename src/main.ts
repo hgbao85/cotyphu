@@ -43,6 +43,9 @@ import { hubScene } from './ui/hub';
 import { ludoScenes, ludoNet, ludoView } from './ludo/scene';
 import { ludoSetup } from './ludo/game';
 import type { LudoSeat } from './ludo/rules';
+import { snakeScenes, snakeNet, snakeView } from './snake/scene';
+import { snakeSetup } from './snake/game';
+import type { SnakeSeat } from './snake/rules';
 import '@fontsource/baloo-2/latin-400.css'; // Baloo 2 for the chibi look: Latin and Vietnamese, regular and bold (about 50 KB)
 import '@fontsource/baloo-2/vietnamese-400.css';
 import '@fontsource/baloo-2/latin-700.css';
@@ -390,6 +393,7 @@ function speedSpot(): { x: number; y: number; w: number; h: number } {
 const scenes: Record<string, { update(dt: number): void; draw(): void }> = {
   hub: hubScene,   // the first screen: pick a game (src/ui/hub.ts)
   ...ludoScenes,   // Cá Ngựa: ludoSetup, ludo (src/ludo/)
+  ...snakeScenes,  // Rắn và Thang: snakeSetup, snake (src/snake/)
   figures: {
     update(dt: number) { state.t += dt; },
     draw() {
@@ -567,7 +571,7 @@ function updateTurn(dt: number) {
 // ---- Loop: fixed step, frame time clamped ---------------------------------------------
 function step() {
   if (pressed('KeyM')) { setMuted(!muted()); hit.delete('KeyM'); }
-  scenes[scene].update(STEP); netStep(); ludoNet(); hit.clear();
+  scenes[scene].update(STEP); netStep(); ludoNet(); snakeNet(); hit.clear();
 }
 let last = 0, acc = 0;
 function tick() {
@@ -588,6 +592,9 @@ install({
   hold(code: string, on: boolean) { if (on) down.add(code); else down.delete(code); },
   get events() { return events; },
   get ludo() { return ludoView(); },
+  get snake() { return snakeView(); },
+  /** For checks: Rắn và Thang's seats for the next game, and its setup screen (where Enter starts it). */
+  configureSnake(o: { seats?: SnakeSeat[] }) { if (o.seats) snakeSetup.seats = o.seats.map(x => ({ ...x })); F.picker = null; setScene('snakeSetup'); },
   /** For checks: Cá Ngựa's seats for the next game, and its setup screen (where Enter starts it). */
   configureLudo(o: { seats?: LudoSeat[] }) { if (o.seats) ludoSetup.seats = o.seats.map(x => ({ ...x })); F.picker = null; setScene('ludoSetup'); },
   get render() { const r = renderer?.info.render, c = renderer?.domElement; return { calls: r?.calls, triangles: r?.triangles, px: c ? c.width * c.height : 0, shadows: renderer?.shadowMap.enabled }; },
@@ -619,7 +626,7 @@ build3D();
 // the chibi look's rounded font is embedded in the build; once the browser has it, the board's face is drawn again with it
 if (CHIBI) Promise.all(['400 20px "Baloo 2"', '700 20px "Baloo 2"'].map(f => document.fonts.load(f, 'Sự Thảy · Việt Nam'))).then(redrawBoardFace, () => {});
 reset();
-setScene(params.get('scene') || ({ typhu: 'title', cangua: 'ludoSetup' } as Record<string, string>)[params.get('game') || ''] || 'hub');
+setScene(params.get('scene') || ({ typhu: 'title', cangua: 'ludoSetup', ranthang: 'snakeSetup' } as Record<string, string>)[params.get('game') || ''] || 'hub');
 if (scene === 'play') clearVis();
 last = clock.now();
 if (params.get('manual') === '1') drawFrame();

@@ -143,8 +143,9 @@ function onGuestAct(from: number, a: Loose) {
 /** Guest: a message from the host. */
 function onHostMsg(d: Loose) {
   if (!d) return;
-  if (typeof d.k === 'string' && d.k.startsWith('ludo')) { // a Cá Ngựa room: this panel joins Cờ tỷ phú rooms only
-    net.leave(); goOffline('Mã này là phòng Cá Ngựa: về sảnh, chọn Cá Ngựa rồi vào phòng nhé.'); return;
+  if (typeof d.k === 'string' && (d.k.startsWith('ludo') || d.k.startsWith('snake'))) { // another game's room: this panel joins Cờ tỷ phú rooms only
+    const other = d.k.startsWith('ludo') ? 'Cá Ngựa' : 'Rắn và Thang';
+    net.leave(); goOffline(`Mã này là phòng ${other}: về sảnh, chọn ${other} rồi vào phòng nhé.`); return;
   }
   if (d.k === 'you') mySeat = d.seat;
   else if (d.k === 'full') { F.netError = d.msg; }

@@ -1,6 +1,6 @@
 // The hub: the first screen after the splash. Sự Thảy is a table of dice games; each has a big card,
 // and a tap opens that game's own setup screen. A game still to come shows as a faded card.
-// ?game=typhu or ?game=cangua in the address skips the hub (main.ts), for a shared link or a check.
+// ?game=typhu, ?game=cangua or ?game=ranthang in the address skips the hub (main.ts), for a shared link or a check.
 
 import { W, H, FONT, ctx, text, rrect, clear } from '../screen';
 import { setScene } from '../core/store';
@@ -16,14 +16,17 @@ import { SIDES } from '../ludo/game';
 const GAMES = [
   { scene: 'title', name: 'Cờ Tỷ Phú', line: 'Mua đất 22 tỉnh thành, xây nhà tới Landmark, thu tiền thuê', who: '2–4 người · online', ready: true },
   { scene: 'ludoSetup', name: 'Cá Ngựa', line: 'Đua 4 chú ngựa về chuồng, đá ngựa đối thủ, lên bậc thang', who: '2–4 người · online', ready: true },
-  { scene: '', name: 'Sắp có thêm', line: 'Bầu Cua, Rắn và Thang, Xì Xúc Xắc...', who: 'đang làm', ready: false },
+  { scene: 'snakeSetup', name: 'Rắn và Thang', line: 'Leo thang tre, né rắn, về ô 100 trước', who: '2–4 người · online', ready: true },
+  { scene: '', name: 'Sắp có thêm', line: 'Bầu Cua, Xì Xúc Xắc...', who: 'đang làm', ready: false },
 ];
 let t = 0;
 
 /** Where each game's card sits. */
 function cardRect(k: number): { x: number; y: number; w: number; h: number } {
-  if (L.phone) { const h = Math.min(220, (H - 250) / 3 - 14); return { x: 16, y: 200 + k * (h + 14), w: W - 32, h }; }
-  return { x: 100 + k * 370, y: 230, w: 340, h: 380 };
+  const n = GAMES.length;
+  if (L.phone) { const h = Math.min(220, (H - 250) / n - 14); return { x: 16, y: 200 + k * (h + 14), w: W - 32, h }; }
+  const gap = 24, w = (W - 160 - gap * (n - 1)) / n;
+  return { x: 80 + k * (w + gap), y: 230, w, h: 380 };
 }
 function open(k: number): void {
   const g = GAMES[k];
@@ -41,6 +44,7 @@ function input(): void {
   clicks.length = 0;
   if (pressed('Digit1') || pressed('Enter')) open(0);
   if (pressed('Digit2')) open(1);
+  if (pressed('Digit3')) open(2);
 }
 
 /** A little house, roof and door, for Cờ Tỷ Phú's card. */
@@ -86,10 +90,24 @@ function drawCard(k: number): void {
       ctx.fillStyle = SIDES[h].color; ctx.beginPath(); ctx.arc(hx, hy, s * 0.2, 0, 7); ctx.fill();
       drawTokenIcon(6, hx, hy, s * 0.36, SIDES[h].color, 'happy');
     }
+  } else if (k === 2) { // a bamboo ladder, and a little snake curled beside it
+    ctx.save(); ctx.lineCap = 'round';
+    const lx = px - s * 0.28, top = py - s * 0.55, bot = py + s * 0.35;
+    for (const dx of [-s * 0.13, s * 0.13]) { ctx.strokeStyle = '#9a6a26'; ctx.lineWidth = s * 0.08; ctx.beginPath(); ctx.moveTo(lx + dx, bot); ctx.lineTo(lx + dx, top); ctx.stroke(); ctx.strokeStyle = '#e8c070'; ctx.lineWidth = s * 0.035; ctx.stroke(); }
+    ctx.strokeStyle = '#c98f3a'; ctx.lineWidth = s * 0.05;
+    for (let j = 1; j < 5; j++) { const yy = bot - (bot - top) * j / 5; ctx.beginPath(); ctx.moveTo(lx - s * 0.13, yy); ctx.lineTo(lx + s * 0.13, yy); ctx.stroke(); }
+    const sx = px + s * 0.25, sy = py + s * 0.05, wig = prefs.effects ? Math.sin(t * 3) * s * 0.04 : 0;
+    ctx.strokeStyle = '#4f9a35'; ctx.lineWidth = s * 0.17; ctx.beginPath(); ctx.moveTo(sx - s * 0.2, sy + s * 0.3); ctx.bezierCurveTo(sx + s * 0.35, sy + s * 0.3 + wig, sx - s * 0.3, sy - s * 0.05 - wig, sx + s * 0.1, sy - s * 0.25); ctx.stroke();
+    ctx.strokeStyle = '#7cc95a'; ctx.lineWidth = s * 0.13; ctx.stroke();
+    const hx = sx + s * 0.12, hy = sy - s * 0.3 + bob * 0.5;
+    ctx.fillStyle = '#7cc95a'; ctx.beginPath(); ctx.ellipse(hx, hy, s * 0.15, s * 0.12, 0, 0, 7); ctx.fill();
+    for (const e of [-1, 1]) { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(hx + e * s * 0.06, hy - s * 0.02, s * 0.04, 0, 7); ctx.fill(); ctx.fillStyle = '#3a2618'; ctx.beginPath(); ctx.arc(hx + e * s * 0.06, hy - s * 0.015, s * 0.022, 0, 7); ctx.fill(); }
+    ctx.strokeStyle = '#d9442b'; ctx.lineWidth = s * 0.02; ctx.beginPath(); ctx.moveTo(hx, hy + s * 0.1); ctx.lineTo(hx, hy + s * 0.17); ctx.stroke();
+    ctx.restore();
   } else {
     die(px - s * 0.3, py, s * 0.42, 5, -0.3 + bob * 0.02); die(px + s * 0.3, py - s * 0.06, s * 0.42, 3, 0.25 - bob * 0.02);
   }
-  if (k < 2) die(phone ? px + s * 0.62 : px + s * 0.85, (phone ? py - s * 0.32 : py - s * 0.55) + bob, phone ? s * 0.34 : s * 0.36, k === 0 ? 6 : 5, 0.3 + (prefs.effects ? Math.sin(t * 1.5 + k) * 0.15 : 0));
+  if (k < 3) die(phone ? px + s * 0.62 : px + s * 0.85, (phone ? py - s * 0.32 : py - s * 0.55) + bob, phone ? s * 0.34 : s * 0.36, k === 0 ? 6 : k === 1 ? 5 : 3, 0.3 + (prefs.effects ? Math.sin(t * 1.5 + k) * 0.15 : 0));
   // the words
   const tx = phone ? r.x + r.h + 10 : r.x + r.w / 2, al: CanvasTextAlign = phone ? 'left' : 'center';
   text(g.name, tx, phone ? y + r.h * 0.26 : y + 215, phone ? 26 : 32, g.ready ? '#d9622b' : '#8a6a4a', al, 'bold');

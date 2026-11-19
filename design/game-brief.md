@@ -60,6 +60,7 @@ After play: Ô thuế 10% / 2.000.000: ưu tiên nộp 10%, tối đa 2.000.000,
 After play: Sao đang cầm cố đất mà vẫn gọi là đủ nhóm → đất cầm cố không tính để gom đủ nhóm (bến, công ty vốn đã không tính)
 After play: Đổi web thành board game nhiều game vui nhộn, signature vẫn là thảy xúc xắc → Sảnh chọn game; game thứ hai là Cá Ngựa (có online luôn)
 After play: Cá Ngựa: 2 viên xúc xắc; đổi vị trí ra quân về ô góc ngoài mỗi cánh (sát chuồng)
+After play: Làm thêm 1 trò xúc xắc mới cho sảnh → Rắn và Thang, có phòng online luôn
 After play: Ra quân: 1 hoặc 6 hoặc đổ đôi; viên còn lại được đi
 After play: Đôi ra quân là hết hiệu lực, không đi tiếp, trừ 1+1 và 6+6 (vẫn được thảy thêm)
 After play: Cho chọn quân đi số nào: mỗi viên đi riêng (ví dụ 2 + 4: quân 1 đi 2, rồi quân 1 hoặc quân 2 đi 4)
@@ -181,6 +182,7 @@ Trang mở với màn chờ (con giáp nhảy trên đảo, đếm từ 30). Mà
 - [x] Cá Ngựa: bàn 2D chibi, 2–4 chỗ ngồi (Người, Máy Dễ/Vừa/Khó, Bạn online, Không chơi), 4 ngựa mỗi người, giữ để lắc thả để thảy một viên xúc xắc chấm dấu chân; đổ 6 ra quân và thảy thêm; không nhảy qua đầu; đá ngựa về chuồng; lên chuồng Truyền thống (đổ đúng từng bậc) hoặc Nhanh; màn thắng; luật chơi; chơi online cùng máy chủ phòng
 - [x] Cá Ngựa 2 viên xúc xắc: mỗi viên đi riêng, bấm ngựa, ngựa đi được nhiều cách thì chọn đi số nào hoặc đi tổng cả hai viên; một viên 1 hoặc 6 ra một ngựa; đôi 2–5 dùng cả hai viên ra một ngựa; đổ đôi thảy thêm; lên chuồng truyền thống mỗi viên tính riêng. Ô ra quân ở góc ngoài mỗi cánh, sát chuồng ngựa
 - [x] Cá Ngựa giữ ván: tải lại trang vẫn chơi tiếp ván một máy; nút Vào lại phòng (30 phút), chủ phòng tải lại vẫn giữ ván; mỗi game một mã chủ phòng riêng nên không lấy nhầm phòng của game kia
+- [x] Rắn và Thang: bàn 100 ô chibi, 7 thang tre và 8 con rắn (data/snake-board.json); 2–4 chỗ (Người, Máy, Bạn online, Không chơi), quân là 12 con giáp bấm để đổi; giữ để lắc thả để thảy; leo thang, rắn đớp tuột xuống; đổ 6 thảy thêm; luật Về đích (đúng ô 100, dư lùi lại / vượt cũng được) và Vào bàn (thảy là vào / phải đổ 6); màn thắng, luật chơi, chơi online, giữ ván và Vào lại phòng; thẻ thứ ba trên sảnh, link ?game=ranthang
 - [ ] Thêm game: Bầu Cua, Rắn và Thang, Xì Xúc Xắc
 
 ## Your systems

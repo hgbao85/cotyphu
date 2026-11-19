@@ -153,7 +153,7 @@ export function sendAct(act: string, h?: number, d?: number): void {
 /** Friend: a message from the host. */
 function onHostMsg(d: Loose): void {
   if (!d || typeof d.k !== 'string') return;
-  if (!d.k.startsWith('ludo')) { goOffline('Mã này là phòng Cờ tỷ phú: về sảnh, chọn Cờ Tỷ Phú rồi vào phòng nhé.'); setScene('ludoSetup'); return; }
+  if (!d.k.startsWith('ludo')) { const other = d.k.startsWith('snake') ? 'Rắn và Thang' : 'Cờ Tỷ Phú'; goOffline(`Mã này là phòng ${other}: về sảnh, chọn ${other} rồi vào phòng nhé.`); setScene('ludoSetup'); return; }
   if (d.k === 'ludoYou') mySeat = d.seat;
   else if (d.k === 'ludoFull') note = d.msg;
   else if (d.k === 'ludoLobby') { lobby = { hostName: d.hostName, seats: d.seats }; if (typeof d.strict === 'number') CONFIG.ludo_home_strict.value = d.strict; if (scene === 'ludo' && !d.playing) setScene('ludoSetup'); }

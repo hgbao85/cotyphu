@@ -76,3 +76,8 @@ holds no comments. The values themselves are in `data/config.json`.
 - `ludo_no_jump`: 1 = không được nhảy qua đầu ngựa khác (luật Việt Nam); 0 = nhảy qua thoải mái.
 - `ludo_home_strict`: 1 = lên chuồng kiểu truyền thống: đứng ở cửa chuồng đổ k thì lên bậc k, lên bậc tiếp theo phải đổ đúng số bậc đó; 0 = đi thẳng vào chuồng theo số đổ, không được đi lố.
 - `ludo_hop_time`: giây mỗi bước nhảy của ngựa. `ludo_ai_delay`: máy nghĩ bao lâu trước khi lắc / chọn ngựa. `ludo_no_move_time`: giây hiện "Không đi được" trước khi qua lượt.
+- `snake_dice`: Rắn và Thang thảy mấy viên xúc xắc (1; 2 = đi tổng hai viên). Bàn 100 ô, vị trí thang và rắn ở `data/snake-board.json` (thêm 19/11/2026 theo yêu cầu).
+- `snake_exact_finish`: 1 = phải về đúng ô 100, dư bao nhiêu thì bật lùi lại bấy nhiêu; 0 = vượt quá vẫn về đích.
+- `snake_six_to_start`: 1 = phải đổ 6 mới được vào bàn; 0 = thảy gì cũng vào.
+- `snake_bonus_six`: 1 = đổ 6 (hai viên: đổ đôi) được thảy thêm.
+- `snake_hop_time`: giây mỗi bước nhảy của quân. `snake_slide_time`: giây leo thang hay tuột theo rắn. `snake_ai_delay`: máy chờ bao lâu rồi lắc.

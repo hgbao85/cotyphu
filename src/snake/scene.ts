@@ -299,7 +299,7 @@ function turnLine(): string {
   }
   switch (G.phase) {
     case 'roll': return me ? (G.players.filter(q => q.kind === 'human').length > 1 && !on.isGuest() ? `${p.name}: giữ nút để lắc, thả ra để thảy` : 'Giữ nút để lắc xúc xắc, thả ra để thảy') : `${who} chuẩn bị thảy...`;
-    case 'shake': return me ? 'Thả ra để thảy!' : `${who} đang lắc...`;
+    case 'shake': return me ? 'Thả ra khi vạch màu nằm trong vùng vàng' : `${who} đang lắc...`;
     case 'dice': return 'Xúc xắc đang lăn...';
     case 'move': return `${who} đổ ${d}, đi ${G.dice.reduce((a, b) => a + b, 0)} ô`;
     case 'slide': return G.slide?.link.kind === 'ladder' ? `${who} leo thang lên ô ${G.slide.link.to}!` : `${who} bị rắn đớp, tuột xuống ô ${G.slide?.link.to}`;
@@ -543,7 +543,7 @@ function buildPlay(): void {
   }
   const c = controls(), dieW = rulesNow().dice > 1 ? 136 : 92;
   if (myTurn() && (G.phase === 'roll' || G.phase === 'shake')) {
-    btn(c.bx, c.by, c.bw - dieW, 62, G.phase === 'shake' ? shakeLabel() : G.order ? 'Giữ để lắc chọn lượt' : 'Giữ để lắc xúc xắc', () => startShake(), 'primary', G.phase === 'roll', '#c8201f', 'shake');
+    btn(c.bx, c.by, c.bw - dieW, 62, G.phase === 'shake' ? shakeLabel() : G.order ? 'Giữ để lắc chọn lượt' : 'Giữ để lắc xúc xắc', () => startShake(), 'primary', true, '#c8201f', 'shake'); // full colour while held, as Cờ Tỷ Phú's (startShake does nothing mid-shake)
   }
 }
 const ready = (): boolean => !!G && !!G.players && G.players.length > 0;

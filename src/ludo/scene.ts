@@ -341,7 +341,7 @@ function turnLine(): string {
   }
   switch (G.phase) {
     case 'roll': return me ? (G.players.filter(q => q.kind === 'human').length > 1 && !on.isGuest() ? `${p.name}: giữ nút để lắc, thả ra để thảy` : 'Giữ nút để lắc xúc xắc, thả ra để thảy') : `${who} chuẩn bị thảy...`;
-    case 'shake': return me ? 'Thả ra để thảy!' : `${who} đang lắc...`;
+    case 'shake': return me ? 'Thả ra khi vạch màu nằm trong vùng vàng' : `${who} đang lắc...`;
     case 'dice': return 'Xúc xắc đang lăn...';
     case 'choose': {
       const left = G.use.length < G.dice.length ? `Còn viên ${G.use.join(', ')}` : `Đổ ${dt()}`;
@@ -614,7 +614,7 @@ function buildPlay(): void {
     u.forEach((d, k) => btn(bx + k * (w + gap), by, w, 56, both(d) ? `Đi ${d} (cả 2)` : u.length > 2 ? `Đi ${d}` : `Ngựa ${h + 1} đi ${d}`, () => go(h, d), k ? '' : 'primary', true, HINT[k])); // the same colours as the bands on the board
   }
   if (myTurn() && (G.phase === 'roll' || G.phase === 'shake')) {
-    btn(bx, by, bw, 62, G.phase === 'shake' ? shakeLabel() : G.order ? 'Giữ để lắc chọn lượt' : 'Giữ để lắc xúc xắc', () => startShake(), 'primary', G.phase === 'roll', '#c8201f', 'shake');
+    btn(bx, by, bw, 62, G.phase === 'shake' ? shakeLabel() : G.order ? 'Giữ để lắc chọn lượt' : 'Giữ để lắc xúc xắc', () => startShake(), 'primary', true, '#c8201f', 'shake'); // full colour while held, as Cờ Tỷ Phú's (startShake does nothing mid-shake)
   }
 }
 /** The shake button's words while shaking: "let go now" over the sweet zone, else the seconds left. */

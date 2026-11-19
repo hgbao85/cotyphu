@@ -271,7 +271,7 @@ function turnLine(): string {
   const p = curP(), me = myTurn();
   switch (G.phase) {
     case 'roll': return me ? (G.players.every(q => q.kind === 'human') && !on.isGuest() ? `${p.name}: giữ nút để lắc chọn lượt` : 'Tung chọn lượt: giữ nút để lắc, cao nhất đi trước') : `${p.name} chuẩn bị tung chọn lượt...`;
-    case 'shake': return me ? 'Thả ra để thảy!' : `${p.name} đang lắc...`;
+    case 'shake': return me ? 'Thả ra khi vạch màu nằm trong vùng vàng' : `${p.name} đang lắc...`;
     case 'dice': return 'Xúc xắc đang lăn...';
     case 'shown': return `${me ? 'Bạn' : p.name} tung được ${G.dice.reduce((a, b) => a + b, 0)}`;
     case 'turn': return me ? (G.players.every(q => q.kind === 'human') ? `${p.name}: bấm một ô trống để đặt quân` : 'Lượt bạn: bấm một ô trống để đặt quân') : `${p.name} đang nghĩ...`;
@@ -506,7 +506,7 @@ function buildPlay(): void {
   }
   if (G.order && myTurn() && (G.phase === 'roll' || G.phase === 'shake')) { // the throw for the order, as the other games' shake button
     const c = controls(), diceW = orderDice() > 1 ? 136 : 92;
-    btn(c.bx, c.by, c.bw - diceW, 62, G.phase === 'shake' ? shakeLabel() : 'Giữ để lắc chọn lượt', () => startShake(), 'primary', G.phase === 'roll', '#c8201f', 'shake');
+    btn(c.bx, c.by, c.bw - diceW, 62, G.phase === 'shake' ? shakeLabel() : 'Giữ để lắc chọn lượt', () => startShake(), 'primary', true, '#c8201f', 'shake'); // full colour while held, as Cờ Tỷ Phú's (startShake does nothing mid-shake)
   }
   boardLive = true;
 }

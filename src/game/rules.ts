@@ -142,3 +142,20 @@ export function liquidValue(s: GameState, pi: number): number {
     return sum + v;
   }, 0);
 }
+
+/** The order of play from the throws for it. `past[i]` is player i's earlier throws (from re-throws
+ * after a tie), `thrown[i]` the latest one. Throws are compared in turn, first throw first, so a
+ * re-throw only settles the order among the players who tied. Either the players who still tie (to
+ * throw again, with `past` to keep) or the order: player indices, highest first, lowest last. */
+export function settleOrder(past: number[][], thrown: number[]): { tied: number[]; past: number[][] } | { order: number[] } {
+  const keys = thrown.map((v, i) => [...(past[i] ?? []), v]);
+  // a player who sat out a re-throw has a shorter list; the missing throws count lowest, never tying
+  const cmp = (a: number[], b: number[]) => {
+    for (let k = 0; k < Math.max(a.length, b.length); k++) if ((a[k] ?? -1) !== (b[k] ?? -1)) return (b[k] ?? -1) - (a[k] ?? -1);
+    return 0;
+  };
+  const tied = keys.map((_, i) => i).filter(i => keys.some((k, j) => j !== i && cmp(k, keys[i]) === 0));
+  // the tied throw again; everyone else keeps their latest throw where it is, so it is not counted twice
+  if (tied.length) return { tied, past: keys.map((k, i) => tied.includes(i) ? k : k.slice(0, -1)) };
+  return { order: keys.map((_, i) => i).sort((a, b) => cmp(keys[a], keys[b])) };
+}

@@ -15,7 +15,7 @@ import { scene, setScene } from '../core/store';
 import type { Loose } from '../game/types';
 import { G, setG, ludoSetup, newGame, startShake, pickHorse, curP, sounds, recordSounds } from './game';
 import type { LudoSeat } from './rules';
-import { keepRoom, lastRoom, hostGame, keepHostGame, keepLocal } from './keep';
+import { keepRoom, lastRoom, hostGame, keepHostGame, keepLocal, pickedRules, restoreRules } from './keep';
 
 export const isHost = (): boolean => net.getRole() === 'host' && active;
 export const isGuest = (): boolean => net.getRole() === 'guest' && active;
@@ -41,7 +41,7 @@ const handlers: net.NetHandlers = {
     if (isHost() && restoring) { // a host back after a reload: the game kept for this room, if the server still had it
       restoring = false;
       const k = hostGame(code);
-      if (k) { setG(k.g); ludoSetup.seats = k.seats.map(s => ({ ...s })); ludoSetup.seats[0] = { kind: 'human', name: myName }; setScene('ludo'); }
+      if (k) { restoreRules(k.rules); setG(k.g); ludoSetup.seats = k.seats.map(s => ({ ...s })); ludoSetup.seats[0] = { kind: 'human', name: myName }; setScene('ludo'); }
       else if (restoringCode && restoringCode !== code) note = `Phòng ${restoringCode} đã đóng: đây là phòng mới ${code}, gửi mã mới cho bạn bè nhé.`;
     }
     if (isHost()) sendLobby();
@@ -172,8 +172,8 @@ function keepStep(): void {
   keepEvery = 0;
   if (active && roomCode) keepRoom({ code: roomCode, role: isHost() ? 'host' : 'guest', name: myName, at: Date.now() });
   if (scene !== 'ludo' || !G?.players) return;
-  if (isHost()) keepHostGame(G.phase === 'over' ? null : { code: roomCode, g: G, seats: ludoSetup.seats.map(s => ({ ...s })), at: Date.now() });
-  else if (!active) keepLocal(G.phase === 'over' ? null : { g: G, seats: ludoSetup.seats.map(s => ({ ...s })) });
+  if (isHost()) keepHostGame(G.phase === 'over' ? null : { code: roomCode, g: G, seats: ludoSetup.seats.map(s => ({ ...s })), rules: pickedRules(), at: Date.now() });
+  else if (!active) keepLocal(G.phase === 'over' ? null : { g: G, seats: ludoSetup.seats.map(s => ({ ...s })), rules: pickedRules() });
 }
 /** Every step: the host sends the game; a friend lets go of the die when the finger lifts; the game is kept. */
 export function ludoNetStep(held: boolean): void {

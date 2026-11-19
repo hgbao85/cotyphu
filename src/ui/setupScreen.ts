@@ -151,9 +151,13 @@ function pickTile(i: number) {
   if (isGuest()) sendAct('pick', i); else state.pick = i;
 }
 export function handleInput() {
+  // One button per step: the buttons were built for the state before the press, so a second press in
+  // the same step (a double tap on a slow frame, a tap and Space) would act on a state that has moved
+  // on: "Kết thúc lượt" twice skipped the next player, "Mua" twice bought with no popup.
+  let pressedOne = false;
   for (const c of clicks) {
     const b = F.ui.find(b => c.x >= b.x && c.x <= b.x + b.w && c.y >= b.y && c.y <= b.y + b.h);
-    if (b) { if (b.enabled) pressBtn(b); continue; }
+    if (b) { if (b.enabled && !pressedOne) { pressBtn(b); pressedOne = true; } continue; }
     if (F.roomMenu) continue; // the room menu is open: only its buttons answer
     if (scene === 'play' && F.inspect >= 0) { F.inspect = -1; continue; } // a tile card is open: a tap anywhere closes it, and opens nothing
     if (scene === 'play' && state.phase === 'pick' && humanTurn() && inBoard(c.x, c.y)) {
@@ -168,6 +172,7 @@ export function handleInput() {
   if (F.inspect >= 0 && (pressed('Space') || pressed('Enter') || pressed('Escape') || pressed('KeyN'))) { F.inspect = -1; return; }
   if (F.wheel && scene === 'play') { F.propScroll = Math.max(0, F.propScroll + F.wheel); F.wheel = 0; }
   if (F.picker && (pressed('Space') || pressed('Enter') || pressed('Escape'))) { F.picker = null; return; } // a list open: the keys close it
+  if (pressedOne) return; // a tap pressed a button this step: the keys wait for the next one
   if (pressed('Space') || pressed('Enter')) { const b = F.ui.find(b => b.role === 'primary' && b.enabled); if (b) { pressBtn(b); return; } }
   if (pressed('KeyN') || pressed('Escape')) { const b = F.ui.find(b => (b.role === 'secondary' || b.role === 'menuSecondary') && b.enabled); if (b) { pressBtn(b); return; } }
   if (scene === 'play' && state.phase === 'pick' && humanTurn()) {

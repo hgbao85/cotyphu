@@ -611,7 +611,7 @@ install({
     if (o.seed !== undefined) checkSeed = o.seed;
     setScene('title'); clearVis();
   },
-  get view() { return { inspect: F.inspect, tip: tipNow, picker: F.picker ? F.picker.items.map((it, k) => ({ label: it.label, enabled: it.enabled !== false, ...F.picker!.rects[k] })) : null }; },
+  get view() { return { inspect: F.inspect, tip: tipNow, buttons: F.ui.filter(b => b.role !== 'hidden' && b.label).map(b => ({ label: b.label, x: b.x, y: b.y, w: b.w, h: b.h, enabled: !!b.enabled })), picker: F.picker ? F.picker.items.map((it, k) => ({ label: it.label, enabled: it.enabled !== false, ...F.picker!.rects[k] })) : null }; },
   get online() {
     return { role: net.getRole(), code: roomCode, mySeat, seats: isGuest() ? lobby?.seats ?? null : setup.seats, animals: isGuest() ? lobby?.animals ?? null : setup.animals, mode: isGuest() ? lobby?.mode ?? null : setup.mode, rounds: isGuest() ? lobby?.rounds ?? null : setup.rounds, teams: isGuest() ? !!lobby?.teams : setup.teams };
   },

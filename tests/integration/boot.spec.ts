@@ -393,3 +393,58 @@ test('N and Esc never declare bankruptcy in debt, nor spend the Thẻ Ra Tù in 
   expect(seen).toEqual({ debt: { phase: 'debt', bankrupt: false }, jail: { phase: 'jail', inJail: true, cards: 1 } });
   expect(errors).toEqual([]);
 });
+
+test('two taps on "Kết thúc lượt" in the same step end the turn once, not skipping the next player', async ({ page }) => {
+  // Bug: every tap queued in one step pressed against the same buttons, so the turn ended twice.
+  const errors = await open(page, 'manual=1&seed=7');
+  await personToMove(page);
+  const before = await page.evaluate(() => {
+    const g = window.game!;
+    const s = g.state as { phase: string; timer: number; cur: number };
+    s.phase = 'end'; s.timer = 0; g.step(1);
+    return s.cur;
+  });
+  type B = { label: string; x: number; y: number; w: number; h: number };
+  const end = (await page.evaluate(() => (window.game!.view as { buttons: B[] }).buttons)).find(b => b.label === 'Kết thúc lượt')!;
+  expect(end).toBeTruthy();
+  const box = (await page.locator('#game').boundingBox())!;
+  const at = { x: box.x + (end.x + end.w / 2) * box.width / 1280, y: box.y + (end.y + end.h / 2) * box.height / 720 };
+  await page.mouse.click(at.x, at.y); await page.mouse.click(at.x, at.y); // both before the next step
+  const after = await page.evaluate(() => { window.game!.step(1, false); return (window.game!.state as { cur: number }).cur; });
+  expect(after).toBe((before + 1) % 2);
+  expect(errors).toEqual([]);
+});
+
+test('in a team game, "each player" cards skip the teammate: the birthday card and the hotpot card', async ({ page }) => {
+  // Decided: a teammate neither pays nor is paid by a card, as with rent (it used to charge them too).
+  const errors = await open(page, 'manual=1&seed=5&render=cheap');
+  const collect = CARDS.kv.findIndex(c => c.act === 'collect'), payeach = CARDS.co.findIndex(c => c.act === 'payeach');
+  const cards = { collect: { deck: 'kv', ci: collect, card: CARDS.kv[collect] }, payeach: { deck: 'co', ci: payeach, card: CARDS.co[payeach] } };
+  const r = await page.evaluate(cards => {
+    const g = window.game!, ai = { kind: 'ai', lv: 1 };
+    type P = { cash: number; team?: number; bankrupt: boolean };
+    type S = { phase: string; ordering?: boolean; timer: number; cur: number; popup: unknown; players: P[] };
+    g.configure({ seats: [ai, ai, ai, ai], mode: 'bankrupt', teams: true });
+    g.press('Enter'); g.step(1, false);
+    const s = () => g.state as S;
+    const play = (c: { deck: string; ci: number; card: unknown }) => {
+      for (let n = 0; n < 20000 && !(s().phase === 'roll' && !s().ordering); n++) g.step(1, false);
+      s().players.forEach(p => { p.cash = 5000; });
+      const cur = s().cur;
+      s().popup = { kind: 'card', ...c }; s().phase = 'card'; s().timer = 0;
+      for (let n = 0; n < 2000 && s().phase === 'card'; n++) g.step(1, false); // the computer takes the card
+      const team = s().players[cur].team;
+      return s().players.map((p, j) => ({ who: j === cur ? 'me' : p.team === team ? 'mate' : 'other', change: p.cash - 5000 }));
+    };
+    return { collect: play(cards.collect), payeach: play(cards.payeach) };
+  }, cards);
+  const v = CARDS.kv[collect].v as number; // both cards move the same amount (src/game/data.ts)
+  const sum = (rows: { who: string; change: number }[], who: string) => rows.filter(x => x.who === who).map(x => x.change);
+  expect(sum(r.collect, 'mate')).toEqual([0]);
+  expect(sum(r.collect, 'other')).toEqual([-v, -v]);
+  expect(sum(r.collect, 'me')).toEqual([2 * v]);
+  expect(sum(r.payeach, 'mate')).toEqual([0]);
+  expect(sum(r.payeach, 'other')).toEqual([v, v]);
+  expect(sum(r.payeach, 'me')).toEqual([-2 * v]);
+  expect(errors).toEqual([]);
+});

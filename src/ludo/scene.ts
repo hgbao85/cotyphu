@@ -20,7 +20,7 @@ import { showOnlinePanel } from '../net/room';
 import { G, setG, diceText, SIDES, LV_NAMES, ludoSetup, newGame, startShake, pickHorse, curP, step as gameStep, shakePower, ranking, rulesNow, autoPlays } from './game';
 import { cellOf, moveValue, GATE, STEPS, TRACK, startOf, stepCell, exitRolls, type LudoSeat } from './rules';
 import * as on from './online';
-import { localGame, lastRoom, type KeptGame } from './keep';
+import { localGame, lastRoom, restoreRules, type KeptGame } from './keep';
 
 /** The horse's face on every piece: Ngựa, the seventh of the twelve animals. */
 const HORSE = 6;
@@ -335,10 +335,12 @@ function press(b: Loose): void {
   b.fn();
 }
 function handleTaps(): void {
+  let pressedOne = false; // one button per step: a second press would act on buttons built for the state before the first
   for (const c of clicks) {
     const b = F.ui.find(x => c.x >= x.x && c.x <= x.x + x.w && c.y >= x.y && c.y <= x.y + x.h);
-    if (b) { if (b.enabled) press(b); continue; }
-    if (scene === 'ludo' && G && movable().length) { // a tap on a glowing horse moves it
+    if (b) { if (b.enabled && !pressedOne) { press(b); pressedOne = true; } continue; }
+    if (pressedOne) continue;
+    if (scene === 'ludo' && G && !F.roomMenu && movable().length) { // a tap on a glowing horse moves it (not under the leave menu)
       const cs = cellSize();
       let best = -1, bd = cs * 0.75;
       for (const h of movable()) { const q = horsePos(G.cur, h), d = Math.hypot(c.x - q.x, c.y - q.y); if (d < bd) { bd = d; best = h; } }
@@ -347,7 +349,8 @@ function handleTaps(): void {
   }
   clicks.length = 0;
   if (F.picker && (pressed('Escape') || pressed('Enter'))) { F.picker = null; return; }
-  if (scene === 'ludo' && movable().length) {
+  if (pressedOne) return;
+  if (scene === 'ludo' && !F.roomMenu && movable().length) { // the leave menu open: only its buttons answer
     for (let k = 0; k < 4; k++) if (pressed('Digit' + (k + 1)) && movable().includes(k)) { choose(k); return; }
     if ((pressed('Space') || pressed('Enter')) && picked() < 0) { choose(movable()[0]); return; }
   }
@@ -433,6 +436,7 @@ function buildSetup(): void {
 function resumeLocal(k: KeptGame): void {
   F.picker = null; on.setNote('');
   ludoSetup.seats = k.seats.map(x => ({ ...x }));
+  restoreRules(k.rules); // the rules it was played with, not the ones on the setup screen now
   setG(k.g); setScene('ludo');
 }
 function startLudo(): void {

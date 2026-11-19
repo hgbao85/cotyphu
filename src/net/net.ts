@@ -29,6 +29,7 @@ let role: Role = 'off';
 let wanted: Loose = null;           // the create or join message, sent again after a reconnect
 let handlers: NetHandlers | null = null;
 let retry = 0;
+let reconnect: ReturnType<typeof setTimeout> | null = null; // the next try after a drop, cancelled on leave
 let since = 0; // when this browser started trying to reach the server and has not got through yet (0: through, or not trying)
 /** When the first try to reach the room server began, while it has not got through yet; else 0. */
 export const connectingSince = (): number => since;
@@ -74,15 +75,19 @@ export function wakeServer(): void {
 
 function open(): void {
   if (!since && role !== 'off') since = performance.now();
-  ws = new WebSocket(url());
-  ws.onopen = () => { retry = 0; since = 0; handlers?.onLink(true); if (wanted) ws?.send(JSON.stringify(wanted)); };
-  ws.onclose = () => {
+  reconnect = null;
+  const sock = new WebSocket(url());
+  ws = sock;
+  sock.onopen = () => { retry = 0; since = 0; handlers?.onLink(true); if (wanted) sock.send(JSON.stringify(wanted)); };
+  sock.onclose = () => {
+    if (ws !== sock) return; // an old socket closing after a leave and a new room: not this link
     handlers?.onLink(false);
     if (role === 'off') return;
     retry = Math.min(retry + 1, 6);
-    setTimeout(open, 500 * retry); // back off a little, up to 3 s
+    reconnect = setTimeout(open, 500 * retry); // back off a little, up to 3 s
   };
-  ws.onmessage = ev => {
+  sock.onmessage = ev => {
+    if (ws !== sock) return;
     let m: Loose;
     try { m = JSON.parse(String(ev.data)); } catch { return; }
     const h = handlers;
@@ -117,6 +122,7 @@ export function joinRoom(code: string, name: string, h: NetHandlers, game = ''):
 /** Leaves the room and closes the connection. */
 export function leave(): void {
   role = 'off'; wanted = null; handlers = null; since = 0;
+  if (reconnect) { clearTimeout(reconnect); reconnect = null; }
   ws?.close(); ws = null;
 }
 

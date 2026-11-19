@@ -58,13 +58,22 @@ const server = createServer(async (req, res) => {
 /** code -> { code, host: { ws, key, name }, guests: Map<id, { ws, key, name }>, nextId, idleSince } */
 const rooms = new Map();
 
+/** A free room code, or null when none turned up (the server is nearly full of rooms). */
 function newCode() {
-  for (;;) {
+  for (let tries = 0; tries < 200; tries++) {
     let c = '';
     for (let i = 0; i < 2; i++) c += CODE_LETTERS[Math.floor(Math.random() * CODE_LETTERS.length)];
     c += String(10 + Math.floor(Math.random() * 90));
     if (!rooms.has(c)) return c;
   }
+  return null;
+}
+/** A socket that another one took the place of (the same key, from another tab): told why and closed.
+ * The error makes the browser stop instead of reconnecting, so two tabs do not take the room in turn. */
+function replaced(old, ws) {
+  if (!old || old === ws || old.readyState !== 1) return;
+  send(old, { t: 'error', msg: 'Phòng này đã được mở ở một tab hoặc máy khác.' });
+  old.close();
 }
 const send = (ws, msg) => { if (ws && ws.readyState === 1) ws.send(JSON.stringify(msg)); };
 const clean = (s, n) => String(s || '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, n);
@@ -77,6 +86,10 @@ setInterval(() => {
   for (const [code, room] of rooms) {
     touch(room);
     if (room.idleSince && Date.now() - room.idleSince > ROOM_IDLE_MS) rooms.delete(code);
+    else if (room.hostGoneSince && Date.now() - room.hostGoneSince > ROOM_IDLE_MS) { // the host never came back: guests waiting on it are sent home
+      for (const g of room.guests.values()) send(g.ws, { t: 'closed' });
+      rooms.delete(code);
+    }
   }
 }, 60 * 1000).unref();
 
@@ -100,13 +113,16 @@ wss.on('connection', ws => {
       // a host coming back with its key gets its room back
       const back = [...rooms.values()].find(r => r.host.key && r.host.key === key);
       if (back) {
-        back.host.ws = ws; me = { room: back, role: 'host', id: 0 };
+        replaced(back.host.ws, ws);
+        back.host.ws = ws; back.hostGoneSince = 0; me = { room: back, role: 'host', id: 0 };
         send(ws, { t: 'created', code: back.code, id: 0, back: true });
         for (const [id, g] of back.guests) send(ws, { t: 'peer', id, name: g.name, online: !!(g.ws && g.ws.readyState === 1) });
         for (const g of back.guests.values()) send(g.ws, { t: 'host', online: true });
         touch(back); return;
       }
-      const room = { code: newCode(), host: { ws, key, name: clean(msg.name, 20) }, guests: new Map(), nextId: 1, idleSince: 0 };
+      const code = newCode();
+      if (!code) { send(ws, { t: 'error', msg: 'Máy chủ đang bận, thử lại sau nhé.' }); return; }
+      const room = { code, host: { ws, key, name: clean(msg.name, 20) }, guests: new Map(), nextId: 1, idleSince: 0 };
       rooms.set(room.code, room);
       me = { room, role: 'host', id: 0 };
       send(ws, { t: 'created', code: room.code, id: 0 });
@@ -119,11 +135,16 @@ wss.on('connection', ws => {
       const key = clean(msg.key, 64), name = clean(msg.name, 20) || 'Bạn';
       let id = [...room.guests].find(([, g]) => key && g.key === key)?.[0];
       if (id === undefined) {
-        if (room.guests.size >= MAX_GUESTS) { send(ws, { t: 'error', msg: 'Phòng đã đủ người.' }); return; }
+        if (room.guests.size >= MAX_GUESTS) { // full: a seat whose guest is gone (a closed tab) goes to the newcomer
+          const gone = [...room.guests].find(([, g]) => !g.ws || g.ws.readyState !== 1);
+          if (!gone) { send(ws, { t: 'error', msg: 'Phòng đã đủ người.' }); return; }
+          room.guests.delete(gone[0]);
+          send(room.host.ws, { t: 'peer', id: gone[0], name: gone[1].name, online: false, left: true });
+        }
         id = room.nextId++;
         room.guests.set(id, { ws, key, name });
       } else {
-        const g = room.guests.get(id); g.ws = ws; g.name = name;
+        const g = room.guests.get(id); replaced(g.ws, ws); g.ws = ws; g.name = name;
       }
       me = { room, role: 'guest', id };
       send(ws, { t: 'joined', code: room.code, id, hostOnline: !!(room.host.ws && room.host.ws.readyState === 1) });
@@ -133,6 +154,8 @@ wss.on('connection', ws => {
 
     if (!me) return;
     const room = me.room;
+    // a socket another one took the place of says nothing more (it is being closed)
+    if (me.role === 'host' ? room.host.ws !== ws : room.guests.get(me.id)?.ws !== ws) return;
     if (msg.t === 'toHost' && me.role === 'guest') send(room.host.ws, { t: 'fromPeer', from: me.id, data: msg.data });
     else if (msg.t === 'toAll' && me.role === 'host') {
       const text = JSON.stringify({ t: 'fromHost', data: msg.data });
@@ -154,7 +177,7 @@ wss.on('connection', ws => {
     if (!me) return;
     const room = me.room;
     if (me.role === 'host') {
-      if (room.host.ws === ws) for (const g of room.guests.values()) send(g.ws, { t: 'host', online: false });
+      if (room.host.ws === ws) { room.hostGoneSince = Date.now(); for (const g of room.guests.values()) send(g.ws, { t: 'host', online: false }); }
     } else {
       const g = room.guests.get(me.id);
       if (g && g.ws === ws) send(room.host.ws, { t: 'peer', id: me.id, name: g.name, online: false });

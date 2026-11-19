@@ -28,7 +28,7 @@ interface GameHook {
   readonly events?: unknown[];
   /** Sets up the next game for a check (seats, kind of game, seed) and returns to the title screen. */
   configure?(o: unknown): void;
-  /** What is open on screen, read-only: the tile whose card is showing (-1 for none). */
+  /** What is open on screen, read-only: the tile whose card is showing (-1 for none), the buttons this step. */
   readonly view?: unknown;
   /** Cá Ngựa, read-only: the phase, whose turn, the die, the horses that may move, every horse. */
   readonly ludo?: unknown;

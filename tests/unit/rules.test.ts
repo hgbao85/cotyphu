@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import config from '../../data/config.json';
 import { EVENTS, TILES } from '../../src/game/data';
-import { buildCost, buyHint, eventRentMult, money, netWorth, ownsGroup, propertyTax, rentHint, rentOf } from '../../src/game/rules';
+import { buildCost, buyHint, eventRentMult, money, netWorth, ownsGroup, propertyTax, rentHint, rentOf, settleOrder } from '../../src/game/rules';
 import { rng, setSeed, shuffled } from '../../src/game/rng';
 import type { GameState, Player } from '../../src/game/types';
 
@@ -254,5 +254,26 @@ describe('the hint under a land card', () => {
     s.owner[NAM_DINH] = 0;
     expect(rentHint(s, HA_NOI)).toBe('Nhà 2');
     expect(g).toBe(TILES[BAC_NINH].g);
+  });
+});
+
+describe('settleOrder', () => {
+  it('puts the highest throw first and the lowest last', () => {
+    expect(settleOrder([[], [], []], [5, 11, 8])).toEqual({ order: [1, 2, 0] });
+  });
+  it('has only the players who tied throw again', () => {
+    expect(settleOrder([[], [], []], [10, 7, 7])).toEqual({ tied: [1, 2], past: [[], [7], [7]] });
+  });
+  it('settles a tie among the tied players only: a high re-throw never jumps a higher first throw', () => {
+    // A threw 10, B and C 7; B re-throws 12, C 3. A stays first: B, C only settle second and third.
+    expect(settleOrder([[], [7], [7]], [10, 12, 3])).toEqual({ order: [0, 1, 2] });
+  });
+  it('does not make a player who did not tie throw again when a re-throw lands on their number', () => {
+    // B and C tied on 7 and re-throw; B gets 10, the same as A's first throw. Nobody ties.
+    expect(settleOrder([[], [7], [7]], [10, 10, 4])).toEqual({ order: [0, 1, 2] });
+  });
+  it('keeps throwing again while the tied players still tie', () => {
+    expect(settleOrder([[], [7], [7]], [10, 9, 9])).toEqual({ tied: [1, 2], past: [[], [7, 9], [7, 9]] });
+    expect(settleOrder([[], [7, 9], [7, 9]], [10, 2, 6])).toEqual({ order: [0, 2, 1] });
   });
 });

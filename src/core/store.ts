@@ -3,6 +3,7 @@
 // only this file assigns them, through the setters, so every change of the whole object is easy to find.
 import { tune } from '../config';
 import { DEFAULT_ANIMALS } from '../game/data';
+import { F } from './flags';
 import type { GameState, Seat } from '../game/types';
 
 /** The setup screen's choices: the seats, the kind of game and its length, teams, the animals. */
@@ -17,7 +18,8 @@ export let setup: Setup = { seats: [{ kind: 'human' }, { kind: 'ai', lv: 1 }, { 
 
 /** Puts a whole new game state in place (a new game, the host's state online, a kept game). */
 export function setState(s: GameState) { state = s; }
-/** Shows another screen. */
-export function setScene(s: string) { scene = s; }
+/** Shows another screen. A "leave the room?" menu belongs to the screen it was opened on: a room
+ * that closes under it (or any other change of screen) must not leave it open over the next game. */
+export function setScene(s: string) { if (s !== scene) F.roomMenu = false; scene = s; }
 /** Puts a whole new setup in place (a kept game's). */
 export function setSetup(s: Setup) { setup = s; }

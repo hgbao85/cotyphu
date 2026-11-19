@@ -6,6 +6,7 @@
 // game on one screen, which stays until it ends or another starts. Storage may be blocked: then
 // nothing is kept, and the game plays as before.
 
+import { CONFIG } from '../config';
 import type { LudoGame } from './game';
 import type { LudoSeat } from './rules';
 
@@ -20,8 +21,20 @@ function write(key: string, v: unknown): void {
   try { if (v === null) localStorage.removeItem(key); else localStorage.setItem(key, JSON.stringify(v)); } catch { /* not kept: fine */ }
 }
 
-/** A game on one screen, with the seats it was set up with. */
-export interface KeptGame { g: LudoGame; seats: LudoSeat[] }
+/** The rules a person picks on the setup screen. They live in CONFIG, not in the game, so a kept game
+ * carries its own: a game played with "Nhanh" goes on with "Nhanh" after a reload. */
+const PICKED_RULES = ['ludo_home_strict'];
+/** This game's picked rules, to keep with it. */
+export function pickedRules(): Record<string, number> {
+  return Object.fromEntries(PICKED_RULES.filter(k => CONFIG[k]).map(k => [k, CONFIG[k].value]));
+}
+/** Puts a kept game's picked rules back (a game kept before they were kept: the rules as they are). */
+export function restoreRules(r: Record<string, number> | undefined): void {
+  for (const k of PICKED_RULES) if (r && typeof r[k] === 'number' && CONFIG[k]) CONFIG[k].value = r[k];
+}
+
+/** A game on one screen, with the seats it was set up with and its picked rules. */
+export interface KeptGame { g: LudoGame; seats: LudoSeat[]; rules?: Record<string, number> }
 /** The game on one screen left unfinished, if any. */
 export function localGame(): KeptGame | null {
   const k = read<KeptGame>(LOCAL);

@@ -155,4 +155,6 @@ export interface GameState {
   /** Choosing who goes first: each player's throw, null until they throw. */
   ordering?: boolean;
   order?: (number | null)[];
+  /** The throws for the order before this one, per player: a tie is settled by throwing again, compared in turn. */
+  orderPast?: number[][];
 }

@@ -193,6 +193,7 @@ export function drawEvent() {
 function startOrder() {
   state.ordering = true;
   state.order = state.players.map(() => null);
+  state.orderPast = state.players.map(() => []);
   log('Tung xúc xắc chọn thứ tự đi: ai cao nhất đi trước, thấp nhất đi cuối.');
   nextOrderThrow();
 }
@@ -209,19 +210,22 @@ function orderThrown(total: number) {
   log(`${p.name} tung được ${total}.`);
   state.phase = 'orderShow'; state.timer = 0;
 }
-/** Everyone has thrown: ties throw again; otherwise the players are put in order, highest first, lowest last. */
+/** Everyone has thrown: ties throw again; otherwise the players are put in order, highest first, lowest last.
+ * A re-throw only settles the order among the players who tied: each player's throws so far are
+ * compared in turn (the first throw, then the re-throw), so a re-throw never jumps a higher first throw. */
 function finishOrder() {
-  const totals = state.order as number[];
-  const tied = totals.map((_, i) => i).filter(i => totals.filter(v => v === totals[i]).length > 1);
-  if (tied.length) {
-    log(`Hòa điểm: ${tied.map(i => state.players[i].name).join(', ')} tung lại.`);
-    for (const i of tied) state.order![i] = null;
+  const past = state.orderPast ?? state.players.map(() => []); // a game kept before orderPast: no earlier throws
+  const r = R.settleOrder(past, state.order as number[]);
+  if ('tied' in r) {
+    log(`Hòa điểm: ${r.tied.map(i => state.players[i].name).join(', ')} tung lại.`);
+    state.orderPast = r.past;
+    for (const i of r.tied) state.order![i] = null;
     nextOrderThrow();
     return;
   }
-  const idx = totals.map((_, i) => i).sort((a, b) => totals[b] - totals[a]);
+  const idx = r.order;
   state.players = idx.map(i => state.players[i]);
-  state.ordering = false; state.order = undefined;
+  state.ordering = false; state.order = undefined; state.orderPast = undefined;
   log(`Thứ tự đi: ${state.players.map(p => p.name).join(' → ')}.`);
   state.cur = 0;
   startTurn();
@@ -601,10 +605,11 @@ export function applyCard() {
     case 'free': p.freeCards.push(deckKind); afterAction(); return;
     case 'norent': case 'reroll': (p.keep ||= []).push({ act: c.act, deck: deckKind }); afterAction(); return;
     case 'repair': charge([{ to: -1, amt: Math.min(tune.card_max, c.v * levelsOf(pi)) }], '', 'after'); return;
-    case 'payeach': charge(state.players.map((q, j) => ({ to: j, amt: (j !== pi && !q.bankrupt) ? c.v : 0 })).filter(x => x.amt > 0), '', 'after'); return;
+    // "each player" means the other side: a teammate neither pays nor is paid (as with rent)
+    case 'payeach': charge(state.players.map((q, j) => ({ to: j, amt: (j !== pi && !q.bankrupt && !sameTeam(pi, j)) ? c.v : 0 })).filter(x => x.amt > 0), '', 'after'); return;
     case 'collect':
       state.players.forEach((q, j) => {
-        if (j === pi || q.bankrupt) return;
+        if (j === pi || q.bankrupt || sameTeam(pi, j) || state.phase === 'over') return; // the game may end part way: nobody pays after
         if (q.cash < c.v) raiseCash(j, c.v);
         if (q.cash >= c.v) { lose(j, c.v); gain(pi, c.v); }
         else { const part = Math.max(0, q.cash); if (part) { lose(j, part); gain(pi, part); } goBankrupt(j, []); }

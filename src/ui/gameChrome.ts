@@ -2,6 +2,8 @@
 // button under the speaker, the history beside "Diễn biến", the phone's strip under the board with
 // its row of buttons, and the results card sized to the players with its "Tổng kết ván".
 import { W, H, ctx, text, rrect, FONT, wrapLines } from '../screen';
+import { icon } from '../draw/icons';
+import type { OrderState } from '../game/orderRoll';
 
 /** The wide screen's speed button: under the speaker, where Cờ Tỷ Phú's is. */
 export const wideSpeedSpot = (): { x: number; y: number; w: number; h: number } => ({ x: W - 60, y: 48, w: 48, h: 26 });
@@ -31,4 +33,15 @@ export function drawSummary(x: number, y: number, w: number, lines: string[]): v
   ctx.save(); ctx.font = `15px ${FONT}`;
   lines.forEach((l, j) => text(wrapLines(ctx, l, w - 24)[0], x + w / 2, y + 48 + j * 26, 15, '#4a3020', 'center'));
   ctx.restore();
+}
+
+/** On a player's card while everyone throws for the order (as Cờ Tỷ Phú's order table): its throw on a
+ * little die at the card's right, "..." while it throws, "chờ" before; a crown on the highest so far. */
+export function drawOrderMark(o: OrderState, i: number, cur: boolean, x: number, y: number, w: number, h: number): void {
+  const v = o.throws[i], thrown = o.throws.filter((t): t is number => t !== null), best = thrown.length ? Math.max(...thrown) : -1;
+  const s = Math.min(36, h * 0.6), cx = x + w - s / 2 - 12, cy = y + h / 2;
+  if (v === null) { text(cur ? '...' : 'chờ', cx, cy, 14, '#9a7a5a', 'center', 'bold'); return; }
+  ctx.save(); ctx.fillStyle = '#ffffff'; rrect(ctx, cx - s / 2, cy - s / 2, s, s, 8); ctx.fill(); ctx.strokeStyle = '#d2a878'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
+  text(String(v), cx, cy + 1, Math.round(s * 0.55), '#d9622b', 'center', 'bold');
+  if (v === best) icon.crown(ctx, cx, cy - s / 2 - 4, 16);
 }

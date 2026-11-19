@@ -17,7 +17,7 @@ import { openPicker, buildPicker, drawPicker } from '../ui/setupScreen';
 import { openPage } from '../ui/pages';
 import { openSettings } from '../ui/settings';
 import { LEAVE_LOCAL, CHANGE_PLAYERS } from '../ui/words';
-import { wideSpeedSpot, phoneRow, resultsBox, mostOf, drawSummary } from '../ui/gameChrome';
+import { wideSpeedSpot, phoneRow, resultsBox, mostOf, drawSummary, drawOrderMark } from '../ui/gameChrome';
 import { makeTips } from '../ui/gameTips';
 import { tiltOf, tiltAngle, type Tilt, type Spot } from '../ui/tilt';
 import { figure, drawFigure } from '../three/figureSprites';
@@ -293,6 +293,10 @@ function myTurn(): boolean {
 function turnLine(): string {
   if (!G || !G.players.length) return '';
   const p = curP(), me = myTurn(), who = me ? 'Bạn' : p.name, d = diceText(G.dice);
+  if (G.order) { // everyone throws once for the order of play, as in Cờ Tỷ Phú
+    if (G.phase === 'roll') return me ? 'Tung chọn lượt: giữ nút để lắc, cao nhất đi trước' : `${who} chuẩn bị tung chọn lượt...`;
+    if (G.phase === 'nomove') return `${who} tung được ${G.dice.reduce((a, b) => a + b, 0)}`;
+  }
   switch (G.phase) {
     case 'roll': return me ? (G.players.filter(q => q.kind === 'human').length > 1 && !on.isGuest() ? `${p.name}: giữ nút để lắc, thả ra để thảy` : 'Giữ nút để lắc xúc xắc, thả ra để thảy') : `${who} chuẩn bị thảy...`;
     case 'shake': return me ? 'Thả ra để thảy!' : `${who} đang lắc...`;
@@ -516,7 +520,7 @@ function buildPlay(): void {
   }
   const c = controls(), dieW = rulesNow().dice > 1 ? 136 : 92;
   if (myTurn() && (G.phase === 'roll' || G.phase === 'shake')) {
-    btn(c.bx, c.by, c.bw - dieW, 62, G.phase === 'shake' ? 'Thả ra để thảy!' : 'Giữ để lắc xúc xắc', () => startShake(), 'primary', G.phase === 'roll', '#c8201f', 'shake');
+    btn(c.bx, c.by, c.bw - dieW, 62, G.phase === 'shake' ? 'Thả ra để thảy!' : G.order ? 'Giữ để lắc chọn lượt' : 'Giữ để lắc xúc xắc', () => startShake(), 'primary', G.phase === 'roll', '#c8201f', 'shake');
   }
 }
 const ready = (): boolean => !!G && !!G.players && G.players.length > 0;
@@ -558,7 +562,8 @@ function playerCard(i: number, x: number, y: number, w: number, h: number): void
   const off = p.kind === 'remote' && on.isHost() && !on.peerOnline(p.peer);
   text(p.name + (me ? ' (bạn)' : '') + (off ? ' (máy thay)' : ''), x + h + 2, y + h * 0.32, Math.min(18, h * 0.32), '#4a3020', 'left', 'bold');
   text(p.pos ? `Ô ${p.pos}` : 'Chưa vào bàn', x + h + 2, y + h * 0.7, phone() ? 13 : 15, '#6a4a32', 'left', 'bold');
-  if (!phone()) text(`thang ${p.ladders} · rắn ${p.bites}`, x + w - 14, y + h * 0.7, 14, '#8a6a4a', 'right');
+  if (G.order) drawOrderMark(G.order, i, i === G.cur, x, y, w, h); // the throws for the order of play
+  else if (!phone()) text(`thang ${p.ladders} · rắn ${p.bites}`, x + w - 14, y + h * 0.7, 14, '#8a6a4a', 'right');
 }
 /** The wide panel's "Diễn biến" line, its history button beside it. */
 const LOG_Y = 524;
@@ -650,5 +655,5 @@ export const snakeScenes: Record<string, { update(dt: number): void; draw(): voi
 export function snakeNet(): void { on.snakeNetStep(holding()); }
 /** For checks: where each piece stands and whose turn it is, read-only. */
 export function snakeView(): Loose {
-  return G ? { phase: G.phase, cur: G.cur, dice: G.dice, pos: G.players.map(p => p.pos), winner: G.winner, auto: G.players.map(p => autoPlays(p, on.peerOnline)), names: G.players.map(p => p.name), bubbles: (G.emotes || []).map(e => e.text ?? e.i), vote: G.vote ? G.vote.list.map(e => e.ans) : null, tip: tips.now } : null;
+  return G ? { phase: G.phase, cur: G.cur, dice: G.dice, pos: G.players.map(p => p.pos), winner: G.winner, auto: G.players.map(p => autoPlays(p, on.peerOnline)), names: G.players.map(p => p.name), ordering: !!G.order, bubbles: (G.emotes || []).map(e => e.text ?? e.i), vote: G.vote ? G.vote.list.map(e => e.ans) : null, tip: tips.now } : null;
 }

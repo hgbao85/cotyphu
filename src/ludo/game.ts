@@ -3,6 +3,7 @@
 // themselves are in ./rules.ts; the screens in ./scene.ts; online play in ./online.ts.
 // Online, only the host runs this; a friend's screen draws the G the host sends.
 
+import { startOrder, recordOrder, nextOrder, type OrderState } from '../game/orderRoll';
 import { ANIMALS } from '../game/data';
 import type { Bubble, Vote } from '../net/roomExtras';
 import { tune } from '../config';
@@ -27,6 +28,8 @@ export interface Hop { pi: number; h: number; path: number[]; t: number; move: L
 export interface Kicked { pi: number; h: number; from: number; t: number }
 /** The game being played. Plain data: online, the host sends it as it is. */
 export interface LudoGame {
+  /** While the players throw for the order of play (src/game/orderRoll.ts). */
+  order?: OrderState;
   /** Online: the bubbles over the players' cards and the vote for a new game (src/net/roomExtras.ts). */
   emotes?: Bubble[];
   vote?: Vote;
@@ -114,7 +117,8 @@ export function newGame(seed?: number, names: (string | undefined)[] = []): void
     players.push({ id: players.length, side: sides[i], seat: i, name, kind: st.kind, lv: st.lv ?? 1, peer: st.peer, animal: animalOf(st, i), horses: Array(R.horses).fill(-1), place: 0, kicks: 0, kicked: 0, sixes: 0 });
   });
   G = { seed: s, players, cur: Math.floor(rng() * players.length), phase: 'roll', t: 0, timer: 0, dice: [], use: [], shake: null, throwAt: null, show: null, moves: [], hop: null, kicked: [], again: false, log: [], winner: -1, floaters: [] };
-  log(`Ván mới! ${curP().name} đi trước.`);
+  if (tune.order_roll >= 1 && players.length > 1) startOrder(G, log); // everyone throws once: the highest goes first, as in Cờ Tỷ Phú
+  else log(`Ván mới! ${curP().name} đi trước.`);
 }
 
 /** Starts shaking the die (a person holds; the computer holds for a moment of its own). */
@@ -143,6 +147,10 @@ export function throwDie(): void {
 function afterDie(): void {
   const p = curP(), R = rulesNow(), d = G.dice, again = throwsAgain(d);
   G.show = { t: 0, dice: [...d] };
+  if (G.order) { // a throw for the order of play: noted and shown for a moment, nothing moves
+    recordOrder(G, d.reduce((a, b) => a + b, 0), log); play('land');
+    G.phase = 'nomove'; G.timer = 0; return;
+  }
   if (again) { p.sixes++; play('double'); } else play('land');
   G.again = again && R.bonusSix;
   G.use = [...d];
@@ -219,6 +227,7 @@ function landed(): void {
 /** After a roll: roll again (a six), or the next player's turn. */
 function endRoll(): void {
   G.timer = 0; G.moves = [];
+  if (G.order) { G.again = false; nextOrder(G, log); G.phase = 'roll'; return; } // the next throw for the order, or the game's first turn
   if (G.again) { G.again = false; G.phase = 'roll'; floatDie('Đổ thêm!', '#2f8a3a'); return; }
   G.cur = (G.cur + 1) % G.players.length;
   G.phase = 'roll';
@@ -251,7 +260,7 @@ export function step(dt: number, held: boolean, peerOnline: (id?: number) => boo
       if (G.throwAt!.t >= G.throwAt!.dur) { G.throwAt = null; afterDie(); }
       break;
     case 'nomove':
-      if (G.timer >= tune.ludo_no_move_time) endRoll();
+      if (G.timer >= (G.order ? tune.order_show_time : tune.ludo_no_move_time)) endRoll();
       break;
     case 'choose': {
       // one choice (or every choice the same horse's): it moves by itself after a beat

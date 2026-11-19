@@ -17,7 +17,7 @@ import { openPicker, buildPicker, drawPicker } from '../ui/setupScreen';
 import { openPage } from '../ui/pages';
 import { openSettings } from '../ui/settings';
 import { LEAVE_LOCAL, CHANGE_PLAYERS } from '../ui/words';
-import { wideSpeedSpot, phoneRow, resultsBox, mostOf, drawSummary } from '../ui/gameChrome';
+import { wideSpeedSpot, phoneRow, resultsBox, mostOf, drawSummary, drawOrderMark } from '../ui/gameChrome';
 import { makeTips } from '../ui/gameTips';
 import { tiltOf, tiltAngle, type Tilt, type Spot } from '../ui/tilt';
 import { figure, drawFigure } from '../three/figureSprites';
@@ -333,6 +333,10 @@ function turnLine(): string {
   if (!G || !G.players.length) return '';
   const p = curP(), me = myTurn();
   const who = me ? 'Bạn' : p.name;
+  if (G.order) { // everyone throws once for the order of play, as in Cờ Tỷ Phú
+    if (G.phase === 'roll') return me ? 'Tung chọn lượt: giữ nút để lắc, cao nhất đi trước' : `${who} chuẩn bị tung chọn lượt...`;
+    if (G.phase === 'nomove') return `${who} tung được ${G.dice.reduce((a, b) => a + b, 0)}`;
+  }
   switch (G.phase) {
     case 'roll': return me ? (G.players.filter(q => q.kind === 'human').length > 1 && !on.isGuest() ? `${p.name}: giữ nút để lắc, thả ra để thảy` : 'Giữ nút để lắc xúc xắc, thả ra để thảy') : `${who} chuẩn bị thảy...`;
     case 'shake': return me ? 'Thả ra để thảy!' : `${who} đang lắc...`;
@@ -600,7 +604,7 @@ function buildPlay(): void {
     u.forEach((d, k) => btn(bx + k * (w + gap), by, w, 56, both(d) ? `Đi ${d} (cả 2)` : u.length > 2 ? `Đi ${d}` : `Ngựa ${h + 1} đi ${d}`, () => go(h, d), k ? '' : 'primary', true, HINT[k])); // the same colours as the bands on the board
   }
   if (myTurn() && (G.phase === 'roll' || G.phase === 'shake')) {
-    btn(bx, by, bw, 62, G.phase === 'shake' ? 'Thả ra để thảy!' : 'Giữ để lắc xúc xắc', () => startShake(), 'primary', G.phase === 'roll', '#c8201f', 'shake');
+    btn(bx, by, bw, 62, G.phase === 'shake' ? 'Thả ra để thảy!' : G.order ? 'Giữ để lắc chọn lượt' : 'Giữ để lắc xúc xắc', () => startShake(), 'primary', G.phase === 'roll', '#c8201f', 'shake');
   }
 }
 /** A friend's screen, or a check's: G arrives or is made before the first draw. */
@@ -645,6 +649,7 @@ function playerCard(i: number, x: number, y: number, w: number, h: number): void
   const off = p.kind === 'remote' && on.isHost() && !on.peerOnline(p.peer);
   text(p.name + (me ? ' (bạn)' : '') + (off ? ' (máy chơi thay)' : ''), x + h + 2, y + h * 0.32, Math.min(18, h * 0.32), '#4a3020', 'left', 'bold');
   text(horseSummary(i), x + h + 2, y + h * 0.7, phone() ? 13 : 15, '#6a4a32', 'left');
+  if (G.order) drawOrderMark(G.order, i, i === G.cur, x, y, w, h); // the throws for the order of play
 }
 /** The wide panel's "Diễn biến" line, its history button beside it. */
 const LOG_Y = 500;
@@ -739,5 +744,5 @@ export const ludoScenes: Record<string, { update(dt: number): void; draw(): void
 export function ludoNet(): void { on.ludoNetStep(holding()); }
 /** For checks: who plays which side and what they can do, read-only. */
 export function ludoView(): Loose {
-  return G ? { phase: G.phase, cur: G.cur, dice: G.dice, use: G.use, moves: G.moves.map(m => m.h), horses: G.players.map(p => [...p.horses]), winner: G.winner, auto: G.players.map(p => autoPlays(p, on.peerOnline)), names: G.players.map(p => p.name), sides: G.players.map(p => p.side), bubbles: (G.emotes || []).map(e => e.text ?? e.i), vote: G.vote ? G.vote.list.map(e => e.ans) : null, tip: tips.now, tapAt: G.phase === 'choose' ? movable().map(h => { const q = horsePos(G.cur, h); return { h, x: q.x, y: q.y - q.lift }; }) : [] } : null;
+  return G ? { phase: G.phase, cur: G.cur, dice: G.dice, use: G.use, moves: G.moves.map(m => m.h), horses: G.players.map(p => [...p.horses]), winner: G.winner, auto: G.players.map(p => autoPlays(p, on.peerOnline)), names: G.players.map(p => p.name), ordering: !!G.order, sides: G.players.map(p => p.side), bubbles: (G.emotes || []).map(e => e.text ?? e.i), vote: G.vote ? G.vote.list.map(e => e.ans) : null, tip: tips.now, tapAt: G.phase === 'choose' ? movable().map(h => { const q = horsePos(G.cur, h); return { h, x: q.x, y: q.y - q.lift }; }) : [] } : null;
 }

@@ -7,7 +7,7 @@ import { resolve } from 'node:path';
 /** The single-file build: dist-single/, or another (SPEC_SINGLE) to watch a test fail on older code. */
 const build = (query: string): string => `${pathToFileURL(resolve(process.env.SPEC_SINGLE || 'dist-single', 'index.html')).href}?${query}`;
 const BACK = [800, 30]; // "‹ Sảnh" on the side panel (src/ludo/scene.ts: PX + 14, 14, 92 x 32)
-type View = { phase: string; cur: number; moves: number[]; horses: number[][] } | null;
+type View = { phase: string; cur: number; moves: number[]; horses: number[][]; auto: boolean[] } | null;
 
 async function tapAt(page: Page, x: number, y: number) {
   const b = (await page.locator('#game').boundingBox())!;
@@ -27,8 +27,9 @@ test('under the "Về sảnh?" menu, Space and the number keys do not move a hor
     g.press('Enter'); g.step(1, false);
     for (let n = 0; n < 3000; n++) {
       const v = g.ludo;
-      if (v && v.cur === 0 && v.phase === 'choose' && v.moves.length) return true;
-      if (v && v.cur === 0 && v.phase === 'roll') { g.press('Space'); g.hold('Space', true); g.step(20, false); g.hold('Space', false); }
+      const me = v ? v.auto.indexOf(false) : -1; // the person's place: after the throws for the order, not always first
+      if (v && v.cur === me && v.phase === 'choose' && v.moves.length) return true;
+      if (v && v.cur === me && v.phase === 'roll') { g.press('Space'); g.hold('Space', true); g.step(20, false); g.hold('Space', false); }
       g.step(10, false);
     }
     return false;
@@ -197,15 +198,16 @@ test('on the tilted board, a tap on a glowing horse moves that horse', async ({ 
   // The board is seen tilted, as Cờ Tỷ Phú's (src/ui/tilt.ts): a horse is tapped where it is drawn.
   await page.goto(build('manual=1&seed=3'));
   await expect.poll(() => page.evaluate(() => typeof window.game?.step)).toBe('function');
-  type T = { phase: string; cur: number; horses: number[][]; tapAt: { h: number; x: number; y: number }[] };
+  type T = { phase: string; cur: number; horses: number[][]; auto: boolean[]; tapAt: { h: number; x: number; y: number }[] };
   const ready = await page.evaluate(() => {
     const g = window.game as unknown as Hook & { ludo: T | null; hold(c: string, on: boolean): void };
     g.configureLudo({ seats: [{ kind: 'human' }, { kind: 'ai', lv: 1 }, { kind: 'off' }, { kind: 'off' }] });
     g.press('Enter'); g.step(1, false);
     for (let n = 0; n < 3000; n++) {
       const v = g.ludo!;
-      if (v.cur === 0 && v.phase === 'choose' && v.tapAt.length) return true;
-      if (v.cur === 0 && v.phase === 'roll') { g.press('Space'); g.hold('Space', true); g.step(20, false); g.hold('Space', false); }
+      const me = v.auto.indexOf(false); // the person's place: after the throws for the order, not always first
+      if (v.cur === me && v.phase === 'choose' && v.tapAt.length) return true;
+      if (v.cur === me && v.phase === 'roll') { g.press('Space'); g.hold('Space', true); g.step(20, false); g.hold('Space', false); }
       g.step(10, false);
     }
     return false;
@@ -215,7 +217,8 @@ test('on the tilted board, a tap on a glowing horse moves that horse', async ({ 
   const target = before.tapAt[before.tapAt.length - 1];
   await tapAt(page, target.x, target.y);
   const after = await page.evaluate(() => { const g = window.game as unknown as Hook & { ludo: T }; g.step(200, false); return g.ludo; });
-  expect(after.horses[0][target.h]).not.toBe(before.horses[0][target.h]); // the tapped horse moved
+  const me = before.auto.indexOf(false);
+  expect(after.horses[me][target.h]).not.toBe(before.horses[me][target.h]); // the tapped horse moved
 });
 
 test('a game of two Cá Ngựa players seats them across the board, and the setup screen shows it', async ({ page }) => {
@@ -229,4 +232,24 @@ test('a game of two Cá Ngựa players seats them across the board, and the setu
     return g.ludo.sides;
   });
   expect(sides).toEqual([0, 2]);
+});
+
+test('Cá Ngựa and Rắn và Thang open with everyone throwing for the order, highest first, as Cờ Tỷ Phú', async ({ page }) => {
+  // Asked for (19/11/2026): the two games picked who goes first at random, with no throw.
+  await page.goto(build('manual=1&seed=3'));
+  await expect.poll(() => page.evaluate(() => typeof window.game?.step)).toBe('function');
+  for (const game of ['ludo', 'snake'] as const) {
+    const r = await page.evaluate(gm => {
+      type V = { ordering: boolean; phase: string };
+      const g = window.game as unknown as Hook & Record<string, V | null>;
+      (gm === 'ludo' ? g.configureLudo : g.configureSnake)({ seats: [{ kind: 'ai', lv: 1, animal: 0 }, { kind: 'ai', lv: 1, animal: 1 }, { kind: 'ai', lv: 1, animal: 2 }, { kind: 'off' }] });
+      g.press('Enter'); g.step(1, false);
+      const opened = g[gm]!.ordering;
+      let n = 0;
+      while (g[gm]!.ordering && n < 20000) { g.step(5, false); n += 5; }
+      return { opened, ordered: !g[gm]!.ordering, firstTurn: g[gm]!.phase };
+    }, game);
+    expect(r.opened).toBe(true);
+    expect(r.ordered).toBe(true);                    // everyone threw, ties again, and the order is set
+  }
 });

@@ -3,6 +3,7 @@
 // in ./rules.ts; the screens in ./scene.ts; online play in ./online.ts.
 // Online, only the host runs this; a friend's screen draws the G the host sends.
 
+import { startOrder, recordOrder, nextOrder, type OrderState } from '../game/orderRoll';
 import type { Bubble, Vote } from '../net/roomExtras';
 import { tune, CONFIG } from '../config';
 import { sfx } from '../audio';
@@ -24,6 +25,8 @@ export interface Hop { pi: number; path: number[]; t: number }
 export interface Slide { pi: number; link: Link; t: number }
 /** The game being played. Plain data: online, the host sends it as it is. */
 export interface SnakeGame {
+  /** While the players throw for the order of play (src/game/orderRoll.ts). */
+  order?: OrderState;
   /** Online: the bubbles over the players' cards and the vote for a new game (src/net/roomExtras.ts). */
   emotes?: Bubble[];
   vote?: Vote;
@@ -105,7 +108,8 @@ export function newGame(seed?: number, names: (string | undefined)[] = [], anima
     players.push({ id: players.length, seat: i, name, kind: st.kind, animal: st.animal, peer: st.peer, pos: 0, ladders: 0, bites: 0, sixes: 0 });
   });
   G = { seed: s, players, cur: Math.floor(rng() * players.length), phase: 'roll', t: 0, timer: 0, dice: [], shake: null, throwAt: null, show: null, hop: null, slide: null, pending: null, again: false, log: [], winner: -1, floaters: [], rules: Object.fromEntries(RULE_KEYS.map(k => [k, tune[k]])) };
-  log(`Ván mới! ${curP().name} đi trước.`);
+  if (tune.order_roll >= 1 && players.length > 1) startOrder(G, log); // everyone throws once: the highest goes first, as in Cờ Tỷ Phú
+  else log(`Ván mới! ${curP().name} đi trước.`);
 }
 
 /** Starts shaking the die (a person holds; the computer holds for a moment of its own). */
@@ -134,6 +138,10 @@ export function throwDie(): void {
 function afterDie(): void {
   const p = curP(), R = rulesNow(), d = G.dice, again = throwsAgain(d);
   G.show = { t: 0, dice: [...d] };
+  if (G.order) { // a throw for the order of play: noted and shown for a moment, nothing moves
+    recordOrder(G, d.reduce((a, b) => a + b, 0), log); play('land');
+    G.phase = 'nomove'; G.timer = 0; return;
+  }
   if (again) { p.sixes++; play('double'); } else play('land');
   G.again = again && R.bonusSix;
   const L = landing(p.pos, d, R);
@@ -180,6 +188,7 @@ function settle(): void {
 /** After a throw: throw again (a six), or the next player's turn. */
 function endRoll(): void {
   G.timer = 0;
+  if (G.order) { G.again = false; nextOrder(G, log); G.phase = 'roll'; return; } // the next throw for the order, or the game's first turn
   if (G.again) { G.again = false; G.phase = 'roll'; float(-1, 'Thảy thêm!', '#2f8a3a'); return; }
   G.cur = (G.cur + 1) % G.players.length;
   G.phase = 'roll';
@@ -210,7 +219,7 @@ export function step(dt: number, held: boolean, peerOnline: (id?: number) => boo
       if (G.throwAt!.t >= G.throwAt!.dur) { G.throwAt = null; afterDie(); }
       break;
     case 'nomove':
-      if (G.timer >= tune.snake_no_move_time) endRoll();
+      if (G.timer >= (G.order ? tune.order_show_time : tune.snake_no_move_time)) endRoll();
       break;
     case 'move': {
       const hp = G.hop!; hp.t += dt;

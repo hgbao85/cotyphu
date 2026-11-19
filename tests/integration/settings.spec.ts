@@ -7,6 +7,7 @@ import { pathToFileURL } from 'node:url';
 const build = (query: string): string => `${pathToFileURL(resolve('dist-single/index.html')).href}?game=typhu&${query}`;
 
 test('keeps the volume and the effects switch for the next visit', async ({ page }) => {
+  test.setTimeout(90000); // alone it takes a few seconds; in the whole suite, with two browsers busy, it went past 30
   // Arrange: the title screen, nothing kept yet
   await page.goto(build('manual=1&seed=7'));
   await page.evaluate(() => localStorage.removeItem('tpdv-prefs'));

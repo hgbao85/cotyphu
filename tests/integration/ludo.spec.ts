@@ -96,3 +96,22 @@ test('the fast-forward speed picked in Cờ Tỷ Phú is the speed in Cá Ngựa
   expect((await speedButton())!.label).toBe('×4');
   expect(errors).toEqual([]);
 });
+
+test('the fast-forward speeds come from data/config.json (fast_speed_1, fast_speed_2)', async ({ page }) => {
+  await page.goto(build('manual=1&seed=3&game=typhu'));
+  await expect.poll(() => page.evaluate(() => typeof window.game?.step)).toBe('function');
+  type G = { configure(o: unknown): void; press(c: string): void; step(n?: number, d?: boolean): void; view: { buttons: { label: string; x: number; y: number; w: number; h: number }[] } };
+  const speedButton = () => page.evaluate(() => (window.game as unknown as G).view.buttons.find(b => /^×\d+$/.test(b.label))!);
+  await page.evaluate(() => {
+    const g = window.game as unknown as G;
+    g.configure({ tune: { fast_speed_1: 3, fast_speed_2: 6 }, seats: [{ kind: 'ai', lv: 1 }, { kind: 'ai', lv: 1 }, { kind: 'off' }, { kind: 'off' }] });
+    g.press('Enter'); g.step(3);
+  });
+  const seen: string[] = [];
+  for (let k = 0; k < 3; k++) {
+    const b = await speedButton();
+    await tapAt(page, b.x + b.w / 2, b.y + b.h / 2);
+    seen.push((await speedButton()).label);
+  }
+  expect(seen).toEqual(['×3', '×6', '×1']);
+});

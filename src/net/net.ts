@@ -98,6 +98,7 @@ function open(): void {
     const h = handlers;
     if (!h) return;
     if (m.t === 'beat') return;
+    if (m.t === 'created' && wanted) delete wanted.fresh; // a reconnect after this gets this room back, not yet another
     if (m.t === 'created' || m.t === 'joined') h.onRoom(m.code, m.id);
     else if (m.t === 'peer') h.onPeer(m.id, m.name, m.online, m.left);
     else if (m.t === 'fromPeer') h.onFromPeer(m.from, m.data);
@@ -122,10 +123,12 @@ setInterval(() => {
 
 /** Makes a room; this browser becomes its host. `game` keeps each game's rooms apart: the server gives
  * a host coming back with the same key its old room, so Cờ Tỷ Phú ('') and Cá Ngựa ('ludo') use keys
- * of their own, and a host never gets back the other game's room. */
-export function createRoom(name: string, h: NetHandlers, game = ''): void {
+ * of their own, and a host never gets back the other game's room. `fresh` ("Tạo phòng mới"): the old
+ * room with this key, if the server still has it, is closed and a new one made; without it (going
+ * back into the last room) the old room comes back. */
+export function createRoom(name: string, h: NetHandlers, game = '', fresh = false): void {
   storage()?.setItem('tpdv-name', name);
-  role = 'host'; handlers = h; wanted = { t: 'create', name, key: playerKey() + (game ? ':' + game : '') };
+  role = 'host'; handlers = h; wanted = { t: 'create', name, key: playerKey() + (game ? ':' + game : ''), ...(fresh ? { fresh: true } : {}) };
   open();
 }
 

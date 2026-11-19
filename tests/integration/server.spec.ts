@@ -105,3 +105,23 @@ test('every socket hears a beat, so a page can tell a dead link from a quiet one
   expect(c.got.filter(m => m.t === 'beat').length).toBeGreaterThanOrEqual(2);
   c.ws.close();
 });
+
+test('"Tạo phòng mới" makes a new room: the old one with that key is closed for its guests', async () => {
+  // Bug: create with the same key always handed back the old room, its code and its guests.
+  const host = await client();
+  host.send({ t: 'create', name: 'H', key: 'fresh-key' }); await until(host, m => m.t === 'created');
+  const oldCode = host.got.find(m => m.t === 'created')!.code as string;
+  const guest = await client();
+  guest.send({ t: 'join', code: oldCode, name: 'G', key: 'fresh-guest' }); await until(guest, m => m.t === 'joined');
+  const again = await client();                                // the host presses "Tạo phòng mới"
+  again.send({ t: 'create', name: 'H', key: 'fresh-key', fresh: true }); await until(again, m => m.t === 'created');
+  const made = again.got.find(m => m.t === 'created')!;
+  expect(made.code).not.toBe(oldCode);
+  expect(made.back).toBeUndefined();
+  await until(guest, m => m.t === 'closed');
+  // and without fresh (going back into the last room) the room comes back as before
+  const back = await client();
+  back.send({ t: 'create', name: 'H', key: 'fresh-key' }); await until(back, m => m.t === 'created');
+  expect(back.got.find(m => m.t === 'created')).toMatchObject({ code: made.code, back: true });
+  for (const c of [host, guest, again, back]) c.ws.close();
+});

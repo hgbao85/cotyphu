@@ -71,11 +71,11 @@ const handlers: net.NetHandlers = {
 /** True while a host who came back waits for its room, to put the kept game back. */
 let restoring = false, restoringCode = '';
 /** Opens a Rắn và Thang room; this screen hosts it and plays seat 1. */
-export function createRoom(name: string): void {
+export function createRoom(name: string, fresh = true): void { // fresh: a new room; false: the last one back
   active = true; myName = name; peers.clear(); roomCode = ''; note = '';
   snakeSetup.seats[0] = { ...snakeSetup.seats[0], kind: 'human', name };
   recordSounds(true);
-  net.createRoom(name, handlers, 'snake');
+  net.createRoom(name, handlers, 'snake', fresh);
 }
 /** Joins a friend's Rắn và Thang room by its code. */
 export function joinRoom(code: string, name: string): void {
@@ -85,7 +85,7 @@ export function joinRoom(code: string, name: string): void {
 /** Goes back into the last room: a host gets its room and its game back, a friend their seat. */
 export function rejoinRoom(): void {
   const r = lastRoom(); if (!r) return;
-  if (r.role === 'host') { restoring = true; createRoom(r.name); restoringCode = r.code; } else joinRoom(r.code, r.name);
+  if (r.role === 'host') { restoring = true; createRoom(r.name, false); restoringCode = r.code; } else joinRoom(r.code, r.name);
 }
 /** Leaves the room (a friend), or closes it for everyone (the host). */
 export function leaveRoom(): void {

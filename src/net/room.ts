@@ -212,7 +212,7 @@ export function showOnlinePanel(on: boolean, target: typeof panelFor = null) {
       if (panelFor) { panelFor.create(n); showOnlinePanel(false); return; }
       myName = n; peers.clear(); setup.seats[0] = { kind: 'human' };
       pendingRestore = false; store()?.removeItem('tpdv-host-game');
-      net.createRoom(n, handlers); showOnlinePanel(false);
+      net.createRoom(n, handlers, '', true); showOnlinePanel(false); // a new room, never the last one back
     };
     (d.querySelector('#op-join') as HTMLButtonElement).onclick = () => {
       const n = nameOk(); if (!n) return;

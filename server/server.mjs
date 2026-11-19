@@ -5,7 +5,7 @@
 //   node server/server.mjs           PORT (default 8787), STATIC_DIR (default dist)
 //
 // Messages are JSON. From a browser:
-//   { t: 'create', name, key }             make a room, become its host
+//   { t: 'create', name, key, fresh? }     make a room, become its host (fresh: close this key's old room first)
 //   { t: 'join', code, name, key }         join a room (the same key rejoins the same place)
 //   { t: 'toHost', data }                  a guest's message for the host
 //   { t: 'toAll', data }                   the host's message for every guest
@@ -114,7 +114,11 @@ wss.on('connection', ws => {
       const key = clean(msg.key, 64);
       // a host coming back with its key gets its room back
       const back = [...rooms.values()].find(r => r.host.key && r.host.key === key);
-      if (back) {
+      if (back && msg.fresh) { // "Tạo phòng mới": the old room is closed for its guests, and a new one made
+        replaced(back.host.ws, ws);
+        for (const g of back.guests.values()) send(g.ws, { t: 'closed' });
+        rooms.delete(back.code);
+      } else if (back) {
         replaced(back.host.ws, ws);
         back.host.ws = ws; back.hostGoneSince = 0; me = { room: back, role: 'host', id: 0 };
         send(ws, { t: 'created', code: back.code, id: 0, back: true });

@@ -82,3 +82,4 @@ holds no comments. The values themselves are in `data/config.json`.
 - `snake_six_to_start`: 1 = phải đổ 6 mới được vào bàn (hai viên: phải đổ đôi, một viên 6 không tính, từ 19/11/2026 theo yêu cầu); 0 = thảy gì cũng vào.
 - `snake_bonus_six`: 1 = đổ 6 (hai viên: đổ đôi) được thảy thêm.
 - `snake_hop_time`: giây mỗi bước nhảy của quân. `snake_slide_time`: giây leo thang hay tuột theo rắn. `snake_ai_delay`: máy chờ bao lâu rồi lắc. `snake_no_move_time`: giây hiện "Cần đổ 6 (đôi) để vào bàn" trước khi qua lượt (tách khỏi `ludo_no_move_time` từ 19/11/2026).
+- `fast_speed_1`, `fast_speed_2`: hai mức tua nhanh lượt của máy, nút ×1 → ×`fast_speed_1` → ×`fast_speed_2` (Cờ Tỷ Phú và Cá Ngựa dùng chung, `src/core/speed.ts`). Trước đây viết cứng 2 và 4 trong mã; đưa vào đây 19/11/2026.
